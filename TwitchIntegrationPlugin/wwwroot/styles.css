@@ -1,0 +1,544 @@
+/* ========== Card Styles ========== */
+.twitch-card {
+    background: var(--app-surface, #1e1e1e);
+    border: 1px solid var(--app-border, #343a40);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.twitch-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--app-text, #e9ecef);
+    border-bottom: 1px solid var(--app-border, #343a40);
+}
+.twitch-card-body {
+    padding: 1rem;
+}
+
+/* ========== Toggle Switch ========== */
+.twitch-toggle {
+    width: 36px;
+    height: 20px;
+    border-radius: 9999px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--app-border, #343a40);
+    position: relative;
+    transition: all 0.15s;
+}
+.twitch-toggle::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--app-muted, #adb5bd);
+    top: 2px;
+    left: 2px;
+    transition: all 0.15s;
+}
+.twitch-toggle:checked {
+    background: rgba(74, 158, 255, 0.3);
+    border-color: var(--app-primary, #4a9eff);
+}
+.twitch-toggle:checked::before {
+    background: var(--app-primary, #4a9eff);
+    transform: translateX(16px);
+}
+.twitch-toggle:hover:not(:disabled) {
+    border-color: var(--app-primary, #4a9eff);
+}
+.twitch-toggle:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ========== Range Slider ========== */
+.twitch-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+.twitch-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--app-primary, #4a9eff);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+}
+.twitch-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+}
+.twitch-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--app-primary, #4a9eff);
+    cursor: pointer;
+    border: none;
+}
+.twitch-slider:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ========== Select Dropdown ========== */
+.twitch-select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--app-border, #343a40);
+    border-radius: 4px;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    color: var(--app-text, #e9ecef);
+    font-size: 0.875rem;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    transition: all 0.15s;
+}
+.twitch-select:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+.twitch-select:focus {
+    outline: none;
+    border-color: var(--app-primary, #4a9eff);
+}
+.twitch-select option {
+    background: var(--app-surface, #1e1e1e);
+    color: var(--app-text, #e9ecef);
+}
+.twitch-select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ========== Input Fields ========== */
+.twitch-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--app-border, #343a40);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    color: var(--app-text, #e9ecef);
+    font-size: 0.875rem;
+    transition: all 0.15s;
+}
+.twitch-input:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+}
+.twitch-input:focus {
+    outline: none;
+    border-color: var(--app-primary, #4a9eff);
+}
+.twitch-input::placeholder {
+    color: var(--app-muted, #adb5bd);
+}
+.twitch-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ========== Value Display ========== */
+.twitch-value {
+    min-width: 3.5rem;
+    text-align: center;
+    font-weight: 500;
+    font-size: 0.75rem;
+    background: rgba(74, 158, 255, 0.2);
+    color: var(--app-primary, #4a9eff);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: ui-monospace, monospace;
+}
+
+/* ========== Toolbar Buttons ========== */
+.twitch-toolbar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--app-text, #e9ecef);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.twitch-toolbar-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--app-border, #343a40);
+}
+.twitch-toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.twitch-toolbar-btn.success:hover:not(:disabled) {
+    background: rgba(46, 164, 79, 0.2);
+    border-color: #2ea44f;
+    color: #2ea44f;
+}
+.twitch-toolbar-btn.danger:hover:not(:disabled) {
+    background: rgba(248, 81, 73, 0.2);
+    border-color: #f85149;
+    color: #f85149;
+}
+
+/* ========== Reorder Buttons ========== */
+.twitch-reorder-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 16px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--app-muted, #adb5bd);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.twitch-reorder-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--app-text, #e9ecef);
+}
+.twitch-reorder-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Small toolbar buttons for inline actions */
+.twitch-toolbar-btn-sm {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--app-muted, #adb5bd);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.twitch-toolbar-btn-sm:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--app-text, #e9ecef);
+}
+.twitch-toolbar-btn-sm.danger:hover {
+    background: rgba(248, 81, 73, 0.2);
+    border-color: #f85149;
+    color: #f85149;
+}
+
+/* ========== Button Styles ========== */
+.twitch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.twitch-btn-primary {
+    background: var(--app-primary, #4a9eff);
+    color: white;
+}
+.twitch-btn-primary:hover:not(:disabled) {
+    background: #3d8be6;
+}
+.twitch-btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--app-border, #343a40);
+    color: var(--app-text, #e9ecef);
+}
+.twitch-btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+}
+.twitch-btn-danger {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+}
+.twitch-btn-danger:hover:not(:disabled) {
+    background: rgba(248, 81, 73, 0.3);
+}
+.twitch-btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+}
+.twitch-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ========== Badge Styles ========== */
+.twitch-badge {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 500;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--app-muted, #adb5bd);
+}
+.twitch-badge-primary {
+    background: rgba(74, 158, 255, 0.2);
+    color: var(--app-primary, #4a9eff);
+}
+.twitch-badge-success {
+    background: rgba(46, 164, 79, 0.2);
+    color: #2ea44f;
+}
+.twitch-badge-danger {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+}
+
+/* ========== List Item ========== */
+.twitch-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.twitch-list-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+.twitch-list-item.active {
+    background: rgba(74, 158, 255, 0.1);
+    border-color: var(--app-primary, #4a9eff);
+}
+
+/* ========== Section/Bracket Row ========== */
+.twitch-bracket {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+.twitch-bracket:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* ========== Shocker Chip ========== */
+.twitch-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--app-border, #343a40);
+    color: var(--app-text, #e9ecef);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.twitch-chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.twitch-chip-selected {
+    background: rgba(74, 158, 255, 0.2);
+    border-color: var(--app-primary, #4a9eff);
+    color: var(--app-primary, #4a9eff);
+}
+.twitch-chip-selected:hover {
+    background: rgba(74, 158, 255, 0.3);
+}
+
+/* ========== Status Indicator ========== */
+.twitch-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+}
+.twitch-status-connected {
+    background: rgba(46, 164, 79, 0.2);
+    color: #2ea44f;
+}
+.twitch-status-disconnected {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+}
+.twitch-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ========== Separator ========== */
+.twitch-separator {
+    width: 1px;
+    height: 24px;
+    background: var(--app-border, #343a40);
+    margin: 0 0.5rem;
+}
+
+/* ========== Empty State ========== */
+.twitch-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    color: var(--app-muted, #adb5bd);
+    text-align: center;
+    gap: 0.5rem;
+}
+.twitch-empty p {
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* ========== Multi-Select Dropdown ========== */
+.twitch-multiselect {
+    position: relative;
+    cursor: pointer;
+}
+.twitch-multiselect-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--app-border, #343a40);
+    border-radius: 4px;
+    color: var(--app-text, #e9ecef);
+    font-size: 0.875rem;
+    transition: all 0.15s;
+}
+.twitch-multiselect-display:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--app-primary, #4a9eff);
+}
+.twitch-multiselect-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: var(--app-surface, #1e1e1e);
+    border: 1px solid var(--app-border, #343a40);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.twitch-multiselect-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--app-border, #343a40);
+    background: rgba(255, 255, 255, 0.02);
+}
+.twitch-multiselect-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.75rem;
+}
+.twitch-multiselect-actions button:hover {
+    text-decoration: underline;
+}
+.twitch-multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--app-text, #e9ecef);
+    transition: background 0.1s;
+}
+.twitch-multiselect-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+.twitch-multiselect-option.selected {
+    background: rgba(74, 158, 255, 0.1);
+}
+
+/* ========== Checkbox ========== */
+.twitch-checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--app-border, #343a40);
+    position: relative;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+.twitch-checkbox:checked {
+    background: var(--app-primary, #4a9eff);
+    border-color: var(--app-primary, #4a9eff);
+}
+.twitch-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* ========== Bracket Header ========== */
+.twitch-bracket-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--app-muted, #adb5bd);
+    border-bottom: 1px solid var(--app-border, #343a40);
+}

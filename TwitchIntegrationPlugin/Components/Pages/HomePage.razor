@@ -1,0 +1,482 @@
+@page "/plugins/com-multishock-twitchintegration/twitchintegration"
+@using MultiShock.PluginSdk
+@inject TwitchEventSubService TwitchService
+@inject TwitchAuthService AuthService
+@inject IDeviceActions Actions
+@implements IDisposable
+
+<div class="p-4">
+    <div class="flex items-center gap-2 mb-4 p-2 rounded-md"
+        style="background: var(--app-surface, #1e1e1e); border: 1px solid var(--app-border, #343a40);">
+        @if (!TwitchService.IsConnected)
+        {
+            @if (!string.IsNullOrWhiteSpace(SavedToken))
+            {
+                <button class="twitch-toolbar-btn success" title="Connect to Twitch"
+                    disabled="@(IsAuthenticating || TwitchService.IsConnecting)" @onclick="ConnectWithSavedToken">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+                    </svg>
+                </button>
+            }
+            else
+            {
+                <button class="twitch-toolbar-btn success" title="Login with Twitch"
+                    disabled="@(IsAuthenticating || TwitchService.IsConnecting)" @onclick="LoginWithTwitch">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </button>
+            }
+        }
+        else
+        {
+            <button class="twitch-toolbar-btn danger" title="Disconnect" @onclick="Disconnect">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+            </button>
+        }
+
+        <div class="twitch-separator"></div>
+
+        @if (TwitchService.IsConnected)
+        {
+            <div class="twitch-status twitch-status-connected">
+                <span class="twitch-status-dot"></span>
+                Connected as @TwitchService.CurrentUserName
+            </div>
+        }
+        else if (TwitchService.IsConnecting || IsAuthenticating)
+        {
+            <span class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                @(IsAuthenticating ? "Waiting for login..." : "Connecting...")
+            </span>
+        }
+        else
+        {
+            <div class="twitch-status twitch-status-disconnected">
+                <span class="twitch-status-dot"></span>
+                Disconnected
+            </div>
+        }
+
+        <div style="flex: 1;"></div>
+
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5" style="color: #9146FF;" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+            </svg>
+            <span class="text-sm font-semibold" style="color: var(--app-text, #e9ecef);">Twitch Integration</span>
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        <div class="twitch-card">
+            <div class="twitch-card-header">
+                <span>Connection</span>
+                @if (IsAuthenticating)
+                {
+                    <button class="twitch-btn twitch-btn-secondary twitch-btn-sm" type="button" @onclick="CancelLogin">
+                        Cancel
+                    </button>
+                }
+            </div>
+            <div class="twitch-card-body">
+                @if (!TwitchService.IsConnected)
+                {
+                    <div class="flex flex-col items-center gap-4 py-4">
+                        @if (!string.IsNullOrWhiteSpace(SavedToken))
+                        {
+                            <button class="twitch-btn twitch-btn-primary" style="background: #9146FF;" type="button"
+                                disabled="@(TwitchService.IsConnecting)" @onclick="ConnectWithSavedToken">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+                                </svg>
+                                @if (TwitchService.IsConnecting)
+                                {
+                                    <span>Connecting...</span>
+                                }
+                                else
+                                {
+                                    <span>Connect to Twitch</span>
+                                }
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="twitch-btn twitch-btn-primary" style="background: #9146FF;" type="button"
+                                disabled="@(IsAuthenticating || TwitchService.IsConnecting)" @onclick="LoginWithTwitch">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+                                </svg>
+                                @if (IsAuthenticating)
+                                {
+                                    <span>Waiting for login...</span>
+                                }
+                                else if (TwitchService.IsConnecting)
+                                {
+                                    <span>Connecting...</span>
+                                }
+                                else
+                                {
+                                    <span>Login with Twitch</span>
+                                }
+                            </button>
+                        }
+
+                        <div class="flex items-center gap-2 mt-2">
+                            <input type="checkbox" class="twitch-checkbox" id="auto-connect" checked="@AutoConnectEnabled"
+                                @onchange="@(e => ToggleAutoConnect((bool)e.Value!))" />
+                            <label for="auto-connect" class="text-xs" style="color: var(--app-muted, #adb5bd);">
+                                Auto-connect on app startup
+                            </label>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(AuthStatus))
+                        {
+                            <p class="text-sm" style="color: var(--app-muted, #adb5bd);">@AuthStatus</p>
+                        }
+                    </div>
+
+                    <details class="mt-4 pt-4" style="border-top: 1px solid var(--app-border, #343a40);">
+                        <summary class="text-sm cursor-pointer" style="color: var(--app-muted, #adb5bd);">
+                            Or enter token manually
+                        </summary>
+                        <div class="mt-4 space-y-3">
+                            <div class="flex gap-2">
+                                <input type="password" class="twitch-input flex-1"
+                                    placeholder="Enter your Twitch OAuth token" @bind="OAuthToken" @bind:event="oninput">
+                                <button class="twitch-btn twitch-btn-primary" type="button"
+                                    disabled="@(string.IsNullOrWhiteSpace(OAuthToken) || TwitchService.IsConnecting)"
+                                    @onclick="Connect">
+                                    Connect
+                                </button>
+                            </div>
+                            <p class="text-xs" style="color: var(--app-muted, #adb5bd);">
+                                Get your token from
+                                <a href="https://twitchtokengenerator.com/" target="_blank"
+                                    style="color: var(--app-primary, #4a9eff);">
+                                    TwitchTokenGenerator.com
+                                </a>
+                            </p>
+                        </div>
+                    </details>
+                }
+                else
+                {
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="twitch-status twitch-status-connected">
+                                    <span class="twitch-status-dot"></span>
+                                    Connected as <strong>@TwitchService.CurrentUserName</strong>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button class="twitch-btn twitch-btn-secondary" type="button" @onclick="Disconnect">
+                                    Disconnect
+                                </button>
+                                <button class="twitch-btn twitch-btn-secondary" type="button" @onclick="LogoutAsync">
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" class="twitch-checkbox" id="auto-connect-connected"
+                                checked="@AutoConnectEnabled" @onchange="@(e => ToggleAutoConnect((bool)e.Value!))" />
+                            <label for="auto-connect-connected" class="text-xs" style="color: var(--app-muted, #adb5bd);">
+                                Auto-connect on app startup
+                            </label>
+                        </div>
+                    </div>
+                }
+
+                <details class="mt-4 pt-4" style="border-top: 1px solid var(--app-border, #343a40);">
+                    <summary class="text-sm cursor-pointer" style="color: var(--app-muted, #adb5bd);">
+                        Required OAuth Scopes
+                    </summary>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach (var scope in TwitchConstants.RequiredScopes)
+                        {
+                            <span class="twitch-badge font-mono">@scope</span>
+                        }
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="twitch-card" style="border-color: #f85149;">
+                <div class="twitch-card-body">
+                    <div class="flex items-center gap-2" style="color: #f85149;">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>@ErrorMessage</span>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (TwitchService.IsConnected || EventLog.Count > 0)
+        {
+            <div class="twitch-card">
+                <div class="twitch-card-header">
+                    <span>Event Log</span>
+                    <button class="twitch-btn twitch-btn-secondary twitch-btn-sm" type="button" @onclick="ClearLog">
+                        Clear
+                    </button>
+                </div>
+                <div class="twitch-card-body">
+                    <div class="space-y-1 max-h-64 overflow-y-auto">
+                        @if (EventLog.Count == 0)
+                        {
+                            <p class="text-sm" style="color: var(--app-muted, #adb5bd);">No events yet. Waiting for Twitch
+                                events...</p>
+                        }
+                        else
+                        {
+                            @foreach (var log in EventLog.TakeLast(50).Reverse())
+                            {
+                                <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
+                                    style="background: rgba(255, 255, 255, 0.02);">
+                                    <span style="color: var(--app-muted, #adb5bd);">[@log.Time.ToString("HH:mm:ss")]</span>
+                                    <span
+                                        style="color: @(log.IsError ? "#f85149" : "var(--app-text, #e9ecef)");">@log.Message</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="twitch-card">
+            <div class="twitch-card-header">
+                <span>Available Flow Triggers</span>
+            </div>
+            <div class="twitch-card-body">
+                <div class="grid gap-2 text-sm">
+                    @foreach (var trigger in FlowTriggers)
+                    {
+                        <div class="flex items-center gap-2">
+                            <span class="twitch-status-dot" style="background: var(--app-primary, #4a9eff);"></span>
+                            <span><strong style="color: var(--app-text, #e9ecef);">@trigger.Name</strong></span>
+                            <span style="color: var(--app-muted, #adb5bd);">- @trigger.Description</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string OAuthToken = "";
+    private string? SavedToken;
+    private string? ErrorMessage;
+    private string? AuthStatus;
+    private bool IsAuthenticating;
+    private bool AutoConnectEnabled;
+    private List<LogEntry> EventLog = new();
+
+    private record LogEntry(DateTime Time, string Message, bool IsError = false);
+
+    private static readonly (string Name, string Description)[] FlowTriggers =
+    [
+    ("Twitch Cheer", "Triggers when someone cheers bits"),
+("Twitch Subscribe", "Triggers on new subscriptions"),
+("Twitch Gift Subs", "Triggers when someone gifts subs"),
+("Twitch Resub", "Triggers on resubscription messages"),
+("Twitch Follow", "Triggers when someone follows"),
+("Hype Train Start/Progress/End", "Hype train events"),
+("Twitch Raid", "Triggers when someone raids"),
+("Channel Point Redemption", "Triggers on point redeems")
+    ];
+
+    protected override void OnInitialized()
+    {
+        TwitchService.ConnectionStateChanged += OnConnectionStateChanged;
+        TwitchService.ErrorOccurred += OnError;
+        TwitchService.OnStatusMessage += OnStatusMessage;
+        AuthService.StatusChanged += OnAuthStatusChanged;
+
+        SavedToken = AuthService.StoredToken;
+        if (!string.IsNullOrEmpty(SavedToken))
+        {
+            OAuthToken = SavedToken;
+        }
+        AutoConnectEnabled = AuthService.AutoConnect;
+    }
+
+    private async Task LoginWithTwitch()
+    {
+        IsAuthenticating = true;
+        AuthStatus = null;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            AddLog("Starting Twitch login...");
+            var token = await AuthService.AuthenticateAsync();
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                AddLog("Login successful, connecting to EventSub...");
+                OAuthToken = token;
+                SavedToken = token;
+                AuthService.SaveAuthToken(token);
+                await TwitchService.ConnectAsync(token);
+            }
+            else
+            {
+                AddLog("Login was cancelled or failed", isError: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Login failed: {ex.Message}";
+            AddLog($"Login error: {ex.Message}", isError: true);
+        }
+        finally
+        {
+            IsAuthenticating = false;
+            AuthStatus = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelLogin()
+    {
+        AuthService.CancelAuthentication();
+        IsAuthenticating = false;
+        AuthStatus = null;
+        AddLog("Login cancelled");
+        StateHasChanged();
+    }
+
+    private void OnAuthStatusChanged(string status)
+    {
+        InvokeAsync(() =>
+        {
+            AuthStatus = status;
+            AddLog(status);
+            StateHasChanged();
+        });
+    }
+
+    private async Task Connect()
+    {
+        ErrorMessage = null;
+        AddLog("Connecting to Twitch...");
+
+        var token = OAuthToken.Trim();
+        var success = await TwitchService.ConnectAsync(token);
+        if (!success)
+        {
+            AddLog("Connection failed", isError: true);
+        }
+        else if (!string.IsNullOrWhiteSpace(token))
+        {
+            SavedToken = token;
+            AuthService.SaveAuthToken(token);
+        }
+    }
+
+    private async Task Disconnect()
+    {
+        await TwitchService.DisconnectAsync();
+        AddLog("Disconnected");
+    }
+
+    private async Task ConnectWithSavedToken()
+    {
+        if (string.IsNullOrWhiteSpace(SavedToken)) return;
+
+        ErrorMessage = null;
+        AddLog("Connecting with saved token...");
+
+        var success = await TwitchService.ConnectAsync(SavedToken);
+        if (!success)
+        {
+            AddLog("Connection failed", isError: true);
+        }
+    }
+
+    private void OnConnectionStateChanged(bool connected)
+    {
+        InvokeAsync(() =>
+        {
+            AddLog(connected ? "Connected to Twitch!" : "Disconnected from Twitch");
+            StateHasChanged();
+        });
+    }
+
+    private void OnError(string error)
+    {
+        InvokeAsync(() =>
+        {
+            ErrorMessage = error;
+            AddLog($"Error: {error}", isError: true);
+            StateHasChanged();
+        });
+    }
+
+    private void OnStatusMessage(string message)
+    {
+        InvokeAsync(() =>
+        {
+            AddLog(message);
+            StateHasChanged();
+        });
+    }
+
+    private void ToggleAutoConnect(bool enabled)
+    {
+        AutoConnectEnabled = enabled;
+        AuthService.AutoConnect = enabled;
+        AddLog(enabled ? "Auto-connect enabled" : "Auto-connect disabled");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await TwitchService.DisconnectAsync();
+        AuthService.ClearAuth();
+        OAuthToken = "";
+        SavedToken = null;
+        AutoConnectEnabled = false;
+        AddLog("Logged out and cleared saved token");
+        StateHasChanged();
+    }
+
+    private void AddLog(string message, bool isError = false)
+    {
+        EventLog.Add(new LogEntry(DateTime.Now, message, isError));
+        if (EventLog.Count > 100)
+        {
+            EventLog.RemoveAt(0);
+        }
+    }
+
+    private void ClearLog()
+    {
+        EventLog.Clear();
+    }
+
+    public void Dispose()
+    {
+        AuthService.StatusChanged -= OnAuthStatusChanged;
+        TwitchService.ConnectionStateChanged -= OnConnectionStateChanged;
+        TwitchService.ErrorOccurred -= OnError;
+        TwitchService.OnStatusMessage -= OnStatusMessage;
+    }
+}

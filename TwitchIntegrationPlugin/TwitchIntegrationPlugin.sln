@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchIntegrationPlugin", "TwitchIntegrationPlugin.csproj", "{C90FEA01-3C89-709E-669C-175D9BA018B5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C90FEA01-3C89-709E-669C-175D9BA018B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C90FEA01-3C89-709E-669C-175D9BA018B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C90FEA01-3C89-709E-669C-175D9BA018B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C90FEA01-3C89-709E-669C-175D9BA018B5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {19F996E3-6126-4BBE-9B32-0F043E1147EE}
+	EndGlobalSection
+EndGlobal

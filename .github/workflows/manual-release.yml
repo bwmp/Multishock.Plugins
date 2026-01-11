@@ -1,0 +1,88 @@
+name: Create Plugin Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: 'Plugin name (e.g., TwitchPlugin)'
+        required: true
+        type: string
+      version:
+        description: 'Version (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Validate plugin exists
+        shell: pwsh
+        run: |
+          $pluginPath = "${{ github.event.inputs.plugin }}"
+          if (-not (Test-Path $pluginPath)) {
+            Write-Error "Plugin '$pluginPath' does not exist!"
+            exit 1
+          }
+          
+          $csprojPath = "$pluginPath/${{ github.event.inputs.plugin }}.csproj"
+          if (-not (Test-Path $csprojPath)) {
+            Write-Error "Project file '$csprojPath' does not exist!"
+            exit 1
+          }
+
+      - name: Build plugin
+        shell: pwsh
+        run: |
+          $csprojPath = "${{ github.event.inputs.plugin }}/${{ github.event.inputs.plugin }}.csproj"
+          dotnet build $csprojPath -c Release
+
+      - name: Create release archive
+        id: archive
+        shell: pwsh
+        run: |
+          $pluginName = "${{ github.event.inputs.plugin }}"
+          $version = "${{ github.event.inputs.version }}"
+          $buildOutput = "$pluginName/bin/Release/net10.0"
+          $tempDir = "$pluginName/bin/Publish"
+          
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          
+          Get-ChildItem -Path $buildOutput -Filter "$pluginName.*" | Where-Object {
+              $_.Extension -in @(".dll", ".pdb")
+          } | ForEach-Object {
+              Copy-Item $_.FullName -Destination $tempDir
+          }
+          
+          $zipName = "$pluginName-$version.zip"
+          $zipPath = "${{ github.workspace }}/$zipName"
+          
+          Compress-Archive -Path "$tempDir/*" -DestinationPath $zipPath -CompressionLevel Optimal
+          
+          echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.plugin }}-v${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.plugin }} v${{ github.event.inputs.version }}
+          body: |
+            ## ${{ github.event.inputs.plugin }} v${{ github.event.inputs.version }}
+            
+            ### Installation
+            1. Download the zip file below
+            2. Extract to MultiShock's `Plugins` folder
+            3. Restart MultiShock
+          files: ${{ steps.archive.outputs.zip_path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

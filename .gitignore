@@ -1,0 +1,26 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# Generated files
+**/Generated/
+
+# Release archives
+releases/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# NuGet
+*.nupkg

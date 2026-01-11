@@ -1,0 +1,55 @@
+@using MultiShock.PluginSdk
+@inject TwitchEventSubService TwitchService
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(TwitchService.IsConnected ? "bg-green-500" : "bg-gray-400")"></div>
+        <span class="text-sm font-medium">
+            @if (TwitchService.IsConnected)
+            {
+                <span>Connected as @TwitchService.CurrentUserName</span>
+            }
+            else
+            {
+                <span>Not connected</span>
+            }
+        </span>
+    </div>
+
+    <p class="text-sm text-gray-500">
+        Configure your Twitch connection on the 
+        <a href="/plugins/com-multishock-twitchintegration/twitchintegration" class="text-purple-500 hover:underline">
+            Twitch Integration page
+        </a>.
+    </p>
+
+    <div class="text-xs text-gray-400 space-y-1">
+        <div><strong>Supported Events:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Cheers (bits)</li>
+            <li>Subscriptions &amp; Gift Subs</li>
+            <li>Follows</li>
+            <li>Hype Trains</li>
+            <li>Raids</li>
+            <li>Channel Point Redemptions</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        TwitchService.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnConnectionChanged(bool connected)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        TwitchService.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

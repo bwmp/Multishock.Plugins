@@ -1,0 +1,107 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      paths_released: ${{ steps.release.outputs.paths_released }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Output release info
+        if: ${{ steps.release.outputs.releases_created }}
+        run: |
+          echo "Releases created: ${{ steps.release.outputs.releases_created }}"
+          echo "Paths released: ${{ steps.release.outputs.paths_released }}"
+
+  build-releases:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.release-please.outputs.paths_released) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure NuGet Authentication
+        run: dotnet nuget update source pishock --username "$env:NUGET_USERNAME" --password "$env:NUGET_PASSWORD" --store-password-in-clear-text
+        shell: pwsh
+        env:
+          NUGET_USERNAME: ${{ secrets.NUGET_USERNAME }}
+          NUGET_PASSWORD: ${{ secrets.NUGET_PASSWORD }}
+
+      - name: Get plugin info
+        id: plugin-info
+        shell: pwsh
+        run: |
+          $path = "${{ matrix.path }}"
+          $pluginName = Split-Path -Leaf $path
+          $csprojPath = "$path/$pluginName.csproj"
+          
+          # Read version from csproj
+          $content = Get-Content $csprojPath -Raw
+          $versionMatch = [regex]::Match($content, '<AssemblyInformationalVersion>([^<+]+)')
+          $version = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "1.0.0" }
+          
+          echo "plugin_name=$pluginName" >> $env:GITHUB_OUTPUT
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "csproj_path=$csprojPath" >> $env:GITHUB_OUTPUT
+
+      - name: Build plugin
+        shell: pwsh
+        run: |
+          dotnet build "${{ steps.plugin-info.outputs.csproj_path }}" -c Release
+
+      - name: Create release archive
+        id: archive
+        shell: pwsh
+        run: |
+          $pluginName = "${{ steps.plugin-info.outputs.plugin_name }}"
+          $version = "${{ steps.plugin-info.outputs.version }}"
+          $buildOutput = "${{ matrix.path }}/bin/Release/net10.0"
+          $tempDir = "${{ matrix.path }}/bin/Publish"
+          
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          
+          Get-ChildItem -Path $buildOutput -Filter "$pluginName.*" | Where-Object {
+              $_.Extension -in @(".dll", ".pdb")
+          } | ForEach-Object {
+              Copy-Item $_.FullName -Destination $tempDir
+          }
+          
+          $zipName = "$pluginName-$version.zip"
+          $zipPath = "${{ github.workspace }}/releases/$zipName"
+          
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/releases" | Out-Null
+          Compress-Archive -Path "$tempDir/*" -DestinationPath $zipPath -CompressionLevel Optimal
+          
+          echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.plugin-info.outputs.plugin_name }}-v${{ steps.plugin-info.outputs.version }}
+          files: ${{ steps.archive.outputs.zip_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

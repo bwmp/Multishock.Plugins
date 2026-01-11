@@ -1,0 +1,86 @@
+name: Build Plugins
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**Plugin/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**Plugin/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: 'Specific plugin to build (leave empty for all)'
+        required: false
+        default: ''
+
+jobs:
+  detect-plugins:
+    runs-on: ubuntu-latest
+    outputs:
+      plugins: ${{ steps.find-plugins.outputs.plugins }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find plugins to build
+        id: find-plugins
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.plugin }}" ]; then
+            # Build specific plugin
+            echo "plugins=[\"${{ github.event.inputs.plugin }}\"]" >> $GITHUB_OUTPUT
+          else
+            # Find all plugin directories
+            plugins=$(find . -maxdepth 1 -type d -name '*Plugin' ! -name 'PluginTemplate' -exec basename {} \; | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "plugins=$plugins" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Plugins to build: $plugins"
+
+  build:
+    needs: detect-plugins
+    if: ${{ needs.detect-plugins.outputs.plugins != '[]' }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.detect-plugins.outputs.plugins) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore "${{ matrix.plugin }}/${{ matrix.plugin }}.csproj"
+
+      - name: Build
+        run: dotnet build "${{ matrix.plugin }}/${{ matrix.plugin }}.csproj" -c Release --no-restore
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.plugin }}
+          path: |
+            ${{ matrix.plugin }}/bin/Release/net10.0/${{ matrix.plugin }}.dll
+            ${{ matrix.plugin }}/bin/Release/net10.0/${{ matrix.plugin }}.pdb
+          if-no-files-found: error
+
+  build-summary:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Build completed for all plugins." >> $GITHUB_STEP_SUMMARY

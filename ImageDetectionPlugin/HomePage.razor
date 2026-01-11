@@ -1,0 +1,88 @@
+﻿@page "/plugins/com-multishock-imagedetection/imagedetection"
+@using MultiShock.PluginSdk
+@inject IDeviceActions Actions
+
+<div class="space-y-4 p-4">
+    @* Page Header *@
+    <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold">Image Detection</h1>
+        <button class="btn btn-secondary" type="button" @onclick="Refresh">
+            Refresh
+        </button>
+    </div>
+
+    @* Status Message *@
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            @StatusMessage
+        </div>
+    }
+
+    @* Shockers List *@
+    @if (Shockers.Count == 0)
+    {
+        <div class="text-gray-500">No shockers loaded. Connect a device first.</div>
+    }
+    else
+    {
+        <div class="grid gap-3">
+            @foreach (var shocker in Shockers)
+            {
+                <div class="imagedetection-card flex items-center justify-between">
+                    <div>
+                        <div class="font-medium">@shocker.Name</div>
+                        <div class="text-sm text-gray-500">
+                            Device @shocker.DeviceId • Shocker @shocker.ShockerId
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="btn btn-primary" type="button"
+                                @onclick="@(() => SendVibrate(shocker))">
+                            Vibrate
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ShockerInfo> Shockers = new();
+    private string? StatusMessage;
+
+    protected override void OnInitialized()
+    {
+        LoadShockers();
+    }
+
+    private void LoadShockers()
+    {
+        if (Actions != null)
+        {
+            Shockers = Actions.GetLoadedShockers().ToList();
+            StatusMessage = $"Loaded {Shockers.Count} shocker(s)";
+        }
+    }
+
+    private void Refresh()
+    {
+        LoadShockers();
+        StateHasChanged();
+    }
+
+    private void SendVibrate(ShockerInfo shocker)
+    {
+        Actions?.PerformAction(
+            intensity: 10,
+            durationSeconds: 0.5,
+            command: CommandType.Vibrate,
+            shockerOption: "specific",
+            deviceIds: new[] { shocker.DeviceId },
+            shockerIds: new[] { shocker.ShockerId });
+        
+        StatusMessage = $"Vibrated {shocker.Name}";
+        StateHasChanged();
+    }
+}

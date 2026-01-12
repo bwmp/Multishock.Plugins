@@ -89,7 +89,8 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     public IEnumerable<IFlowNode> GetNodeTypes()
     {
-        yield return new ExampleNode();
+        yield return new TemplateImageDetection();
+        yield return new TakeScreenshot();
     }
 }
 

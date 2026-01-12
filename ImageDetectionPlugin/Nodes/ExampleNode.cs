@@ -17,7 +17,7 @@ public sealed class ExampleNode : IFlowProcessNode
     public IReadOnlyList<FlowPort> InputPorts { get; } =
     [
         FlowPort.FlowIn(),
-        FlowPort.String("input", "Input", ""),
+        FlowPort.String("Input", "Input", ""),
     ];
 
     public IReadOnlyList<FlowPort> OutputPorts { get; } =
@@ -50,5 +50,20 @@ public sealed class ExampleNode : IFlowProcessNode
     public IFlowNodeInstance CreateInstance(string instanceId, Dictionary<string, object?> config)
     {
         return new FlowNodeInstance(instanceId, this, config);
+    }
+
+    private class Settings
+    {
+        public static class Input
+        {
+        }
+
+        public static class Output
+        {
+        }
+
+        public static class Properties
+        {
+        }
     }
 }

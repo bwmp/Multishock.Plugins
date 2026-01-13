@@ -7,7 +7,7 @@ public abstract class TwitchEventNodeBase : IFlowTriggerNode
 {
     public abstract string TypeId { get; }
     public abstract string DisplayName { get; }
-    public FlowNodeCategory Category => FlowNodeCategory.Trigger;
+    public string Category => FlowNodeCategory.Trigger;
     public abstract string? Description { get; }
     public string Icon => "twitch";
     public string? Color => "#9146FF";
@@ -20,7 +20,7 @@ public abstract class TwitchEventNodeBase : IFlowTriggerNode
 
     public event Func<IFlowNodeInstance, Dictionary<string, object?>, Task>? Triggered;
 
-    private readonly Dictionary<IFlowNodeInstance, IServiceProvider> _serviceProviders = new();
+    private readonly Dictionary<IFlowNodeInstance, IServiceProvider> _serviceProviders = [];
 
     public virtual Task StartAsync(IFlowNodeInstance instance, IServiceProvider services, CancellationToken cancellationToken)
     {

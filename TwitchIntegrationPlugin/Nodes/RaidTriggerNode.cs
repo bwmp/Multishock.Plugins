@@ -10,7 +10,7 @@ public sealed class RaidTriggerNode : TwitchEventNodeBase
 
     public override IReadOnlyList<FlowPort> OutputPorts { get; } =
     [
-        FlowPort.FlowOut(),
+        new FlowPort { Id = "triggered", Name = "Triggered", Type = FlowPortType.Flow },
         FlowPort.String("raiderName", "Raider Name"),
         FlowPort.Number("viewers", "Viewer Count"),
     ];

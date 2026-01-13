@@ -1,5 +1,4 @@
 @page "/plugins/com-multishock-twitchintegration/sub-config"
-@using MultiShock.PluginSdk
 @inject SubscriptionConfigService SubConfigService
 @inject CheerConfigService CheerConfigService
 @inject IDeviceActions DeviceActions
@@ -13,15 +12,8 @@
                 subscriptions and gifted subs</p>
         </div>
         <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2 px-3 py-2 rounded-md"
-                style="background: var(--app-surface, #1e1e1e); border: 1px solid var(--app-border, #343a40);">
-                <input type="checkbox" class="twitch-toggle" checked="@SubConfigService.Config.Enabled"
-                    @onchange="@((e) => ToggleMasterEnabled((bool)e.Value!))">
-                <span class="text-sm font-medium"
-                    style="color: @(SubConfigService.Config.Enabled ? "var(--app-primary, #4a9eff)" : "var(--app-muted, #adb5bd)");">
-                    @(SubConfigService.Config.Enabled ? "Enabled" : "Disabled")
-                </span>
-            </div>
+            <Toggle Label="@(SubConfigService.Config.Enabled ? "Enabled" : "Disabled")"
+                Value="SubConfigService.Config.Enabled" ValueChanged="@((value) => ToggleMasterEnabled(value))" />
         </div>
     </div>
 
@@ -33,8 +25,7 @@
                     @onclick="@(() => ToggleSectionExpanded(sec.Id))">
                     <div class="flex items-center gap-2">
                         <div @onclick:stopPropagation="true">
-                            <input type="checkbox" class="twitch-toggle" checked="@sec.Enabled"
-                                @onchange="@((e) => ToggleSectionEnabled(sec, (bool)e.Value!))">
+                            <Toggle Value="sec.Enabled" ValueChanged="@((e) => ToggleSectionEnabled(sec, e))" />
                         </div>
                         <span>Tier @sec.Tier</span>
                         <span class="twitch-badge">@sec.SelectedShockerIds.Count shockers</span>
@@ -52,82 +43,14 @@
                     <div class="twitch-card-body space-y-4">
                         <div class="flex flex-wrap items-end gap-2">
                             <div class="w-40">
-                                <label class="block text-xs font-medium mb-1"
-                                    style="color: var(--app-muted, #adb5bd);">Mode</label>
-                                <select class="twitch-select w-full text-xs" value="@sec.Mode.ToString()"
-                                    @onchange="@((e) => UpdateSectionMode(sec, ParseSubscriptionMode(e.Value)))">
-                                    <option value="Brackets">Brackets</option>
-                                    <option value="Incremental">Incremental</option>
-                                </select>
+                                <Select Label="Mode" Value="@sec.Mode.ToString()"
+                                    ValueChanged="@((string value) => UpdateSectionMode(sec, ParseSubscriptionMode(value)))"
+                                    Options="@SubscriptionModeOptions" />
                             </div>
 
                             <div class="grow">
-                                <label class="block text-xs font-medium mb-1"
-                                    style="color: var(--app-muted, #adb5bd);">Shockers</label>
-                                @{
-                                    var loadedShockers = GetLoadedShockers().ToList();
-                                    var selectedCount = sec.SelectedShockerIds.Count;
-                                }
-                                @if (loadedShockers.Any())
-                                {
-                                    <div class="twitch-multiselect" @onclick="@(() => ToggleShockerDropdown(sec.Id))"
-                                        @onclick:stopPropagation="true">
-                                        <div class="twitch-multiselect-display">
-                                            @if (selectedCount == 0)
-                                            {
-                                                <span style="color: var(--app-muted, #adb5bd);">Select...</span>
-                                            }
-                                            else if (selectedCount == loadedShockers.Count)
-                                            {
-                                                <span>All (@selectedCount)</span>
-                                            }
-                                            else
-                                            {
-                                                <span>@selectedCount selected</span>
-                                            }
-                                            <svg class="w-3 h-3 transition-transform @(OpenShockerDropdown == sec.Id ? "rotate-180" : "")"
-                                                style="color: var(--app-muted, #adb5bd);" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-                                        @if (OpenShockerDropdown == sec.Id)
-                                        {
-                                            <div class="twitch-multiselect-dropdown">
-                                                <div class="twitch-multiselect-actions">
-                                                    <button type="button" class="text-xs" style="color: var(--app-primary, #4a9eff);"
-                                                        @onclick="@(() => SelectAllShockers(sec, loadedShockers))"
-                                                        @onclick:stopPropagation="true">
-                                                        All
-                                                    </button>
-                                                    <button type="button" class="text-xs" style="color: var(--app-muted, #adb5bd);"
-                                                        @onclick="@(() => ClearAllShockers(sec))" @onclick:stopPropagation="true">
-                                                        Clear
-                                                    </button>
-                                                </div>
-                                                @foreach (var shocker in loadedShockers)
-                                                {
-                                                    var combinedId = $"{shocker.DeviceId}:{shocker.ShockerId}";
-                                                    var isSelected = sec.SelectedShockerIds.Contains(combinedId);
-                                                    <label class="twitch-multiselect-option @(isSelected ? "selected" : "")"
-                                                        @onclick:stopPropagation="true">
-                                                        <input type="checkbox" checked="@isSelected" class="twitch-checkbox"
-                                                            @onchange="@(() => ToggleShockerSelection(sec, combinedId))">
-                                                        <span>@shocker.Name</span>
-                                                    </label>
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="twitch-input w-full flex items-center text-xs"
-                                        style="color: var(--app-muted, #adb5bd);">
-                                        No shockers
-                                    </div>
-                                }
+                                <ShockerSelect Label="" MultiSelect="true" SelectedIds="sec.SelectedShockerIds"
+                                    SelectedIdsChanged="@(async (ids) => { sec.SelectedShockerIds = ids; SubConfigService.UpdateSection(sec); })" />
                             </div>
                         </div>
                         @if (sec.Mode == SubscriptionMode.Brackets)
@@ -135,144 +58,53 @@
                             <div class="pt-3" style="border-top: 1px solid var(--app-border, #343a40);">
                                 <div class="flex flex-wrap items-end gap-3 mb-3">
                                     <div class="grow">
-                                        <label class="block text-xs font-medium mb-1"
-                                            style="color: var(--app-muted, #adb5bd);">Command Type</label>
-                                        <select class="twitch-select w-full text-xs" value="@sec.BracketCommandType"
-                                            @onchange="@((e) => UpdateBracketCommandType(sec, e.Value?.ToString() ?? "Vibrate"))">
-                                            <option value="Shock">Shock</option>
-                                            <option value="Vibrate">Vibrate</option>
-                                            <option value="Beep">Beep</option>
-                                        </select>
+                                        <Select Label="Command Type" Value="@sec.BracketCommandType"
+                                            ValueChanged="@((string value) => UpdateBracketCommandType(sec, value ?? "Vibrate"))"
+                                            Options="@CommandTypeOptions" />
                                     </div>
                                     <div class="w-40">
-                                        <label class="block text-xs font-medium mb-1"
-                                            style="color: var(--app-muted, #adb5bd);">Matching</label>
-                                        <select class="twitch-select w-full text-xs" value="@(sec.FixedAmount ? "exact" : "round")"
-                                            @onchange="@((e) => UpdateSectionFixedAmount(sec, e.Value?.ToString() == "exact"))">
-                                            <option value="round">Round Down</option>
-                                            <option value="exact">Exact</option>
-                                        </select>
+                                        <Select Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")"
+                                            ValueChanged="@((string value) => UpdateSectionFixedAmount(sec, value == "exact"))"
+                                            Options="@MatchingModeOptions" />
                                     </div>
-                                    <button class="twitch-btn twitch-btn-secondary twitch-btn-sm" type="button"
-                                        @onclick="@(() => AddBracket(sec))">
+                                    <Button Text="Add Bracket" Variant="secondary" Size="sm" OnClick="@(() => AddBracket(sec))">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 4v16m8-8H4" />
                                         </svg>
-                                        Add Bracket
-                                    </button>
+                                    </Button>
                                     @if (CheerConfigService.Config.Sections.Any())
                                     {
                                         <div class="flex items-end gap-2">
                                             <div>
-                                                <label class="block text-xs font-medium mb-1"
-                                                    style="color: var(--app-muted, #adb5bd);">Import from Cheers</label>
-                                                <select class="twitch-select w-40 text-xs" value="@SelectedCheerSectionIdForImport"
-                                                    @onchange="@((e) => SelectedCheerSectionIdForImport = e.Value?.ToString())">
-                                                    @foreach (var cheerSection in CheerConfigService.Config.Sections)
-                                                    {
-                                                        <option value="@cheerSection.Id">@cheerSection.Name</option>
-                                                    }
-                                                </select>
+                                                <Select Label="Import from Cheers" Value="@SelectedCheerSectionIdForImport"
+                                                    ValueChanged="@((string value) => SelectedCheerSectionIdForImport = value)"
+                                                    Options="@CheerConfigService.Config.Sections.Select(cs => new Select<string?>.SelectOption<string?>(cs.Id, cs.Name))" />
                                             </div>
-                                            <button class="twitch-btn twitch-btn-secondary twitch-btn-sm" type="button"
-                                                @onclick="@(() => ConvertFromCheerSection(sec))">
-                                                Convert
-                                            </button>
+                                            <Button Text="Convert" Variant="secondary" Size="sm"
+                                                OnClick="@(() => ConvertFromCheerSection(sec))" />
                                         </div>
                                     }
                                 </div>
 
-                                <div class="space-y-2">
-                                    @if (sec.Brackets.Any())
-                                    {
-                                        <div class="twitch-bracket-header">
-                                            <span class="w-12"></span>
-                                            <span class="w-20">Subs</span>
-                                            <span class="flex-1">Intensity</span>
-                                            <span class="flex-1">Duration</span>
-                                            <span class="w-28">Mode</span>
-                                            <span class="w-8"></span>
-                                        </div>
-                                    }
-                                    @{
-                                        var orderedBrackets = sec.Brackets.OrderBy(b => b.Count).ToList();
-                                    }
-                                    @foreach (var bracket in orderedBrackets)
-                                    {
-                                        <div class="twitch-bracket">
-                                            <div class="flex gap-1 w-12">
-                                                <button type="button" class="twitch-reorder-btn" title="Move Up"
-                                                    disabled="@(orderedBrackets.IndexOf(bracket) == 0)"
-                                                    @onclick="@(() => MoveBracket(sec, bracket, -1))">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                            d="M5 15l7-7 7 7" />
-                                                    </svg>
-                                                </button>
-                                                <button type="button" class="twitch-reorder-btn" title="Move Down"
-                                                    disabled="@(orderedBrackets.IndexOf(bracket) == orderedBrackets.Count - 1)"
-                                                    @onclick="@(() => MoveBracket(sec, bracket, 1))">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                            d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-
-                                            <div class="w-20">
-                                                <input type="number" class="twitch-input w-full text-center font-mono" min="1"
-                                                    value="@bracket.Count"
-                                                    @onchange="@((e) => UpdateBracketCount(sec, bracket, ParseInt(e.Value, 1)))">
-                                            </div>
-
-                                            <div class="flex items-center gap-2 flex-1">
-                                                <input type="range" class="twitch-slider" style="flex: 1 1 0; min-width: 0;" min="1"
-                                                    max="100" value="@bracket.Intensity"
-                                                    @oninput="@((e) => UpdateBracketIntensity(sec, bracket, ParseInt(e.Value, 50)))">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem; flex-shrink: 0;" min="1" max="100" value="@bracket.Intensity"
-                                                    @onchange="@((e) => UpdateBracketIntensity(sec, bracket, Math.Clamp(ParseInt(e.Value, 50), 1, 100)))">
-                                                <span class="text-xs" style="color: var(--app-muted, #adb5bd); flex-shrink: 0;">%</span>
-                                            </div>
-
-                                            <div class="flex items-center gap-2 flex-1">
-                                                <input type="range" class="twitch-slider" style="flex: 1 1 0; min-width: 0;" min="0.1"
-                                                    max="15" step="0.1" value="@bracket.Duration"
-                                                    @oninput="@((e) => UpdateBracketDuration(sec, bracket, ParseDouble(e.Value, 1.0)))">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem; flex-shrink: 0;" min="0.1" max="15" step="0.1"
-                                                    value="@bracket.Duration.ToString("0.0")"
-                                                    @onchange="@((e) => UpdateBracketDuration(sec, bracket, Math.Clamp(ParseDouble(e.Value, 1.0), 0.1, 15.0)))">
-                                                <span class="text-xs" style="color: var(--app-muted, #adb5bd); flex-shrink: 0;">s</span>
-                                            </div>
-
-                                            <div class="w-28">
-                                                <select class="twitch-select w-full text-xs" value="@bracket.Mode.ToString()"
-                                                    @onchange="@((e) => UpdateBracketMode(sec, bracket, ParseSelectionMode(e.Value)))">
-                                                    <option value="All">All</option>
-                                                    <option value="Random">Random</option>
-                                                    <option value="RoundRobin">Round Robin</option>
-                                                </select>
-                                            </div>
-
-                                            <button type="button" class="twitch-toolbar-btn danger" title="Delete Bracket"
-                                                @onclick="@(() => RemoveBracket(sec, bracket))">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    }
-                                    @if (!sec.Brackets.Any())
-                                    {
-                                        <div class="twitch-empty">
-                                            <p>No brackets configured</p>
-                                            <p class="text-xs">Add a bracket to define behavior at different sub counts</p>
-                                        </div>
-                                    }
-                                </div>
+                                @{
+                                    var orderedBrackets = sec.Brackets.OrderBy(b => b.Count).ToList();
+                                }
+                                <BracketList TBracket="SubscriptionBracket" CountLabel="Subs" Brackets="orderedBrackets"
+                                    SelectionModeOptions="SelectionModeOptions"
+                                    CountSelector="@(b => b.Count)"
+                                    IntensitySelector="@(b => b.Intensity)"
+                                    DurationSelector="@(b => b.Duration)"
+                                    ModeSelector="@(b => b.Mode.ToString())"
+                                    OnMoveUp="@(bracket => MoveBracket(sec, bracket, -1))"
+                                    OnMoveDown="@(bracket => MoveBracket(sec, bracket, 1))"
+                                    OnCountChanged="@(change => UpdateBracketCount(sec, change.Bracket, change.Value))"
+                                    OnIntensityChanged="@(change => UpdateBracketIntensity(sec, change.Bracket, change.Value))"
+                                    OnDurationChanged="@(change => UpdateBracketDuration(sec, change.Bracket, change.Value))"
+                                    OnModeChanged="@(change => UpdateBracketMode(sec, change.Bracket, ParseSelectionMode(change.Value)))"
+                                    OnRemove="@(bracket => RemoveBracket(sec, bracket))"
+                                    EmptyTitle="No brackets configured"
+                                    EmptyDescription="Add a bracket to define behavior at different sub counts" />
                             </div>
                         }
 
@@ -297,32 +129,31 @@
                                         <div class="flex-1 min-w-0 space-y-1">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">Base</span>
-                                                <input type="range" class="twitch-slider" min="1" max="100"
-                                                    value="@sec.Incremental.BaseIntensity"
-                                                    @oninput="@((e) => UpdateIncrementalBaseIntensity(sec, ParseInt(e.Value, 50)))">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem;" min="1" max="100" value="@sec.Incremental.BaseIntensity"
-                                                    @onchange="@((e) => UpdateIncrementalBaseIntensity(sec, Math.Clamp(ParseInt(e.Value, 50), 1, 100)))">
+                                                <Slider Min="1" Max="100" Value="sec.Incremental.BaseIntensity"
+                                                    ValueChanged="@((v) => UpdateIncrementalBaseIntensity(sec, (int)v))"
+                                                    Class="flex-1" ShowValue="false" />
+                                                <NumberInput Value="@((double)sec.Incremental.BaseIntensity)" Min="1" Max="100"
+                                                    ValueChanged="@((v) => UpdateIncrementalBaseIntensity(sec, (int)Math.Clamp(v ?? 50, 1, 100)))"
+                                                    Class="w-16" />
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">Max</span>
-                                                <input type="range" class="twitch-slider" min="1" max="100"
-                                                    value="@sec.Incremental.MaxIntensity"
-                                                    @oninput="@((e) => UpdateIncrementalMaxIntensity(sec, ParseInt(e.Value, 100)))">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem;" min="1" max="100" value="@sec.Incremental.MaxIntensity"
-                                                    @onchange="@((e) => UpdateIncrementalMaxIntensity(sec, Math.Clamp(ParseInt(e.Value, 100), 1, 100)))">
+                                                <Slider Min="1" Max="100" Value="sec.Incremental.MaxIntensity"
+                                                    ValueChanged="@((v) => UpdateIncrementalMaxIntensity(sec, (int)v))"
+                                                    Class="flex-1" ShowValue="false" />
+                                                <NumberInput Value="@((double)sec.Incremental.MaxIntensity)" Min="1" Max="100"
+                                                    ValueChanged="@((v) => UpdateIncrementalMaxIntensity(sec, (int)Math.Clamp(v ?? 100, 1, 100)))"
+                                                    Class="w-16" />
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
                                             </div>
                                         </div>
                                         <div class="flex flex-col gap-1">
                                             <span class="text-xs" style="color: var(--app-muted, #adb5bd);">+ /sub</span>
                                             <div class="flex items-center gap-2">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem;" min="0" max="100"
-                                                    value="@sec.Incremental.IncrementIntensity"
-                                                    @onchange="@((e) => UpdateIncrementalIntensityIncrement(sec, Math.Clamp(ParseInt(e.Value, 5), 0, 100)))">
+                                                <NumberInput Value="@((double)sec.Incremental.IncrementIntensity)" Min="0" Max="100"
+                                                    ValueChanged="@((v) => UpdateIncrementalIntensityIncrement(sec, (int)Math.Clamp(v ?? 5, 0, 100)))"
+                                                    Class="w-16" />
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
                                             </div>
                                         </div>
@@ -334,34 +165,31 @@
                                         <div class="flex-1 min-w-0 space-y-1">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">Base</span>
-                                                <input type="range" class="twitch-slider" min="0.1" max="15" step="0.1"
-                                                    value="@sec.Incremental.BaseDuration"
-                                                    @oninput="@((e) => UpdateIncrementalBaseDuration(sec, ParseDouble(e.Value, 1.0)))">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem;" min="0.1" max="15" step="0.1"
-                                                    value="@sec.Incremental.BaseDuration.ToString("0.0")"
-                                                    @onchange="@((e) => UpdateIncrementalBaseDuration(sec, Math.Clamp(ParseDouble(e.Value, 1.0), 0.1, 15.0)))">
+                                                <Slider Min="0.1" Max="15" Step="0.1" Value="sec.Incremental.BaseDuration"
+                                                    ValueChanged="@((v) => UpdateIncrementalBaseDuration(sec, v))" Class="flex-1"
+                                                    ShowValue="false" />
+                                                <NumberInput Value="sec.Incremental.BaseDuration" Min="0.1" Max="15" Step="0.1"
+                                                    ValueChanged="@((v) => UpdateIncrementalBaseDuration(sec, Math.Clamp(v ?? 1.0, 0.1, 15.0)))"
+                                                    Class="w-16" />
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">Max</span>
-                                                <input type="range" class="twitch-slider" min="0.1" max="15" step="0.1"
-                                                    value="@sec.Incremental.MaxDuration"
-                                                    @oninput="@((e) => UpdateIncrementalMaxDuration(sec, ParseDouble(e.Value, 5.0)))">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem;" min="0.1" max="15" step="0.1"
-                                                    value="@sec.Incremental.MaxDuration.ToString("0.0")"
-                                                    @onchange="@((e) => UpdateIncrementalMaxDuration(sec, Math.Clamp(ParseDouble(e.Value, 5.0), 0.1, 15.0)))">
+                                                <Slider Min="0.1" Max="15" Step="0.1" Value="sec.Incremental.MaxDuration"
+                                                    ValueChanged="@((v) => UpdateIncrementalMaxDuration(sec, v))" Class="flex-1"
+                                                    ShowValue="false" />
+                                                <NumberInput Value="sec.Incremental.MaxDuration" Min="0.1" Max="15" Step="0.1"
+                                                    ValueChanged="@((v) => UpdateIncrementalMaxDuration(sec, Math.Clamp(v ?? 5.0, 0.1, 15.0)))"
+                                                    Class="w-16" />
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
                                             </div>
                                         </div>
                                         <div class="flex flex-col gap-1">
                                             <span class="text-xs" style="color: var(--app-muted, #adb5bd);">+ /sub</span>
                                             <div class="flex items-center gap-2">
-                                                <input type="number" class="twitch-input text-center text-xs font-mono"
-                                                    style="width: 4rem;" min="0" max="15" step="0.1"
-                                                    value="@sec.Incremental.IncrementDuration.ToString("0.0")"
-                                                    @onchange="@((e) => UpdateIncrementalDurationIncrement(sec, Math.Clamp(ParseDouble(e.Value, 0.5), 0.0, 15.0)))">
+                                                <NumberInput Value="sec.Incremental.IncrementDuration" Min="0" Max="15" Step="0.1"
+                                                    ValueChanged="@((v) => UpdateIncrementalDurationIncrement(sec, Math.Clamp(v ?? 0.5, 0.0, 15.0)))"
+                                                    Class="w-16" />
                                                 <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
                                             </div>
                                         </div>
@@ -373,18 +201,12 @@
                                     <div class="flex flex-col gap-1">
                                         <span class="text-xs" style="color: var(--app-muted, #adb5bd);">Mode &amp; Command</span>
                                         <div class="flex gap-2">
-                                            <select class="twitch-select flex-1 text-xs" value="@sec.Incremental.Mode.ToString()"
-                                                @onchange="@((e) => UpdateIncrementalMode(sec, ParseSelectionMode(e.Value)))">
-                                                <option value="All">All</option>
-                                                <option value="Random">Random</option>
-                                                <option value="RoundRobin">Round Robin</option>
-                                            </select>
-                                            <select class="twitch-select flex-1 text-xs" value="@sec.Incremental.CommandType"
-                                                @onchange="@((e) => UpdateIncrementalCommandType(sec, e.Value?.ToString() ?? "Vibrate"))">
-                                                <option value="Shock">Shock</option>
-                                                <option value="Vibrate">Vibrate</option>
-                                                <option value="Beep">Beep</option>
-                                            </select>
+                                            <Select Label="" Value="@sec.Incremental.Mode.ToString()"
+                                                ValueChanged="@((string value) => UpdateIncrementalMode(sec, ParseSelectionMode(value)))"
+                                                Options="@SelectionModeOptions" Class="flex-1" />
+                                            <Select Label="" Value="@sec.Incremental.CommandType"
+                                                ValueChanged="@((string value) => UpdateIncrementalCommandType(sec, value ?? "Vibrate"))"
+                                                Options="@CommandTypeOptions" Class="flex-1" />
                                         </div>
                                     </div>
                                 </div>
@@ -440,9 +262,34 @@
 </div>
 @code {
     private HashSet<string> ExpandedSections = new();
-    private string? OpenShockerDropdown = null;
     private bool ShowHelpCard = false;
     private string? SelectedCheerSectionIdForImport;
+
+    private Select<string>.SelectOption<string>[] CommandTypeOptions = new[]
+    {
+new Select<string>.SelectOption<string>("Shock", "Shock"),
+new Select<string>.SelectOption<string>("Vibrate", "Vibrate"),
+new Select<string>.SelectOption<string>("Beep", "Beep")
+};
+
+    private Select<string>.SelectOption<string>[] MatchingModeOptions = new[]
+    {
+new Select<string>.SelectOption<string>("round", "Round Down"),
+new Select<string>.SelectOption<string>("exact", "Exact")
+};
+
+    private Select<string>.SelectOption<string>[] SelectionModeOptions = new[]
+    {
+new Select<string>.SelectOption<string>("All", "All"),
+new Select<string>.SelectOption<string>("Random", "Random"),
+new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
+};
+
+    private Select<string>.SelectOption<string>[] SubscriptionModeOptions = new[]
+    {
+new Select<string>.SelectOption<string>("Brackets", "Brackets"),
+new Select<string>.SelectOption<string>("Incremental", "Incremental")
+};
 
     protected override void OnInitialized()
     {
@@ -491,28 +338,6 @@
             ExpandedSections.Add(sectionId);
     }
 
-    private void ToggleShockerDropdown(string sectionId)
-    {
-        OpenShockerDropdown = OpenShockerDropdown == sectionId ? null : sectionId;
-    }
-
-    private void SelectAllShockers(SubscriptionTierSection sec, List<ShockerInfo> shockers)
-    {
-        foreach (var shocker in shockers)
-        {
-            var combinedId = $"{shocker.DeviceId}:{shocker.ShockerId}";
-            if (!sec.SelectedShockerIds.Contains(combinedId))
-                sec.SelectedShockerIds.Add(combinedId);
-        }
-        SubConfigService.UpdateSection(sec);
-    }
-
-    private void ClearAllShockers(SubscriptionTierSection sec)
-    {
-        sec.SelectedShockerIds.Clear();
-        SubConfigService.UpdateSection(sec);
-    }
-
     private void ToggleSectionEnabled(SubscriptionTierSection sec, bool enabled)
     {
         sec.Enabled = enabled;
@@ -525,14 +350,6 @@
         SubConfigService.UpdateSection(sec);
     }
 
-    private void ToggleShockerSelection(SubscriptionTierSection sec, string shockerId)
-    {
-        if (sec.SelectedShockerIds.Contains(shockerId))
-            sec.SelectedShockerIds.Remove(shockerId);
-        else
-            sec.SelectedShockerIds.Add(shockerId);
-        SubConfigService.UpdateSection(sec);
-    }
     // Incremental action updates
     private void UpdateIncrementalBaseIntensity(SubscriptionTierSection sec, int value)
     {

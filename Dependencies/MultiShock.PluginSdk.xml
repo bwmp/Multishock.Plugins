@@ -1,0 +1,1446 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>MultiShock.PluginSdk</name>
+    </assembly>
+    <members>
+        <member name="T:MultiShock.PluginSdk.NavigationItem">
+            <summary>
+            Represents a navigation menu item.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.NavigationItem.Id">
+            <summary>
+            Unique identifier for this navigation item (auto-generated from Href if not set).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.NavigationItem.Text">
+            <summary>
+            Display text for the navigation item.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.NavigationItem.Href">
+            <summary>
+            The route/URL for this navigation item (will be prefixed with plugin ID automatically).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.NavigationItem.Icon">
+            <summary>
+            Optional icon name (Lucide icon or custom class).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.NavigationItem.Order">
+            <summary>
+            Sort order for navigation items (lower = higher in menu).
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.NavigationItem.WithId(System.String)">
+            <summary>
+            Sets a custom ID for this navigation item.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.NavigationItem.WithPluginPrefix(System.String)">
+            <summary>
+            Creates a copy of this navigation item with the href prefixed by the plugin ID.
+            Used internally by the plugin manager to ensure unique routes.
+            </summary>
+            <param name="pluginId">The plugin ID to use as prefix.</param>
+            <returns>A new NavigationItem with the prefixed href.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.PluginNavigationGroup">
+            <summary>
+            Information about a plugin's navigation items, grouped by plugin.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginNavigationGroup.PluginId">
+            <summary>
+            The plugin ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginNavigationGroup.PluginName">
+            <summary>
+            The plugin display name.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginNavigationGroup.Items">
+            <summary>
+            Navigation items provided by this plugin.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.PluginRouteInfo">
+            <summary>
+            Metadata about a plugin's routes and components.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginRouteInfo.AdditionalAssemblies">
+            <summary>
+            Assemblies containing Razor components/pages for this plugin.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginRouteInfo.NavigationGroups">
+            <summary>
+            Navigation items grouped by plugin.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginRouteInfo.NavigationItems">
+            <summary>
+            Legacy flat list of navigation items (for backwards compatibility).
+            Use NavigationGroups for plugin-grouped access.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.PluginServiceLocator">
+            <summary>
+            Static service locator for plugin services.
+            Plugins register their service providers here so Blazor pages can resolve services
+            even after hot-reload (where the host DI container has stale type references).
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.RegisterPlugin(System.String,System.IServiceProvider)">
+            <summary>
+            Registers a plugin's service provider.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.UnregisterPlugin(System.String)">
+            <summary>
+            Unregisters a plugin's service provider.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.GetService``1(System.String)">
+            <summary>
+            Gets a service from a specific plugin's service provider.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.GetRequiredService``1(System.String)">
+            <summary>
+            Gets a required service from a specific plugin's service provider.
+            Throws if the service is not found.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.IsPluginRegistered(System.String)">
+            <summary>
+            Checks if a plugin is registered.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.GetRegisteredPluginIds">
+            <summary>
+            Gets all registered plugin IDs.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.TryGetService``1(System.String,``0@)">
+            <summary>
+            Tries to get a service from a specific plugin's service provider.
+            </summary>
+            <typeparam name="T">The service type to retrieve.</typeparam>
+            <param name="pluginId">The ID of the plugin.</param>
+            <param name="service">The retrieved service, or null if not found.</param>
+            <returns>True if the service was found, false otherwise.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.GetServiceFromAny``1">
+            <summary>
+            Gets a service from any registered plugin that provides it.
+            Searches all plugins until the service is found.
+            </summary>
+            <typeparam name="T">The service type to retrieve.</typeparam>
+            <returns>The service instance, or null if not found in any plugin.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.PluginServiceLocator.GetServicesFromAll``1">
+            <summary>
+            Gets all instances of a service type from all registered plugins.
+            </summary>
+            <typeparam name="T">The service type to retrieve.</typeparam>
+            <returns>Collection of services from all plugins that provide it.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowConnection">
+            <summary>
+            Represents a connection (wire) between two ports in a flow.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.Id">
+            <summary>
+            Unique identifier for this connection.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.FromNodeId">
+            <summary>
+            Source node instance ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.FromPortId">
+            <summary>
+            Source port ID on the source node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.ToNodeId">
+            <summary>
+            Target node instance ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.ToPortId">
+            <summary>
+            Target port ID on the target node.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowConnection.Create(System.String,System.String,System.String,System.String)">
+            <summary>
+            Creates a new connection with a generated ID.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowExecutionContext">
+            <summary>
+            Context passed to nodes during execution.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.FlowId">
+            <summary>
+            Flow definition ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.ExecutionId">
+            <summary>
+            Current execution ID (unique per trigger).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.NodeId">
+            <summary>
+            Current node instance ID being executed.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.Inputs">
+            <summary>
+            Input values from connected ports, keyed by port ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.Config">
+            <summary>
+            Node instance configuration values, keyed by property name.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.Variables">
+            <summary>
+            Flow-level variables (shared across all nodes in the execution).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.Services">
+            <summary>
+            Service provider for accessing app services.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.Logger">
+            <summary>
+            Logger for this execution.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowExecutionContext.StartedAt">
+            <summary>
+            Timestamp when this execution started.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowExecutionContext.GetInput``1(System.String,``0)">
+            <summary>
+            Gets an input value by port ID with type conversion.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowExecutionContext.GetConfig``1(System.String,``0)">
+            <summary>
+            Gets a config value by key with type conversion.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowExecutionContext.GetVariable``1(System.String,``0)">
+            <summary>
+            Gets a variable value with type conversion.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowExecutionContext.SetVariable(System.String,System.Object)">
+            <summary>
+            Sets a variable value.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowExecutionContext.GetService``1">
+            <summary>
+            Gets a service from the service provider.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowExecutionContext.GetRequiredService``1">
+            <summary>
+            Gets a required service from the service provider.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowNodeCategory">
+            <summary>
+            Categories for grouping flow nodes in the palette.
+            Plugins can use these standard categories or define custom ones using any string value.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Trigger">
+            <summary>
+            Nodes that start flow execution.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Logic">
+            <summary>
+            Conditional and boolean logic nodes.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Math">
+            <summary>
+            Mathematical operation nodes.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.String">
+            <summary>
+            String manipulation nodes.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Array">
+            <summary>
+            Array manipulation nodes.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.FlowControl">
+            <summary>
+            Flow control nodes (delay, debounce, etc.).
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Variables">
+            <summary>
+            Variable get/set nodes.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Device">
+            <summary>
+            Device action nodes (shock, vibrate, etc.).
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Debug">
+            <summary>
+            Debug and logging nodes.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Action">
+            <summary>
+            Action nodes (send messages, perform tasks, etc.).
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowNodeCategory.Custom">
+            <summary>
+            Custom plugin-provided category. Plugins can use this or define their own.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowNodeResult">
+            <summary>
+            Result returned by a node after execution.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowNodeResult.Outputs">
+            <summary>
+            Output values by port ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowNodeResult.ActivatedPorts">
+            <summary>
+            Which output flow ports should be activated (for branching logic).
+            If empty or null, the default "done" port is activated.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowNodeResult.StopExecution">
+            <summary>
+            Whether execution should stop after this node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowNodeResult.Error">
+            <summary>
+            Optional error message if the node failed.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.Success(System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Creates a successful result with outputs.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.ActivatePort(System.String,System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Creates a result that activates a specific flow port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.ActivatePorts(System.Collections.Generic.IEnumerable{System.String},System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Creates a result that activates multiple flow ports.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.Stop">
+            <summary>
+            Creates a result that stops flow execution.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.Fail(System.String)">
+            <summary>
+            Creates a failed result with an error message.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowPort">
+            <summary>
+            Defines an input or output port on a flow node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPort.Id">
+            <summary>
+            Unique identifier within the node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPort.Name">
+            <summary>
+            Display name for the port.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPort.Type">
+            <summary>
+            Data type of the port.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPort.AllowMultiple">
+            <summary>
+            Whether this port accepts multiple connections.
+            Only applicable to input ports.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPort.Description">
+            <summary>
+            Optional description shown as tooltip.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPort.DefaultValue">
+            <summary>
+            Default value for input ports when not connected.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.FlowIn(System.String,System.String)">
+            <summary>
+            Creates an execution flow input port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.FlowOut(System.String,System.String)">
+            <summary>
+            Creates an execution flow output port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.Boolean(System.String,System.String,System.Boolean)">
+            <summary>
+            Creates a boolean input/output port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.Number(System.String,System.String,System.Double)">
+            <summary>
+            Creates a number input/output port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.String(System.String,System.String,System.String)">
+            <summary>
+            Creates a string input/output port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.Any(System.String,System.String)">
+            <summary>
+            Creates an any-type input/output port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.Array(System.String,System.String,System.String)">
+            <summary>
+            Creates an array input/output port.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowPort.Object(System.String,System.String,System.String)">
+            <summary>
+            Creates an object input/output port.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowPortType">
+            <summary>
+            Defines the data type of a flow port.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Flow">
+            <summary>
+            Execution flow control (not data).
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Any">
+            <summary>
+            Accepts any data type.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Boolean">
+            <summary>
+            Boolean true/false value.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Number">
+            <summary>
+            Numeric value (int or double).
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.String">
+            <summary>
+            String value.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Object">
+            <summary>
+            Complex object.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Array">
+            <summary>
+            Array/list of values.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Shocker">
+            <summary>
+            Shocker reference.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Flow.FlowPortType.Device">
+            <summary>
+            Device reference.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowProperty">
+            <summary>
+            Defines a configurable property on a flow node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Name">
+            <summary>
+            Display name for the property.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Type">
+            <summary>
+            Property data type.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Default">
+            <summary>
+            Default value for the property.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Description">
+            <summary>
+            Optional description shown as tooltip.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Min">
+            <summary>
+            Minimum value for numeric properties.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Max">
+            <summary>
+            Maximum value for numeric properties.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Step">
+            <summary>
+            Step increment for numeric properties.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Options">
+            <summary>
+            Available options for enum/select properties.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowProperty.Required">
+            <summary>
+            Whether the property is required.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.String(System.String,System.String,System.String)">
+            <summary>
+            Creates a string property.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.Int(System.String,System.Int32,System.Nullable{System.Int32},System.Nullable{System.Int32},System.String)">
+            <summary>
+            Creates an integer property.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.Double(System.String,System.Double,System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double},System.String)">
+            <summary>
+            Creates a double property.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.Bool(System.String,System.Boolean,System.String)">
+            <summary>
+            Creates a boolean property.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.Select(System.String,System.Collections.Generic.IReadOnlyList{MultiShock.PluginSdk.Flow.FlowPropertyOption},System.String,System.String)">
+            <summary>
+            Creates a select/dropdown property.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowPropertyType">
+            <summary>
+            Property data types.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowPropertyOption">
+            <summary>
+            An option for select/dropdown properties.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPropertyOption.Value">
+            <summary>
+            The value stored when this option is selected.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPropertyOption.Label">
+            <summary>
+            Display label for the option.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowPropertyOption.Description">
+            <summary>
+            Optional description.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IDynamicPortNode">
+            <summary>
+            Interface for nodes that have dynamic input/output ports based on configuration.
+            When a node implements this interface, the UI will call these methods to get
+            the actual ports to display instead of using the static InputPorts/OutputPorts.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IDynamicPortNode.GetInputPorts(System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object})">
+            <summary>
+            Gets the input ports for a specific instance based on its configuration.
+            </summary>
+            <param name="config">The instance configuration values.</param>
+            <returns>The input ports for this configuration.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IDynamicPortNode.GetOutputPorts(System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object})">
+            <summary>
+            Gets the output ports for a specific instance based on its configuration.
+            </summary>
+            <param name="config">The instance configuration values.</param>
+            <returns>The output ports for this configuration.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IDynamicPropertyNode">
+            <summary>
+            Interface for nodes that have dynamic properties with options that need to be resolved at runtime.
+            When a node implements this interface, the UI will call this method to get
+            the actual property options to display instead of using the static Properties options.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IDynamicPropertyNode.GetProperties(System.Collections.Generic.IReadOnlyDictionary{System.String,System.Object},System.IServiceProvider)">
+            <summary>
+            Gets the properties for this node with dynamically resolved options.
+            </summary>
+            <param name="config">Current configuration values for this node instance.</param>
+            <param name="serviceProvider">Service provider to access runtime services like IDeviceActions.</param>
+            <returns>The properties dictionary with resolved options.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IFlowNode">
+            <summary>
+            Base interface for all flow nodes.
+            Nodes are stateless factories that create instances for each flow.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.TypeId">
+            <summary>
+            Unique type identifier for this node (e.g., "core.trigger.timer", "myplugin.custom").
+            Should be prefixed with plugin ID for plugin nodes.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.DisplayName">
+            <summary>
+            Display name shown in the node palette and on the node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.Category">
+            <summary>
+            Category for grouping in the node palette.
+            Use values from FlowNodeCategory for standard categories, or define custom categories.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.Description">
+            <summary>
+            Optional description shown as tooltip.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.Icon">
+            <summary>
+            Lucide icon name for the node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.Color">
+            <summary>
+            Color for the node header (CSS color or Tailwind class).
+            If null, uses category default.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.InputPorts">
+            <summary>
+            Input ports for this node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.OutputPorts">
+            <summary>
+            Output ports for this node.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNode.Properties">
+            <summary>
+            Configurable properties for this node, keyed by property ID.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowNode.CreateInstance(System.String,System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Creates a new runtime instance of this node.
+            </summary>
+            <param name="instanceId">Unique instance ID within the flow.</param>
+            <param name="config">Configuration values for this instance.</param>
+            <returns>A new node instance.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IFlowNodeInstance">
+            <summary>
+            Represents a runtime instance of a flow node within a specific flow.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNodeInstance.InstanceId">
+            <summary>
+            Unique instance ID within the flow.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNodeInstance.NodeType">
+            <summary>
+            The node type that created this instance.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNodeInstance.Config">
+            <summary>
+            Configuration values for this instance.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Flow.IFlowNodeInstance.State">
+            <summary>
+            Per-instance state that persists across executions.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowNodeInstance.GetConfig``1(System.String,``0)">
+            <summary>
+            Gets a configuration value with type conversion.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowNodeInstance.GetState``1(System.String,``0)">
+            <summary>
+            Gets a state value with type conversion.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowNodeInstance.SetState(System.String,System.Object)">
+            <summary>
+            Sets a state value.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.FlowNodeInstance">
+            <summary>
+            Default implementation of IFlowNodeInstance.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IFlowNodeProvider">
+            <summary>
+            Interface for plugins to register custom flow node types.
+            Implement this interface alongside IPlugin to provide custom nodes.
+            </summary>
+            <example>
+            <code>
+            public class MyPlugin : IPlugin, IFlowNodeProvider
+            {
+                public IEnumerable&lt;IFlowNode&gt; GetNodeTypes()
+                {
+                    yield return new MyCustomTriggerNode();
+                    yield return new MyCustomActionNode();
+                }
+            }
+            </code>
+            </example>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowNodeProvider.GetNodeTypes">
+            <summary>
+            Returns all node types provided by this plugin.
+            Called during plugin initialization to discover available nodes.
+            </summary>
+            <returns>Enumerable of flow node definitions.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IFlowProcessNode">
+            <summary>
+            Interface for nodes that process data within a flow.
+            Process nodes receive inputs, perform operations, and produce outputs.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowProcessNode.ExecuteAsync(MultiShock.PluginSdk.Flow.IFlowNodeInstance,MultiShock.PluginSdk.Flow.FlowExecutionContext,System.Threading.CancellationToken)">
+            <summary>
+            Executes the node's logic.
+            </summary>
+            <param name="instance">The node instance with config and state.</param>
+            <param name="context">Execution context with inputs, variables, and services.</param>
+            <param name="cancellationToken">Token to monitor for cancellation.</param>
+            <returns>Result containing outputs and which flow ports to activate.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.Flow.IFlowTriggerNode">
+            <summary>
+            Interface for nodes that can start flow execution.
+            Trigger nodes listen for events and fire when conditions are met.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowTriggerNode.StartAsync(MultiShock.PluginSdk.Flow.IFlowNodeInstance,System.IServiceProvider,System.Threading.CancellationToken)">
+            <summary>
+            Called when the flow is activated to start listening for triggers.
+            </summary>
+            <param name="instance">The node instance.</param>
+            <param name="services">Service provider for accessing app services.</param>
+            <param name="cancellationToken">Token to monitor for cancellation.</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.IFlowTriggerNode.StopAsync(MultiShock.PluginSdk.Flow.IFlowNodeInstance)">
+            <summary>
+            Called when the flow is deactivated to stop listening.
+            </summary>
+            <param name="instance">The node instance.</param>
+        </member>
+        <member name="E:MultiShock.PluginSdk.Flow.IFlowTriggerNode.Triggered">
+            <summary>
+            Event raised when the trigger fires.
+            The handler receives the instance and initial output values.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IConfigurablePlugin">
+            <summary>
+            Optional interface for plugins that want to provide custom configuration UI.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IDeviceActions">
+            <summary>
+            Minimal, stable action surface for plugins to interact with shockers
+            without referencing app internals.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IDeviceActions.LoadedShockersCount">
+            <summary>
+            Total number of shockers currently loaded by the app.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IDeviceActions.ConnectedSerialDeviceCount">
+            <summary>
+            Number of serial devices currently connected.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.IsShockerLoaded(System.Int32,System.Int32)">
+            <summary>
+            Checks if a specific shocker is loaded for a given device.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetLoadedShockers">
+            <summary>
+            Returns a snapshot of currently loaded shockers with identifiers and names.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetLoadedShockersGroupedByDevice">
+            <summary>
+            Returns loaded shockers grouped by their parent device ID.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetConnectedSerialDevices">
+            <summary>
+            Returns information about all currently connected serial devices.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetSerialDeviceInfo(System.Int32)">
+            <summary>
+            Gets detailed information about a specific serial device by its client ID.
+            </summary>
+            <param name="clientId">The client ID of the serial device.</param>
+            <returns>Device info if found, null otherwise.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetAllSerialPorts">
+            <summary>
+            Gets all available serial ports on the system, including those not currently connected.
+            </summary>
+            <returns>List of serial port names (e.g., "COM3", "COM4").</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.DisconnectSerialDevice(System.Int32)">
+            <summary>
+            Disconnects a serial device by its client ID, allowing the port to be used for other purposes.
+            </summary>
+            <param name="clientId">The client ID of the device to disconnect.</param>
+            <returns>True if the device was disconnected, false if not found.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.DisconnectSerialPort(System.String)">
+            <summary>
+            Disconnects a serial device by port name, allowing the port to be used for other purposes.
+            </summary>
+            <param name="portName">The serial port name (e.g., "COM3").</param>
+            <returns>True if the device was disconnected, false if not found.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.ReconnectSerialPort(System.String)">
+            <summary>
+            Attempts to reconnect to a serial port that was previously disconnected.
+            </summary>
+            <param name="portName">The serial port name to reconnect.</param>
+            <returns>True if reconnection was initiated successfully.</returns>
+        </member>
+        <member name="E:MultiShock.PluginSdk.IDeviceActions.SerialDeviceConnected">
+            <summary>
+            Raised when a serial device connects. The int parameter is the client ID.
+            </summary>
+        </member>
+        <member name="E:MultiShock.PluginSdk.IDeviceActions.SerialDeviceDisconnected">
+            <summary>
+            Raised when a serial device disconnects. The int parameter is the client ID.
+            </summary>
+        </member>
+        <member name="E:MultiShock.PluginSdk.IDeviceActions.SerialDataReceived">
+            <summary>
+            Raised when data is received from a serial device.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetRecentSerialLogs(System.Int32)">
+            <summary>
+            Gets recent serial log entries (up to a configured limit).
+            </summary>
+            <param name="maxEntries">Maximum number of entries to return. Default is 100.</param>
+            <returns>Recent serial log entries, newest first.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.GetSerialLogsForDevice(System.Int32,System.Int32)">
+            <summary>
+            Gets serial log entries for a specific device.
+            </summary>
+            <param name="clientId">The client ID of the serial device.</param>
+            <param name="maxEntries">Maximum number of entries to return. Default is 100.</param>
+            <returns>Serial log entries for the specified device, newest first.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.PerformAction(System.Int32,System.Double,MultiShock.PluginSdk.CommandType,System.String,System.Collections.Generic.IEnumerable{System.Int32},System.Collections.Generic.IEnumerable{System.Int32},System.Boolean,System.Boolean,System.Boolean)">
+            <summary>
+            Perform an action against one or more shockers.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.SendSerialCommand(System.Int32,System.String,System.Object)">
+            <summary>
+            Sends a custom serial command to a device.
+            </summary>
+            <param name="clientId">The client ID of the target device.</param>
+            <param name="command">The command name (e.g., "addNetwork", "removeNetwork").</param>
+            <param name="value">Optional value object that will be serialized as JSON.</param>
+            <returns>True if the command was sent successfully, false otherwise.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.SendSerialCommandByPort(System.String,System.String,System.Object)">
+            <summary>
+            Sends a custom serial command to a device by port name.
+            </summary>
+            <param name="portName">The serial port name (e.g., "COM3").</param>
+            <param name="command">The command name (e.g., "addNetwork", "removeNetwork").</param>
+            <param name="value">Optional value object that will be serialized as JSON.</param>
+            <returns>True if the command was sent successfully, false otherwise.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDeviceActions.AddSerialLog(System.String,System.String,System.String,MultiShock.PluginSdk.SerialDataDirection)">
+            <summary>
+            Adds a log entry to the serial logs for a specific port.
+            Useful for plugins to log tool output (e.g., esptool) alongside device communication.
+            </summary>
+            <param name="portName">The serial port name this log is associated with.</param>
+            <param name="messageType">Type of message (e.g., "ESPTool", "Flash", "Info").</param>
+            <param name="data">The log message content.</param>
+            <param name="direction">Direction of the log entry (Sent or Received). Default is Received.</param>
+        </member>
+        <member name="T:MultiShock.PluginSdk.ShockerInfo">
+            <summary>
+            Lightweight DTO describing a loaded shocker.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.SerialShockerInfo">
+            <summary>
+            Information about a shocker paired to a serial device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialShockerInfo.Id">
+            <summary>
+            The shocker ID.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialShockerInfo.Type">
+            <summary>
+            The shocker type (0 = Petrainer, 1 = Small).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialShockerInfo.IsPaused">
+            <summary>
+            Whether the shocker is paused.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.DeviceShockerGroup">
+            <summary>
+            Represents a group of shockers belonging to the same device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.DeviceShockerGroup.DeviceId">
+            <summary>
+            The device identifier.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.DeviceShockerGroup.DeviceName">
+            <summary>
+            Optional device name if available.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.DeviceShockerGroup.Shockers">
+            <summary>
+            Shockers belonging to this device.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.SerialDeviceInfo">
+            <summary>
+            Information about a connected serial device (PiShock hub).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.ClientId">
+            <summary>
+            The unique client ID of the device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.PortName">
+            <summary>
+            The serial port the device is connected to (e.g., "COM3").
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.IsConnected">
+            <summary>
+            Whether the device is currently connected.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.FirmwareVersion">
+            <summary>
+            Firmware version reported by the device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.MacAddress">
+            <summary>
+            MAC address of the device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.WifiNetwork">
+            <summary>
+            WiFi network the device is connected to (if any).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.HasInternet">
+            <summary>
+            Whether the device has internet connectivity.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.PairedShockers">
+            <summary>
+            Full information about shockers paired to this serial device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.Server">
+            <summary>
+            Server the device is connected to.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.IsClaimed">
+            <summary>
+            Whether the device has been claimed by an owner.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.OwnerId">
+            <summary>
+            Owner ID if the device is claimed.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.PublicIp">
+            <summary>
+            Public IP address of the device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.Otk">
+            <summary>
+            One-time key for device pairing (if available).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.DeviceType">
+            <summary>
+            Device type identifier.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.IsDev">
+            <summary>
+            Whether this is a development device.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialDeviceInfo.AvailableNetworks">
+            <summary>
+            List of available WiFi networks the device can see.
+            Each dictionary contains network info like SSID, signal strength, etc.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.CommandType">
+            <summary>
+            Action types available to plugins. Kept stable for SDK consumers.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.SerialReceivedEventArgs">
+            <summary>
+            Event arguments for serial data received events.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialReceivedEventArgs.ClientId">
+            <summary>
+            The client ID of the device that sent the data.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialReceivedEventArgs.PortName">
+            <summary>
+            The serial port name (e.g., "COM3").
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialReceivedEventArgs.RawData">
+            <summary>
+            The raw data received.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialReceivedEventArgs.Timestamp">
+            <summary>
+            Timestamp when the data was received.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialReceivedEventArgs.MessageType">
+            <summary>
+            The type of serial message.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.SerialLogEntry">
+            <summary>
+            A log entry from serial communication.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialLogEntry.ClientId">
+            <summary>
+            The client ID of the device (0 if unknown/not yet identified).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialLogEntry.PortName">
+            <summary>
+            The serial port name.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialLogEntry.Direction">
+            <summary>
+            Direction of the data (sent or received).
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialLogEntry.MessageType">
+            <summary>
+            The type of message.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialLogEntry.Data">
+            <summary>
+            The raw data content.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.SerialLogEntry.Timestamp">
+            <summary>
+            Timestamp of the log entry.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.SerialDataDirection">
+            <summary>
+            Direction of serial data flow.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialDataDirection.Received">
+            <summary>
+            Data received from the device.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialDataDirection.Sent">
+            <summary>
+            Data sent to the device.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.SerialMessageType">
+            <summary>
+            Types of serial messages.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialMessageType.Unknown">
+            <summary>
+            Unknown or unclassified message.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialMessageType.DeviceInfo">
+            <summary>
+            Device info/status message (TERMINALINFO).
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialMessageType.Command">
+            <summary>
+            Command sent to device.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialMessageType.Acknowledgment">
+            <summary>
+            Acknowledgment from device.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialMessageType.Error">
+            <summary>
+            Error message.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.SerialMessageType.Debug">
+            <summary>
+            Debug/diagnostic data.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IPlugin">
+            <summary>
+            Main interface that all plugins must implement.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IPluginHost">
+            <summary>
+            Interface for host app services that plugins can use.
+            Implement this in your main app to expose functionality to plugins.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IPluginHost.ServiceProvider">
+            <summary>
+            Gets the application's service provider.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.ShowNotificationAsync(System.String,System.String)">
+            <summary>
+            Shows a notification/toast message.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetSetting``1(System.String)">
+            <summary>
+            Gets application settings or configuration.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.SetSetting``1(System.String,``0)">
+            <summary>
+            Sets application settings or configuration.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IPluginHost.AppDataPath">
+            <summary>
+            Gets the application's data directory path.
+            Plugins can store firmware files and other data here.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetPluginDataPath(System.String)">
+            <summary>
+            Gets the plugin's dedicated data directory path.
+            Each plugin gets its own isolated directory for storing data.
+            </summary>
+            <param name="pluginId">The plugin identifier.</param>
+            <returns>Path to the plugin's data directory.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.PickFileAsync(System.String,System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Opens a file picker dialog and returns the selected file path.
+            </summary>
+            <param name="title">The title for the file picker dialog.</param>
+            <param name="fileTypes">Optional list of allowed file extensions (e.g., ".bin", ".hex").</param>
+            <returns>The selected file path, or null if cancelled.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetPlugin(System.String)">
+            <summary>
+            Gets a loaded plugin by its ID.
+            </summary>
+            <param name="pluginId">The unique identifier of the plugin.</param>
+            <returns>The plugin instance, or null if not found or not loaded.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetPlugin``1(System.String)">
+            <summary>
+            Gets a loaded plugin by its ID, cast to a specific type.
+            Useful when you know the concrete plugin type or an interface it implements.
+            </summary>
+            <typeparam name="T">The type to cast the plugin to.</typeparam>
+            <param name="pluginId">The unique identifier of the plugin.</param>
+            <returns>The plugin instance cast to T, or null if not found or wrong type.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetLoadedPlugins">
+            <summary>
+            Gets all currently loaded plugins.
+            </summary>
+            <returns>A read-only collection of all loaded plugin instances.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.IsPluginLoaded(System.String)">
+            <summary>
+            Checks if a plugin with the specified ID is currently loaded.
+            </summary>
+            <param name="pluginId">The unique identifier of the plugin.</param>
+            <returns>True if the plugin is loaded, false otherwise.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetPluginService``1(System.String)">
+            <summary>
+            Gets a service from a specific plugin's service container.
+            This allows plugins to expose and consume services from each other.
+            </summary>
+            <typeparam name="T">The service type to retrieve.</typeparam>
+            <param name="pluginId">The ID of the plugin that provides the service.</param>
+            <returns>The service instance, or null if not found.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetRequiredPluginService``1(System.String)">
+            <summary>
+            Gets a required service from a specific plugin's service container.
+            Throws if the plugin or service is not found.
+            </summary>
+            <typeparam name="T">The service type to retrieve.</typeparam>
+            <param name="pluginId">The ID of the plugin that provides the service.</param>
+            <returns>The service instance.</returns>
+            <exception cref="T:System.InvalidOperationException">Thrown if plugin or service not found.</exception>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.GetLoadedPluginIds">
+            <summary>
+            Gets all plugin IDs that are currently loaded.
+            </summary>
+            <returns>A collection of loaded plugin IDs.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IPluginRouteProvider">
+            <summary>
+            Optional interface for plugins that want to provide navigation items.
+            Implement this to contribute items to the app navigation.
+            </summary>
+            <remarks>
+            Routes returned from <see cref="M:MultiShock.PluginSdk.IPluginRouteProvider.GetNavigationItems"/> will be automatically
+            prefixed with <c>/plugins/{plugin-id}/</c> to prevent route conflicts between plugins.
+            For example, if your plugin ID is "my.plugin" and you return a route "/settings",
+            the actual route will be "/plugins/my-plugin/settings".
+            Make sure your Razor page @page directives match the prefixed route format.
+            </remarks>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginRouteProvider.GetNavigationItems">
+            <summary>
+            Returns the navigation items for this plugin.
+            Routes will be automatically prefixed with the plugin's ID.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IPluginWithDependencies">
+            <summary>
+            Optional interface for plugins that declare dependencies on other plugins.
+            The plugin manager will validate that required plugins are loaded before initializing
+            this plugin, and will ensure proper initialization order.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IPluginWithDependencies.RequiredPlugins">
+            <summary>
+            Gets the IDs of plugins that must be loaded for this plugin to function.
+            If any required plugin is not available, this plugin will fail to initialize.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IPluginWithDependencies.OptionalPlugins">
+            <summary>
+            Gets the IDs of plugins that this plugin can optionally integrate with.
+            The plugin will still initialize if these are not available, but may have reduced functionality.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.PluginDependencyResult">
+            <summary>
+            Result of a dependency check for a plugin.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginDependencyResult.IsValid">
+            <summary>
+            Whether all required dependencies are satisfied.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginDependencyResult.MissingRequired">
+            <summary>
+            List of missing required plugin IDs.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginDependencyResult.MissingOptional">
+            <summary>
+            List of missing optional plugin IDs.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginDependencyResult.AvailableOptional">
+            <summary>
+            List of available optional plugin IDs.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.PluginDependencyResult.ErrorMessage">
+            <summary>
+            Error message if dependencies are not satisfied.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IPluginWithStyles">
+            <summary>
+            Optional interface for plugins that want to provide their own CSS.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.IReloadablePlugin">
+            <summary>
+            Extended plugin interface for plugins that support hot-reloading.
+            Reloadable plugins manage their own service container to avoid DI issues.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.IReloadablePlugin.PluginServices">
+            <summary>
+            Gets the plugin's internal service provider.
+            This is used to resolve plugin-specific services that need to survive hot-reload.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IReloadablePlugin.OnUnloading">
+            <summary>
+            Called when the plugin is about to be unloaded.
+            Use this to clean up resources, cancel background tasks, etc.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.ReloadablePluginBase">
+            <summary>
+            Base class for plugins that support hot-reloading.
+            Manages an internal service container for plugin-specific services.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.ReloadablePluginBase.PluginServices">
+            <summary>
+            Gets the plugin's internal service provider.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.ReloadablePluginBase.HostServices">
+            <summary>
+            Gets the host application's service provider.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.ReloadablePluginBase.ConfigurePluginServices(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Override to register plugin-specific services.
+            These services are managed by the plugin and survive hot-reload.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.ReloadablePluginBase.OnInitialized">
+            <summary>
+            Override to perform initialization after services are ready.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.ReloadablePluginBase.GetNavigationItems">
+            <summary>
+            Override to provide navigation items.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.ReloadablePluginBase.OnUnloading">
+            <summary>
+            Called when the plugin is about to be unloaded.
+            Override to clean up resources.
+            </summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ShockerSelect.MultiSelect">
+            <summary>
+            Enable multi-select mode. When true, use SelectedIds/SelectedIdsChanged instead of Value/ValueChanged.
+            </summary>
+        </member>
+    </members>
+</doc>

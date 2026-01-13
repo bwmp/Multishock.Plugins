@@ -18,7 +18,7 @@
     </div>
 
     <p class="text-sm text-gray-500">
-        Configure your Twitch connection on the 
+        Configure your Twitch connection on the
         <a href="/plugins/com-multishock-twitchintegration/twitchintegration" class="text-purple-500 hover:underline">
             Twitch Integration page
         </a>.
@@ -38,6 +38,9 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? PluginId { get; set; }
+
     protected override void OnInitialized()
     {
         TwitchService.ConnectionStateChanged += OnConnectionChanged;

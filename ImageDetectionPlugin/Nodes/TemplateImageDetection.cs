@@ -12,7 +12,7 @@ public sealed class TemplateImageDetection : IFlowProcessNode
 {
     public string TypeId => "imagedetection.TemplateImageDetection";
     public string DisplayName => "Template image detection";
-    public FlowNodeCategory Category => FlowNodeCategory.Custom;
+    public string Category => "Image Detection";
     public string? Description => "Image detection using a template image.";
     public string Icon => "zap";
     public string? Color => "#8b5cf6";
@@ -26,7 +26,7 @@ public sealed class TemplateImageDetection : IFlowProcessNode
 
     public IReadOnlyList<FlowPort> OutputPorts { get; } =
     [
-        FlowPort.FlowOut(),
+                new FlowPort { Id = "triggered", Name = "Triggered", Type = FlowPortType.Flow },
         FlowPort.Boolean(Settings.Output.ObjectFound, "Object found"),
     ];
 

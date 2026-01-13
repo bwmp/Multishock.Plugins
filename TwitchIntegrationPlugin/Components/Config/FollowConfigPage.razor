@@ -1,0 +1,188 @@
+@page "/plugins/com-multishock-twitchintegration/follow-config"
+@page "/follow-config"
+@inject FollowConfigService FollowConfigService
+@implements IDisposable
+
+<div class="p-4 mx-auto space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Follow Configuration</h1>
+            <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">Configure how new followers trigger
+                actions and control tracking.</p>
+        </div>
+        <Toggle Label="@(FollowConfigService.Config.Enabled ? "Enabled" : "Disabled")"
+            Value="FollowConfigService.Config.Enabled" ValueChanged="@(enabled => ToggleEnabled(enabled))" />
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <div class="twitch-card h-full">
+            <div class="twitch-card-header flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span>Follower Tracking</span>
+                    <span class="twitch-badge">@FollowConfigService.KnownFollowerCount known</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <Toggle Label="Startup Fetch" Value="FollowConfigService.Config.FetchFollowersOnStartup"
+                        ValueChanged="@(v => ToggleFetchOnStartup(v))" />
+                    <Button Text="Refresh Followers" Variant="secondary" Size="sm"
+                        Disabled="@FollowConfigService.IsFetchingFollowers" OnClick="@(() => RefreshFollowers())">
+                        @if (FollowConfigService.IsFetchingFollowers)
+                        {
+                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 12a8 8 0 018-8m0 0a8 8 0 018 8m-8-8v4" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9M20 20v-5h-.581m-15.357-2a8.003 8.003 0 0115.356 2" />
+                            </svg>
+                        }
+                    </Button>
+                </div>
+            </div>
+            <div class="twitch-card-body space-y-3 text-sm" style="color: var(--app-muted, #adb5bd);">
+                <div class="flex items-center justify-between">
+                    <span>Last fetched</span>
+                    @if (FollowConfigService.Config.LastFetchedUtc.HasValue)
+                    {
+                        <span>@FollowConfigService.Config.LastFetchedUtc.Value.ToLocalTime().ToString("g")</span>
+                    }
+                    else
+                    {
+                        <span class="italic">Never</span>
+                    }
+                </div>
+                <p class="text-xs">We store follower IDs so repeat follow/unfollow actions cannot re-trigger the follow
+                    action.</p>
+                @if (!string.IsNullOrEmpty(StatusMessage))
+                {
+                    <div class="text-xs px-3 py-2 rounded"
+                        style="background: @(StatusIsSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(StatusIsSuccess ? "#4a9eff" : "#f87171");">
+                        @StatusMessage
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="twitch-card h-full">
+            <div class="twitch-card-header">
+                <span>Follow Action</span>
+            </div>
+            <div class="twitch-card-body space-y-4">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="grow">
+                        <label class="block text-xs font-medium mb-1"
+                            style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                        <ShockerSelect Label="" MultiSelect="true"
+                            SelectedIds="FollowConfigService.Config.SelectedShockerIds"
+                            SelectedIdsChanged="@(async ids => await UpdateShockers(ids))" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Mode" Value="@FollowConfigService.Config.Mode.ToString()"
+                            ValueChanged="@((string value) => UpdateMode(ParseSelectionMode(value)))"
+                            Options="@SelectionModeOptions" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Device Command" Value="@FollowConfigService.Config.CommandType"
+                            ValueChanged="@((string value) => UpdateCommandType(value ?? "Shock"))"
+                            Options="@CommandTypeOptions" />
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium"
+                            style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Intensity</span>
+                        <Slider Min="1" Max="100" Value="FollowConfigService.Config.Intensity"
+                            ValueChanged="@(v => UpdateIntensity((int)v))" Class="flex-1" ShowValue="false" />
+                        <NumberInput Value="@((double)FollowConfigService.Config.Intensity)" Min="1" Max="100"
+                            ValueChanged="@(v => UpdateIntensity((int)Math.Clamp(v ?? 50, 1, 100)))" Class="w-16" />
+                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium"
+                            style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Duration</span>
+                        <Slider Min="0.1" Max="15" Step="0.1" Value="FollowConfigService.Config.Duration"
+                            ValueChanged="@(v => UpdateDuration(v))" Class="flex-1" ShowValue="false" />
+                        <NumberInput Value="FollowConfigService.Config.Duration" Min="0.1" Max="15" Step="0.1"
+                            ValueChanged="@(v => UpdateDuration(Math.Clamp(v ?? 1.0, 0.1, 15.0)))" Class="w-16" />
+                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? StatusMessage;
+    private bool StatusIsSuccess;
+
+    private readonly Select<string>.SelectOption<string>[] SelectionModeOptions = new[]
+    {
+new Select<string>.SelectOption<string>("All", "All"),
+new Select<string>.SelectOption<string>("Random", "Random"),
+new Select<string>.SelectOption<string>("RoundRobin", "Round Robin"),
+};
+
+    private readonly Select<string>.SelectOption<string>[] CommandTypeOptions = new[]
+    {
+new Select<string>.SelectOption<string>("Shock", "Shock"),
+new Select<string>.SelectOption<string>("Vibrate", "Vibrate"),
+new Select<string>.SelectOption<string>("Beep", "Beep"),
+};
+
+    protected override void OnInitialized()
+    {
+        FollowConfigService.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleEnabled(bool enabled) => FollowConfigService.SetEnabled(enabled);
+
+    private void ToggleFetchOnStartup(bool enabled) => FollowConfigService.SetFetchFollowersOnStartup(enabled);
+
+    private void UpdateMode(SelectionMode mode) => FollowConfigService.UpdateMode(mode);
+
+    private void UpdateCommandType(string command) => FollowConfigService.UpdateCommandType(command);
+
+    private void UpdateIntensity(int value) => FollowConfigService.UpdateIntensity(value);
+
+    private void UpdateDuration(double value) => FollowConfigService.UpdateDuration(value);
+
+    private async Task UpdateShockers(List<string> ids)
+    {
+        FollowConfigService.UpdateSelectedShockers(ids);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshFollowers()
+    {
+        StatusMessage = null;
+        await InvokeAsync(StateHasChanged);
+        var result = await FollowConfigService.FetchFollowersAsync();
+        StatusIsSuccess = result.Success;
+        StatusMessage = result.Success
+        ? $"{result.Message} (+{result.AddedCount} new)"
+        : result.Message;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static SelectionMode ParseSelectionMode(object? value)
+    {
+        if (value == null) return SelectionMode.All;
+        return Enum.TryParse<SelectionMode>(value.ToString(), out var mode) ? mode : SelectionMode.All;
+    }
+
+    public void Dispose()
+    {
+        FollowConfigService.ConfigChanged -= OnConfigChanged;
+    }
+}

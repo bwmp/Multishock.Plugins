@@ -1,0 +1,110 @@
+@typeparam TBracket
+
+<div class="space-y-2">
+    @if (Brackets.Any())
+    {
+        <div class="twitch-bracket-header">
+            <span class="w-12"></span>
+            <span class="w-20">@CountLabel</span>
+            <span class="flex-1">Intensity</span>
+            <span class="flex-1">Duration</span>
+            <span class="w-28">Mode</span>
+            <span class="w-8"></span>
+        </div>
+    }
+
+    @for (var i = 0; i < Brackets.Count; i++)
+    {
+        var bracket = Brackets[i];
+        var isFirst = i == 0;
+        var isLast = i == Brackets.Count - 1;
+        <div class="twitch-bracket">
+            <div class="flex gap-1 w-12">
+                <Button Variant="outline" Size="icon-sm" Disabled="@isFirst"
+                    OnClick="@(() => OnMoveUp.InvokeAsync(bracket))"
+                    Class="w-12 h-12 p-0 flex items-center justify-center">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5 15l7-7 7 7" />
+                    </svg>
+                </Button>
+                <Button Variant="outline" Size="icon-sm" Disabled="@isLast"
+                    OnClick="@(() => OnMoveDown.InvokeAsync(bracket))"
+                    Class="w-12 h-12 p-0 flex items-center justify-center">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 9l-7 7-7-7" />
+                    </svg>
+                </Button>
+            </div>
+
+            <div class="w-20">
+                <NumberInput Value="@((double)CountSelector(bracket))" Min="1"
+                    ValueChanged="@(v => OnCountChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)(v ?? 1))))" />
+            </div>
+
+            <div class="flex items-center gap-2 flex-1">
+                <Slider Min="1" Max="100" Value="IntensitySelector(bracket)"
+                    ValueChanged="@(v => OnIntensityChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)v)))"
+                    Class="flex-1 min-w-0" ShowValue="false" />
+                <NumberInput Value="@((double)IntensitySelector(bracket))" Min="1" Max="100"
+                    ValueChanged="@(v => OnIntensityChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)Math.Clamp(v ?? 50, 1, 100))))"
+                    Class="w-16" />
+                <span class="text-xs" style="color: var(--app-muted, #adb5bd); flex-shrink: 0;">%</span>
+            </div>
+
+            <div class="flex items-center gap-2 flex-1">
+                <Slider Min="0.1" Max="15" Step="0.1" Value="DurationSelector(bracket)"
+                    ValueChanged="@(v => OnDurationChanged.InvokeAsync(new BracketValueChange<TBracket, double>(bracket, v)))"
+                    Class="flex-1 min-w-0" ShowValue="false" />
+                <NumberInput Value="DurationSelector(bracket)" Min="0.1" Max="15" Step="0.1"
+                    ValueChanged="@(v => OnDurationChanged.InvokeAsync(new BracketValueChange<TBracket, double>(bracket, Math.Clamp(v ?? 1.0, 0.1, 15.0))))"
+                    Class="w-16" />
+                <span class="text-xs" style="color: var(--app-muted, #adb5bd); flex-shrink: 0;">s</span>
+            </div>
+
+            <div class="w-28">
+                <Select Label="" Value="@ModeSelector(bracket)"
+                    ValueChanged="@(EventCallback.Factory.Create<string>(this, value => OnModeChanged.InvokeAsync(new BracketValueChange<TBracket, string>(bracket, value))))"
+                    Options="@SelectionModeOptions" />
+            </div>
+
+            <Button Variant="danger" Size="sm" OnClick="@(() => OnRemove.InvokeAsync(bracket))"
+                Class="w-8 h-8 p-0 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </Button>
+        </div>
+    }
+
+    @if (!Brackets.Any())
+    {
+        <div class="twitch-empty">
+            <p>@EmptyTitle</p>
+            <p class="text-xs">@EmptyDescription</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string CountLabel { get; set; } = "Count";
+    [Parameter] public IReadOnlyList<TBracket> Brackets { get; set; } = Array.Empty<TBracket>();
+    [Parameter] public Func<TBracket, int> CountSelector { get; set; } = default!;
+    [Parameter] public Func<TBracket, int> IntensitySelector { get; set; } = default!;
+    [Parameter] public Func<TBracket, double> DurationSelector { get; set; } = default!;
+    [Parameter] public Func<TBracket, string> ModeSelector { get; set; } = default!;
+    [Parameter] public IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions { get; set; } = Array.Empty<Select<string>.SelectOption<string>>();
+    [Parameter] public EventCallback<TBracket> OnMoveUp { get; set; }
+    [Parameter] public EventCallback<TBracket> OnMoveDown { get; set; }
+    [Parameter] public EventCallback<BracketValueChange<TBracket, int>> OnCountChanged { get; set; }
+    [Parameter] public EventCallback<BracketValueChange<TBracket, int>> OnIntensityChanged { get; set; }
+    [Parameter] public EventCallback<BracketValueChange<TBracket, double>> OnDurationChanged { get; set; }
+    [Parameter] public EventCallback<BracketValueChange<TBracket, string>> OnModeChanged { get; set; }
+    [Parameter] public EventCallback<TBracket> OnRemove { get; set; }
+    [Parameter] public string EmptyTitle { get; set; } = "No brackets configured";
+    [Parameter] public string EmptyDescription { get; set; } = "Add a bracket to define behavior";
+
+    public record BracketValueChange<TBracketValue, TValue>(TBracketValue Bracket, TValue Value);
+}

@@ -30,6 +30,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         services.AddSingleton<TwitchAuthService>();
         services.AddSingleton<CheerConfigService>();
         services.AddSingleton<SubscriptionConfigService>();
+        services.AddSingleton<FollowConfigService>();
     }
 
     public void Initialize(IServiceProvider sp)
@@ -47,6 +48,9 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
         // Initialize the subscription config service (subscribes to sub events in constructor)
         _ = sp.GetService(typeof(SubscriptionConfigService)) as SubscriptionConfigService;
+
+        // Initialize the follow config service (subscribes to follow events in constructor)
+        _ = sp.GetService(typeof(FollowConfigService)) as FollowConfigService;
 
         // Attempt auto-connect if a stored token exists and auto-connect is enabled
         var authService = sp.GetService(typeof(TwitchAuthService)) as TwitchAuthService;
@@ -122,6 +126,13 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
             Href = "/sub-config",
             Icon = "user-plus",
             Order = 52
+        },
+        new NavigationItem
+        {
+            Text = "Follows",
+            Href = "/follow-config",
+            Icon = "heart",
+            Order = 53
         }
     ];
 
@@ -140,5 +151,9 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         yield return new HypeTrainEndTriggerNode();
         yield return new RaidTriggerNode();
         yield return new ChannelPointRedemptionTriggerNode();
+        yield return new ChatMessageTriggerNode();
+        
+        // Twitch action nodes
+        yield return new SendChatMessageNode();
     }
 }

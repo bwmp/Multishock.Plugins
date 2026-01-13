@@ -46,6 +46,123 @@ public class CheerEvent : TwitchUserEventBase
 
 #endregion
 
+#region Chat Message Events
+
+public class ChatMessageEvent : TwitchUserEventBase
+{
+    [JsonPropertyName("message_id")]
+    public string MessageId { get; set; } = "";
+
+    // Twitch channel.chat.message uses chatter_* fields for the author.
+    // Map them onto the base UserId/UserLogin/UserName so existing code works.
+    [JsonPropertyName("chatter_user_id")]
+    public string ChatterUserId
+    {
+        get => UserId;
+        set => UserId = value ?? string.Empty;
+    }
+
+    [JsonPropertyName("chatter_user_login")]
+    public string ChatterUserLogin
+    {
+        get => UserLogin;
+        set => UserLogin = value ?? string.Empty;
+    }
+
+    [JsonPropertyName("chatter_user_name")]
+    public string ChatterUserName
+    {
+        get => UserName;
+        set => UserName = value ?? string.Empty;
+    }
+
+    [JsonPropertyName("message")]
+    public ChatMessage Message { get; set; } = new();
+
+    [JsonPropertyName("color")]
+    public string Color { get; set; } = "";
+
+    [JsonPropertyName("badges")]
+    public List<ChatBadge> Badges { get; set; } = new();
+
+    [JsonPropertyName("cheer")]
+    public ChatCheer? Cheer { get; set; }
+
+    [JsonIgnore]
+    public bool IsModerator => Badges.Any(b => b.SetId == "moderator");
+
+    [JsonIgnore]
+    public bool IsSubscriber => Badges.Any(b => b.SetId == "subscriber");
+
+    [JsonIgnore]
+    public bool IsVip => Badges.Any(b => b.SetId == "vip");
+}
+
+public class ChatMessage
+{
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = "";
+
+    [JsonPropertyName("fragments")]
+    public List<ChatFragment> Fragments { get; set; } = new();
+}
+
+public class ChatBadge
+{
+    [JsonPropertyName("set_id")]
+    public string SetId { get; set; } = "";
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("info")]
+    public string Info { get; set; } = "";
+}
+
+public class ChatFragment
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = "";
+
+    [JsonPropertyName("cheermote")]
+    public ChatCheermote? Cheermote { get; set; }
+
+    [JsonPropertyName("emote")]
+    public ChatEmote? Emote { get; set; }
+}
+
+public class ChatCheermote
+{
+    [JsonPropertyName("prefix")]
+    public string Prefix { get; set; } = "";
+
+    [JsonPropertyName("bits")]
+    public int Bits { get; set; }
+
+    [JsonPropertyName("tier")]
+    public int Tier { get; set; }
+}
+
+public class ChatEmote
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("emote_set_id")]
+    public string EmoteSetId { get; set; } = "";
+}
+
+public class ChatCheer
+{
+    [JsonPropertyName("bits")]
+    public int Bits { get; set; }
+}
+
+#endregion
+
 #region Subscription Events
 
 public class SubscribeEvent : TwitchUserEventBase

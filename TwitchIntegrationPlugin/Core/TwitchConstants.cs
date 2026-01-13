@@ -5,8 +5,10 @@ public static class TwitchConstants
     public const string ClientId = "p8ocxh0kltx07kivciequxrsuqx2ng";
 
     public const string EventSubWebSocketUrl = "wss://eventsub.wss.twitch.tv/ws";
+    public const string EventSubWebSocketUrlLocal = "ws://127.0.0.1:8080/ws";
 
     public const string HelixApiBaseUrl = "https://api.twitch.tv/helix";
+    public const string HelixApiBaseUrlLocal = "http://127.0.0.1:8080";
 
     public const int OAuthCallbackPort = 8783;
 
@@ -19,6 +21,8 @@ public static class TwitchConstants
         "moderator:read:followers",     // channel.follow
         "channel:read:hype_train",      // channel.hype_train.*
         "channel:read:redemptions",     // channel.channel_points_custom_reward_redemption.add
+        "user:read:chat",               // channel.chat.message
+        "user:write:chat",              // send chat messages
     ];
 
     public static class EventTypes
@@ -33,6 +37,7 @@ public static class TwitchConstants
         public const string HypeTrainEnd = "channel.hype_train.end";
         public const string Raid = "channel.raid";
         public const string ChannelPointRedemption = "channel.channel_points_custom_reward_redemption.add";
+        public const string ChatMessage = "channel.chat.message";
     }
 
     public static readonly Dictionary<string, string> EventVersions = new()
@@ -46,6 +51,7 @@ public static class TwitchConstants
         [EventTypes.HypeTrainProgress] = "1",
         [EventTypes.HypeTrainEnd] = "1",
         [EventTypes.Raid] = "1",
+        [EventTypes.ChatMessage] = "1",
         [EventTypes.ChannelPointRedemption] = "1",
     };
 }

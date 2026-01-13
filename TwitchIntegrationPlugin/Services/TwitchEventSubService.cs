@@ -8,6 +8,7 @@ namespace TwitchIntegrationPlugin.Services;
 public class TwitchEventSubService : IAsyncDisposable
 {
     private readonly HttpClient _httpClient;
+    private readonly TwitchAuthService _authService;
     private ClientWebSocket? _webSocket;
     private CancellationTokenSource? _connectionCts;
     private Task? _receiveTask;
@@ -52,11 +53,14 @@ public class TwitchEventSubService : IAsyncDisposable
 
     public event Action<ChannelPointRedemptionEvent>? OnChannelPointRedemption;
 
+    public event Action<ChatMessageEvent>? OnChatMessage;
+
     public event Action<string>? OnStatusMessage;
 
-    public TwitchEventSubService()
+    public TwitchEventSubService(TwitchAuthService authService)
     {
         _httpClient = new HttpClient();
+        _authService = authService;
     }
 
     public async Task<(bool IsValid, string? UserId, string? UserName, string? Error)> ValidateTokenAsync(string oauthToken)
@@ -125,7 +129,14 @@ public class TwitchEventSubService : IAsyncDisposable
             _connectionCts = new CancellationTokenSource();
             _webSocket = new ClientWebSocket();
 
-            await _webSocket.ConnectAsync(new Uri(TwitchConstants.EventSubWebSocketUrl), _connectionCts.Token);
+            var websocketUrl = _authService.UseLocalCli 
+                ? TwitchConstants.EventSubWebSocketUrlLocal 
+                : TwitchConstants.EventSubWebSocketUrl;
+            
+            var connectionType = _authService.UseLocalCli ? "local CLI" : "production";
+            OnStatusMessage?.Invoke($"Connecting to {connectionType} WebSocket...");
+
+            await _webSocket.ConnectAsync(new Uri(websocketUrl), _connectionCts.Token);
             OnStatusMessage?.Invoke("WebSocket connected, waiting for welcome message...");
 
             _receiveTask = ReceiveMessagesAsync(_connectionCts.Token);
@@ -391,6 +402,14 @@ public class TwitchEventSubService : IAsyncDisposable
                     }
                     break;
 
+                case TwitchConstants.EventTypes.ChatMessage:
+                    var chatMessage = JsonSerializer.Deserialize<ChatMessageEvent>(eventJson);
+                    if (chatMessage != null)
+                    {
+                        OnChatMessage?.Invoke(chatMessage);
+                    }
+                    break;
+
                 default:
                     OnStatusMessage?.Invoke($"Unknown event type: {eventType}");
                     break;
@@ -421,6 +440,7 @@ public class TwitchEventSubService : IAsyncDisposable
             TwitchConstants.EventTypes.HypeTrainEnd,
             TwitchConstants.EventTypes.Raid,
             TwitchConstants.EventTypes.ChannelPointRedemption,
+            TwitchConstants.EventTypes.ChatMessage,
         };
 
         foreach (var eventType in eventTypes)
@@ -457,7 +477,11 @@ public class TwitchEventSubService : IAsyncDisposable
         var json = JsonSerializer.Serialize(request);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{TwitchConstants.HelixApiBaseUrl}/eventsub/subscriptions")
+        var helixApiUrl = _authService.UseLocalCli 
+            ? TwitchConstants.HelixApiBaseUrlLocal 
+            : TwitchConstants.HelixApiBaseUrl;
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{helixApiUrl}/eventsub/subscriptions")
         {
             Content = content
         };
@@ -495,6 +519,12 @@ public class TwitchEventSubService : IAsyncDisposable
             condition["moderator_user_id"] = _userId!;
         }
 
+        if (eventType == TwitchConstants.EventTypes.ChatMessage)
+        {
+            condition["user_id"] = _userId!;
+            return condition;
+        }
+
         if (eventType == TwitchConstants.EventTypes.Raid)
         {
             return new Dictionary<string, string>
@@ -504,6 +534,46 @@ public class TwitchEventSubService : IAsyncDisposable
         }
 
         return condition;
+    }
+
+    public async Task<bool> SendChatMessageAsync(string message, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(_userId) || string.IsNullOrEmpty(_oauthToken))
+        {
+            return false;
+        }
+
+        try
+        {
+            var requestBody = new
+            {
+                broadcaster_id = _userId,
+                sender_id = _userId,
+                message = message
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var helixApiUrl = _authService.UseLocalCli 
+                ? TwitchConstants.HelixApiBaseUrlLocal 
+                : TwitchConstants.HelixApiBaseUrl;
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{helixApiUrl}/chat/messages")
+            {
+                Content = content
+            };
+            httpRequest.Headers.Add("Client-Id", TwitchConstants.ClientId);
+            httpRequest.Headers.Add("Authorization", $"Bearer {_oauthToken}");
+
+            var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            ErrorOccurred?.Invoke($"Error sending chat message: {ex.Message}");
+            return false;
+        }
     }
 
     private void CheckKeepalive(object? state)

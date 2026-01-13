@@ -11,7 +11,7 @@ public sealed class TakeScreenshot : IFlowProcessNode
 {
     public string TypeId => "imagedetection.TakeScreenshot";
     public string DisplayName => "Image Detection Node";
-    public FlowNodeCategory Category => FlowNodeCategory.Custom;
+    public string Category => "Image Detection";
     public string? Description => "Example node for Image Detection plugin";
     public string Icon => "zap";
     public string? Color => "#8b5cf6";
@@ -23,7 +23,7 @@ public sealed class TakeScreenshot : IFlowProcessNode
 
     public IReadOnlyList<FlowPort> OutputPorts { get; } =
     [
-        FlowPort.FlowOut(),
+                new FlowPort { Id = "triggered", Name = "Triggered", Type = FlowPortType.Flow },
         FlowPort.Any(Settings.Output.Image, "Image"),
     ];
 

@@ -1,5 +1,6 @@
 @page "/plugins/com-multishock-twitchintegration/twitchintegration"
 @using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
 @inject TwitchEventSubService TwitchService
 @inject TwitchAuthService AuthService
 @inject IDeviceActions Actions
@@ -12,31 +13,31 @@
         {
             @if (!string.IsNullOrWhiteSpace(SavedToken))
             {
-                <button class="twitch-toolbar-btn success" title="Connect to Twitch"
-                    disabled="@(IsAuthenticating || TwitchService.IsConnecting)" @onclick="ConnectWithSavedToken">
+                <Button Variant="outline" Size="sm" Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
+                    OnClick="ConnectWithSavedToken" Class="w-8 h-8 p-0 flex items-center justify-center">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
                     </svg>
-                </button>
+                </Button>
             }
             else
             {
-                <button class="twitch-toolbar-btn success" title="Login with Twitch"
-                    disabled="@(IsAuthenticating || TwitchService.IsConnecting)" @onclick="LoginWithTwitch">
+                <Button Variant="outline" Size="sm" Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
+                    OnClick="LoginWithTwitch" Class="w-8 h-8 p-0 flex items-center justify-center">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                </button>
+                </Button>
             }
         }
         else
         {
-            <button class="twitch-toolbar-btn danger" title="Disconnect" @onclick="Disconnect">
+            <Button Variant="danger" Size="sm" OnClick="Disconnect" Class="w-8 h-8 p-0 flex items-center justify-center">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
-            </button>
+            </Button>
         }
 
         <div class="twitch-separator"></div>
@@ -79,9 +80,7 @@
                 <span>Connection</span>
                 @if (IsAuthenticating)
                 {
-                    <button class="twitch-btn twitch-btn-secondary twitch-btn-sm" type="button" @onclick="CancelLogin">
-                        Cancel
-                    </button>
+                    <Button Text="Cancel" Variant="secondary" Size="sm" OnClick="CancelLogin" />
                 }
             </div>
             <div class="twitch-card-body">
@@ -90,8 +89,8 @@
                     <div class="flex flex-col items-center gap-4 py-4">
                         @if (!string.IsNullOrWhiteSpace(SavedToken))
                         {
-                            <button class="twitch-btn twitch-btn-primary" style="background: #9146FF;" type="button"
-                                disabled="@(TwitchService.IsConnecting)" @onclick="ConnectWithSavedToken">
+                            <Button Disabled="@(TwitchService.IsConnecting)" OnClick="ConnectWithSavedToken"
+                                Class="bg-[#9146FF] hover:bg-[#772ce8]">
                                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                                     <path
                                         d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
@@ -104,12 +103,12 @@
                                 {
                                     <span>Connect to Twitch</span>
                                 }
-                            </button>
+                            </Button>
                         }
                         else
                         {
-                            <button class="twitch-btn twitch-btn-primary" style="background: #9146FF;" type="button"
-                                disabled="@(IsAuthenticating || TwitchService.IsConnecting)" @onclick="LoginWithTwitch">
+                            <Button Disabled="@(IsAuthenticating || TwitchService.IsConnecting)" OnClick="LoginWithTwitch"
+                                Class="bg-[#9146FF] hover:bg-[#772ce8]">
                                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                                     <path
                                         d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
@@ -126,15 +125,15 @@
                                 {
                                     <span>Login with Twitch</span>
                                 }
-                            </button>
+                            </Button>
                         }
 
-                        <div class="flex items-center gap-2 mt-2">
-                            <input type="checkbox" class="twitch-checkbox" id="auto-connect" checked="@AutoConnectEnabled"
-                                @onchange="@(e => ToggleAutoConnect((bool)e.Value!))" />
-                            <label for="auto-connect" class="text-xs" style="color: var(--app-muted, #adb5bd);">
-                                Auto-connect on app startup
-                            </label>
+                        <div class="flex flex-col gap-2">
+                            <Toggle Label="Auto-connect on app startup" Value="AutoConnectEnabled"
+                                ValueChanged="@((enabled) => ToggleAutoConnect(enabled))" />
+
+                            <Toggle Label="Use local Twitch CLI (testing)" Value="UseLocalCliEnabled"
+                                ValueChanged="@((enabled) => ToggleLocalCli(enabled))" />
                         </div>
 
                         @if (!string.IsNullOrEmpty(AuthStatus))
@@ -142,20 +141,19 @@
                             <p class="text-sm" style="color: var(--app-muted, #adb5bd);">@AuthStatus</p>
                         }
                     </div>
-
                     <details class="mt-4 pt-4" style="border-top: 1px solid var(--app-border, #343a40);">
                         <summary class="text-sm cursor-pointer" style="color: var(--app-muted, #adb5bd);">
                             Or enter token manually
                         </summary>
                         <div class="mt-4 space-y-3">
                             <div class="flex gap-2">
-                                <input type="password" class="twitch-input flex-1"
-                                    placeholder="Enter your Twitch OAuth token" @bind="OAuthToken" @bind:event="oninput">
-                                <button class="twitch-btn twitch-btn-primary" type="button"
-                                    disabled="@(string.IsNullOrWhiteSpace(OAuthToken) || TwitchService.IsConnecting)"
-                                    @onclick="Connect">
-                                    Connect
-                                </button>
+                                <TextInput Placeholder="Enter your Twitch OAuth token" Value="@OAuthToken"
+                                    ValueChanged="@((value) => OAuthToken = value ?? "")" Class="flex-1" />
+                                <Button Text="Connect" Variant="primary"
+                                    Disabled="@(string.IsNullOrWhiteSpace(OAuthToken) || TwitchService.IsConnecting)"
+                                    OnClick="Connect" />
+                                <Button Text="Clear" Variant="secondary" Disabled="@(string.IsNullOrWhiteSpace(OAuthToken))"
+                                    OnClick="ClearToken" />
                             </div>
                             <p class="text-xs" style="color: var(--app-muted, #adb5bd);">
                                 Get your token from
@@ -178,21 +176,17 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button class="twitch-btn twitch-btn-secondary" type="button" @onclick="Disconnect">
-                                    Disconnect
-                                </button>
-                                <button class="twitch-btn twitch-btn-secondary" type="button" @onclick="LogoutAsync">
-                                    Logout
-                                </button>
+                                <Button Text="Disconnect" Variant="secondary" OnClick="Disconnect" />
+                                <Button Text="Logout" Variant="secondary" OnClick="LogoutAsync" />
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            <input type="checkbox" class="twitch-checkbox" id="auto-connect-connected"
-                                checked="@AutoConnectEnabled" @onchange="@(e => ToggleAutoConnect((bool)e.Value!))" />
-                            <label for="auto-connect-connected" class="text-xs" style="color: var(--app-muted, #adb5bd);">
-                                Auto-connect on app startup
-                            </label>
+                        <div class="flex flex-col gap-2">
+                            <Toggle Label="Auto-connect on app startup" Value="AutoConnectEnabled"
+                                ValueChanged="@((enabled) => ToggleAutoConnect(enabled))" />
+
+                            <Toggle Label="Use local Twitch CLI (testing)" Value="UseLocalCliEnabled"
+                                ValueChanged="@((enabled) => ToggleLocalCli(enabled))" />
                         </div>
                     </div>
                 }
@@ -231,9 +225,7 @@
             <div class="twitch-card">
                 <div class="twitch-card-header">
                     <span>Event Log</span>
-                    <button class="twitch-btn twitch-btn-secondary twitch-btn-sm" type="button" @onclick="ClearLog">
-                        Clear
-                    </button>
+                    <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
                 </div>
                 <div class="twitch-card-body">
                     <div class="space-y-1 max-h-64 overflow-y-auto">
@@ -286,6 +278,7 @@
     private string? AuthStatus;
     private bool IsAuthenticating;
     private bool AutoConnectEnabled;
+    private bool UseLocalCliEnabled;
     private List<LogEntry> EventLog = new();
 
     private record LogEntry(DateTime Time, string Message, bool IsError = false);
@@ -315,6 +308,7 @@
             OAuthToken = SavedToken;
         }
         AutoConnectEnabled = AuthService.AutoConnect;
+        UseLocalCliEnabled = AuthService.UseLocalCli;
     }
 
     private async Task LoginWithTwitch()
@@ -447,6 +441,19 @@
         AddLog(enabled ? "Auto-connect enabled" : "Auto-connect disabled");
     }
 
+    private void ToggleLocalCli(bool enabled)
+    {
+        UseLocalCliEnabled = enabled;
+        AuthService.UseLocalCli = enabled;
+        var target = enabled ? "local CLI" : "production";
+        AddLog($"WebSocket target set to {target}");
+        
+        if (TwitchService.IsConnected)
+        {
+            AddLog("Note: Reconnect for the change to take effect");
+        }
+    }
+
     private async Task LogoutAsync()
     {
         await TwitchService.DisconnectAsync();
@@ -465,6 +472,15 @@
         {
             EventLog.RemoveAt(0);
         }
+    }
+
+    private void ClearToken()
+    {
+        AuthService.ClearAuth();
+        OAuthToken = "";
+        SavedToken = null;
+        AddLog("Token cleared from config");
+        StateHasChanged();
     }
 
     private void ClearLog()

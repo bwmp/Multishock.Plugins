@@ -25,6 +25,7 @@ public class TwitchAuthService : IDisposable
     {
         public string? OAuthToken { get; set; }
         public bool AutoConnect { get; set; }
+        public bool UseLocalCli { get; set; }
     }
 
     private AuthState _state = new();
@@ -37,6 +38,16 @@ public class TwitchAuthService : IDisposable
         set
         {
             _state.AutoConnect = value;
+            SaveAuthState();
+        }
+    }
+
+    public bool UseLocalCli
+    {
+        get => _state.UseLocalCli;
+        set
+        {
+            _state.UseLocalCli = value;
             SaveAuthState();
         }
     }

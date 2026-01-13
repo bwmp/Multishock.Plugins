@@ -10,7 +10,7 @@ public sealed class SubscriptionGiftTriggerNode : TwitchEventNodeBase
 
     public override IReadOnlyList<FlowPort> OutputPorts { get; } =
     [
-        FlowPort.FlowOut(),
+        new FlowPort { Id = "triggered", Name = "Triggered", Type = FlowPortType.Flow },
         FlowPort.String("userName", "User Name"),
         FlowPort.Number("count", "Gift Count"),
         FlowPort.Number("tier", "Tier"),

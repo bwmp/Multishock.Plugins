@@ -24,6 +24,7 @@ public class TwitchTriggerManager
         _eventSubService.OnHypeTrainEnd += HandleHypeTrainEnd;
         _eventSubService.OnRaid += HandleRaid;
         _eventSubService.OnChannelPointRedemption += HandleChannelPointRedemption;
+        _eventSubService.OnChatMessage += HandleChatMessage;
     }
 
     public void Register(string eventType, IFlowNodeInstance instance, Func<IFlowNodeInstance, Dictionary<string, object?>, Task> callback)
@@ -212,6 +213,28 @@ public class TwitchTriggerManager
             var rewardFilter = instance.GetConfig("rewardFilter", "");
             if (string.IsNullOrEmpty(rewardFilter)) return true;
             return e.Reward.Title.Contains(rewardFilter, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private void HandleChatMessage(ChatMessageEvent e)
+    {
+        _ = FireEvent("twitch.chatmessage", new Dictionary<string, object?>
+        {
+            ["userName"] = e.UserLogin,
+            ["userId"] = e.UserId,
+            ["message"] = e.Message.Text,
+            ["displayName"] = e.UserName,
+            ["isModerator"] = e.IsModerator,
+            ["isSubscriber"] = e.IsSubscriber,
+            ["isVip"] = e.IsVip,
+        }, instance =>
+        {
+            var filterText = instance.GetConfig("filterText", "");
+            if (string.IsNullOrEmpty(filterText)) return true;
+            
+            var caseSensitive = instance.GetConfig("caseSensitive", false);
+            var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            return e.Message.Text.Contains(filterText, comparison);
         });
     }
 

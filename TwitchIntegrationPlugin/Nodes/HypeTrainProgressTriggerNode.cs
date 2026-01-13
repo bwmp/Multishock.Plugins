@@ -10,7 +10,7 @@ public sealed class HypeTrainProgressTriggerNode : TwitchEventNodeBase
 
     public override IReadOnlyList<FlowPort> OutputPorts { get; } =
     [
-        FlowPort.FlowOut(),
+        new FlowPort { Id = "triggered", Name = "Triggered", Type = FlowPortType.Flow },
         FlowPort.Number("level", "Level"),
         FlowPort.Number("progress", "Progress"),
         FlowPort.Number("goal", "Goal"),

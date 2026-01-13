@@ -22,7 +22,7 @@ public sealed class ExampleNode : IFlowProcessNode
 
     public IReadOnlyList<FlowPort> OutputPorts { get; } =
     [
-        FlowPort.FlowOut(),
+        new FlowPort { Id = "triggered", Name = "Triggered", Type = FlowPortType.Flow },
         FlowPort.String("output", "Output"),
     ];
 

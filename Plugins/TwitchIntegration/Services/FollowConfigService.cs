@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MultiShock.PluginSdk;
 
-namespace TwitchIntegrationPlugin.Services;
+namespace TwitchIntegration.Services;
 
 public class FollowConfigService : IDisposable
 {

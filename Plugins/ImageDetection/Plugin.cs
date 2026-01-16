@@ -1,14 +1,14 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using MultiShock.PluginSdk;
 using MultiShock.PluginSdk.Flow;
-using ImageDetectionPlugin.Nodes;
+using ImageDetection.Nodes;
 
-namespace ImageDetectionPlugin;
+namespace ImageDetection;
 
 /// <summary>
 /// Image detection Module
 /// </summary>
-public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
+public class ImageDetection : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
 {
     // ========== PLUGIN METADATA ==========
 

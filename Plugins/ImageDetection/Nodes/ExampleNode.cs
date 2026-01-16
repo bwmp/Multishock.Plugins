@@ -1,6 +1,6 @@
 ﻿using MultiShock.PluginSdk.Flow;
 
-namespace ImageDetectionPlugin.Nodes;
+namespace ImageDetection.Nodes;
 
 /// <summary>
 /// Example flow node for Image Detection plugin.

@@ -2,7 +2,7 @@
 using MultiShock.PluginSdk.Flow;
 using cv2 = Emgu.CV;
 
-namespace ImageDetectionPlugin.Nodes;
+namespace ImageDetection.Nodes;
 
 /// <summary>
 /// Example flow node for Image Detection plugin.

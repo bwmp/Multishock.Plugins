@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace TwitchIntegrationPlugin.Models;
+namespace TwitchIntegration.Models;
 
 #region Base Event Types
 

@@ -1,4 +1,4 @@
-namespace TwitchIntegrationPlugin.Models;
+namespace TwitchIntegration.Models;
 
 public enum SelectionMode
 {

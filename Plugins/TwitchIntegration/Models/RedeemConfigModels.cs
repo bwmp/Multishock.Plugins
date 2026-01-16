@@ -1,4 +1,4 @@
-namespace TwitchIntegrationPlugin.Models;
+namespace TwitchIntegration.Models;
 
 /// <summary>
 /// Configuration for a single channel point redemption.

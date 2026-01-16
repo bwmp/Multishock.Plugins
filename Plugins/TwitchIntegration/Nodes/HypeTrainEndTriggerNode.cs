@@ -1,6 +1,6 @@
 using MultiShock.PluginSdk.Flow;
 
-namespace TwitchIntegrationPlugin.Nodes;
+namespace TwitchIntegration.Nodes;
 
 public sealed class HypeTrainEndTriggerNode : TwitchEventNodeBase
 {

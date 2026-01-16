@@ -4,8 +4,8 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         
-        <AssemblyName>TwitchIntegrationPlugin</AssemblyName>
-        <RootNamespace>TwitchIntegrationPlugin</RootNamespace>
+        <AssemblyName>TwitchIntegration</AssemblyName>
+        <RootNamespace>TwitchIntegration</RootNamespace>
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
@@ -47,7 +47,7 @@
 
     <!-- Embed CSS as resource -->
     <ItemGroup>
-        <EmbeddedResource Include="wwwroot\styles.css" LogicalName="TwitchIntegrationPlugin.styles.css" />
+        <EmbeddedResource Include="wwwroot\styles.css" LogicalName="TwitchIntegration.styles.css" />
     </ItemGroup>
 
     <!-- Exclude generated file from default compilation -->
@@ -59,7 +59,7 @@
     <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
         <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
         <ItemGroup>
-            <StampLines Include="namespace TwitchIntegrationPlugin%3B" />
+            <StampLines Include="namespace TwitchIntegration%3B" />
             <StampLines Include=" " />
             <StampLines Include="public static class BuildStamp" />
             <StampLines Include="{" />

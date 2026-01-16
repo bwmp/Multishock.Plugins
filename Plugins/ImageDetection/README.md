@@ -15,24 +15,24 @@ Image detection Module
 From repo root:
 ```powershell
 # Debug build
-.\scripts\build-plugins.ps1 -Plugin ImageDetectionPlugin -Configuration Debug
+.\scripts\build-plugins.ps1 -Plugin ImageDetection -Configuration Debug
 
 # Release build
-.\scripts\build-plugins.ps1 -Plugin ImageDetectionPlugin -Configuration Release
+.\scripts\build-plugins.ps1 -Plugin ImageDetection -Configuration Release
 ```
 
 ### Create release archive
 
 ```powershell
-.\scripts\release-plugins.ps1 -Plugin ImageDetectionPlugin
+.\scripts\release-plugins.ps1 -Plugin ImageDetection
 ```
 
 ## Project Structure
 
 ```
-ImageDetectionPlugin/
+ImageDetection/
 ├── Plugin.cs              # Main plugin class (entry point)
-├── ImageDetectionPlugin.csproj   # Project file
+├── ImageDetection.csproj   # Project file
 ├── _Imports.razor         # Global Razor imports
 ├── HomePage.razor         # Main plugin page
 ├── Nodes/                 # Custom flow nodes

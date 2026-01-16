@@ -1,9 +1,9 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using TwitchIntegrationPlugin.Models;
+using TwitchIntegration.Models;
 
-namespace TwitchIntegrationPlugin.Services;
+namespace TwitchIntegration.Services;
 
 public class TwitchEventSubService : IAsyncDisposable
 {

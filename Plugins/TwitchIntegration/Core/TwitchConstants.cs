@@ -1,4 +1,4 @@
-namespace TwitchIntegrationPlugin;
+namespace TwitchIntegration;
 
 public static class TwitchConstants
 {

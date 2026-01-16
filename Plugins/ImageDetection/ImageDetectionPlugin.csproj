@@ -4,8 +4,8 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         
-        <AssemblyName>ImageDetectionPlugin</AssemblyName>
-        <RootNamespace>ImageDetectionPlugin</RootNamespace>
+        <AssemblyName>ImageDetection</AssemblyName>
+        <RootNamespace>ImageDetection</RootNamespace>
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
@@ -26,7 +26,7 @@
 
     <ItemGroup>
         <Reference Include="MultiShock.PluginSdk">
-            <HintPath>..\..\Dependencies\MultiShock.PluginSdk.dll</HintPath>
+            <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
             <Private>true</Private>
         </Reference>
     </ItemGroup>
@@ -45,7 +45,7 @@
     <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
         <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
         <ItemGroup>
-        <StampLines Include="namespace ImageDetectionPlugin%3B" />
+        <StampLines Include="namespace ImageDetection%3B" />
         <StampLines Include=" " />
         <StampLines Include="public static class BuildStamp" />
         <StampLines Include="{" />

@@ -15,24 +15,24 @@ Twitch support for multishock
 From repo root:
 ```powershell
 # Debug build
-.\scripts\build-plugins.ps1 -Plugin TwitchIntegrationPlugin -Configuration Debug
+.\scripts\build-plugins.ps1 -Plugin TwitchIntegration -Configuration Debug
 
 # Release build
-.\scripts\build-plugins.ps1 -Plugin TwitchIntegrationPlugin -Configuration Release
+.\scripts\build-plugins.ps1 -Plugin TwitchIntegration -Configuration Release
 ```
 
 ### Create release archive
 
 ```powershell
-.\scripts\release-plugins.ps1 -Plugin TwitchIntegrationPlugin
+.\scripts\release-plugins.ps1 -Plugin TwitchIntegration
 ```
 
 ## Project Structure
 
 ```
-TwitchIntegrationPlugin/
+TwitchIntegration/
 ├── Plugin.cs              # Main plugin class (entry point)
-├── TwitchIntegrationPlugin.csproj   # Project file
+├── TwitchIntegration.csproj   # Project file
 ├── _Imports.razor         # Global Razor imports
 ├── HomePage.razor         # Main plugin page
 ├── Nodes/                 # Custom flow nodes

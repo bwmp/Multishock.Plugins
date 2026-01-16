@@ -1,8 +1,8 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
-using TwitchIntegrationPlugin.Models;
+using TwitchIntegration.Models;
 
-namespace TwitchIntegrationPlugin.Services;
+namespace TwitchIntegration.Services;
 
 public class SubscriptionConfigService
 {

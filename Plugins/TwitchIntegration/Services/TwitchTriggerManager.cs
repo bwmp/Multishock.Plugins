@@ -1,7 +1,7 @@
 using MultiShock.PluginSdk.Flow;
-using TwitchIntegrationPlugin.Models;
+using TwitchIntegration.Models;
 
-namespace TwitchIntegrationPlugin.Services;
+namespace TwitchIntegration.Services;
 
 public class TwitchTriggerManager
 {

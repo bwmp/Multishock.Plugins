@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Web;
 using MultiShock.PluginSdk;
 
-namespace TwitchIntegrationPlugin.Services;
+namespace TwitchIntegration.Services;
 
 public class TwitchAuthService : IDisposable
 {

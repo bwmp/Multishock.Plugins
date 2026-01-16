@@ -1,2 +1,2 @@
-global using TwitchIntegrationPlugin.Models;
-global using TwitchIntegrationPlugin.Services;
+global using TwitchIntegration.Models;
+global using TwitchIntegration.Services;

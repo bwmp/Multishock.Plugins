@@ -37,7 +37,7 @@ jobs:
             echo "plugins=[\"${{ github.event.inputs.plugin }}\"]" >> $GITHUB_OUTPUT
           else
             # Find all plugin directories in Plugins folder
-            plugins=$(find Plugins -maxdepth 1 -type d -name '*Plugin' ! -name 'PluginTemplate' -exec basename {} \; | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            plugins=$(find Plugins -maxdepth 1 -type d ! -name 'Plugins' | sort | tail -n +2 | xargs -I {} basename {} | jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "plugins=$plugins" >> $GITHUB_OUTPUT
           fi
           

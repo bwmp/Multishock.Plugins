@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using MultiShock.PluginSdk;
 using MultiShock.PluginSdk.Flow;
-using TwitchIntegrationPlugin.Nodes;
-using TwitchIntegrationPlugin.Components.Config;
-using TwitchIntegrationPlugin.Services;
+using TwitchIntegration.Nodes;
+using TwitchIntegration.Components.Config;
+using TwitchIntegration.Services;
 
-namespace TwitchIntegrationPlugin;
+namespace TwitchIntegration;
 
-public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
+public class TwitchIntegration : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
 {
     // ========== PLUGIN METADATA ==========
 
@@ -95,8 +95,8 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     private static readonly Lazy<string> _stylesheet = new(() =>
     {
-        using var stream = typeof(TwitchIntegrationPlugin).Assembly
-            .GetManifestResourceStream("TwitchIntegrationPlugin.styles.css");
+        using var stream = typeof(TwitchIntegration).Assembly
+            .GetManifestResourceStream("TwitchIntegration.styles.css");
         if (stream == null) return string.Empty;
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();

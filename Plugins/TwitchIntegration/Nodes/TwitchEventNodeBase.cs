@@ -1,7 +1,7 @@
 using MultiShock.PluginSdk.Flow;
-using TwitchIntegrationPlugin.Services;
+using TwitchIntegration.Services;
 
-namespace TwitchIntegrationPlugin.Nodes;
+namespace TwitchIntegration.Nodes;
 
 public abstract class TwitchEventNodeBase : IFlowTriggerNode
 {

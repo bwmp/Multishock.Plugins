@@ -42,7 +42,7 @@ This will:
 .\scripts\build-plugins.ps1
 
 # Build specific plugin
-.\scripts\build-plugins.ps1 -Plugin "TwitchIntegrationPlugin"
+.\scripts\build-plugins.ps1 -Plugin "TwitchIntegration"
 
 # Build in Debug mode
 .\scripts\build-plugins.ps1 -Configuration Debug
@@ -55,7 +55,7 @@ This will:
 .\scripts\release-plugins.ps1
 
 # Release specific plugin
-.\scripts\release-plugins.ps1 -Plugin "TwitchIntegrationPlugin"
+.\scripts\release-plugins.ps1 -Plugin "TwitchIntegration"
 ```
 
 Release archives are created in the `releases/` folder at the repo root.

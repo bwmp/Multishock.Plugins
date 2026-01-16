@@ -10,12 +10,12 @@
     "include-v-in-tag": true,
     "tag-separator": "-",
     "packages": {
-        "TwitchIntegrationPlugin": {
+        "Plugins/TwitchIntegrationPlugin": {
             "release-type": "simple",
             "component": "TwitchIntegrationPlugin",
             "changelog-path": "CHANGELOG.md"
         },
-        "ImageDetectionPlugin": {
+        "Plugins/ImageDetectionPlugin": {
             "release-type": "simple",
             "component": "ImageDetectionPlugin",
             "changelog-path": "CHANGELOG.md"

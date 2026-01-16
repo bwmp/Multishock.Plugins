@@ -1,4 +1,4 @@
 {
-    "TwitchIntegrationPlugin": "1.0.0",
-    "ImageDetectionPlugin": "1.0.0"
+    "Plugins/TwitchIntegrationPlugin": "1.0.0",
+    "Plugins/ImageDetectionPlugin": "1.0.0"
 }

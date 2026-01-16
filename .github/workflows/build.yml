@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - '**Plugin/**'
+      - 'Plugins/**Plugin/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches:
       - main
     paths:
-      - '**Plugin/**'
+      - 'Plugins/**Plugin/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
@@ -36,8 +36,8 @@ jobs:
             # Build specific plugin
             echo "plugins=[\"${{ github.event.inputs.plugin }}\"]" >> $GITHUB_OUTPUT
           else
-            # Find all plugin directories
-            plugins=$(find . -maxdepth 1 -type d -name '*Plugin' ! -name 'PluginTemplate' -exec basename {} \; | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            # Find all plugin directories in Plugins folder
+            plugins=$(find Plugins -maxdepth 1 -type d -name '*Plugin' ! -name 'PluginTemplate' -exec basename {} \; | jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "plugins=$plugins" >> $GITHUB_OUTPUT
           fi
           
@@ -60,18 +60,18 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore "${{ matrix.plugin }}/${{ matrix.plugin }}.csproj"
+        run: dotnet restore "Plugins/${{ matrix.plugin }}/${{ matrix.plugin }}.csproj"
 
       - name: Build
-        run: dotnet build "${{ matrix.plugin }}/${{ matrix.plugin }}.csproj" -c Release --no-restore
+        run: dotnet build "Plugins/${{ matrix.plugin }}/${{ matrix.plugin }}.csproj" -c Release --no-restore
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.plugin }}
           path: |
-            ${{ matrix.plugin }}/bin/Release/net10.0/${{ matrix.plugin }}.dll
-            ${{ matrix.plugin }}/bin/Release/net10.0/${{ matrix.plugin }}.pdb
+            Plugins/${{ matrix.plugin }}/bin/Release/net10.0/${{ matrix.plugin }}.dll
+            Plugins/${{ matrix.plugin }}/bin/Release/net10.0/${{ matrix.plugin }}.pdb
           if-no-files-found: error
 
   build-summary:

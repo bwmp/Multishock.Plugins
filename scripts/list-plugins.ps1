@@ -5,9 +5,10 @@
     Usage: .\list-plugins.ps1
 #>
 
-# Get the repo root (parent of scripts folder)
+# Get the repo root (parent of scripts folder, then Plugins subfolder)
 $ScriptsDir = $PSScriptRoot
-$RepoRoot = Split-Path -Parent $ScriptsDir
+$PluginsRepoRoot = Split-Path -Parent $ScriptsDir
+$RepoRoot = Join-Path $PluginsRepoRoot "Plugins"
 
 Write-Host ""
 Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
@@ -62,11 +63,12 @@ if ($Plugins.Count -gt 0) {
         
         # Read version from manifest or csproj
         $version = "1.0.0"
-        $manifestPath = Join-Path $RepoRoot ".release-please-manifest.json"
+        $manifestPath = Join-Path $PluginsRepoRoot ".release-please-manifest.json"
         if (Test-Path $manifestPath) {
             $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            if ($manifest.$pluginName) {
-                $version = $manifest.$pluginName
+            $pluginPackagePath = "Plugins/$pluginName"
+            if ($manifest.$pluginPackagePath) {
+                $version = $manifest.$pluginPackagePath
             }
         }
         

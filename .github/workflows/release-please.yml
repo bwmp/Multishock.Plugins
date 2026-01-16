@@ -55,6 +55,7 @@ jobs:
         shell: pwsh
         run: |
           $path = "${{ matrix.path }}"
+          # Extract plugin name from path like "Plugins/PluginName"
           $pluginName = Split-Path -Leaf $path
           $csprojPath = "$path/$pluginName.csproj"
           

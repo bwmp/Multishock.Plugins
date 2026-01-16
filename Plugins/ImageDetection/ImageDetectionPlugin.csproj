@@ -4,8 +4,8 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         
-        <AssemblyName>TwitchIntegrationPlugin</AssemblyName>
-        <RootNamespace>TwitchIntegrationPlugin</RootNamespace>
+        <AssemblyName>ImageDetectionPlugin</AssemblyName>
+        <RootNamespace>ImageDetectionPlugin</RootNamespace>
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
@@ -19,34 +19,22 @@
 
     <!-- Dependencies -->
     <ItemGroup>
+        <PackageReference Include="Emgu.CV" Version="4.12.0.5764" />
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.4.0" /> -->
     </ItemGroup>
 
-    <!-- <ItemGroup>
-        <ProjectReference Include="../../PluginSdk/PluginSdk.csproj" />
-    </ItemGroup> -->
-
     <ItemGroup>
-        <Reference Include="PiShock.MultiShock.PluginSdk">
-            <HintPath>..\Dependencies\MultiShock.PluginSdk.dll</HintPath>
+        <Reference Include="MultiShock.PluginSdk">
+            <HintPath>..\..\Dependencies\MultiShock.PluginSdk.dll</HintPath>
             <Private>true</Private>
         </Reference>
-        <None Include="..\Dependencies\MultiShock.PluginSdk.xml">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
     </ItemGroup>
 
     <!-- Version with build stamp -->
     <PropertyGroup>
         <AssemblyInformationalVersion>1.0.0+$(PluginBuildStamp)</AssemblyInformationalVersion>
     </PropertyGroup>
-
-    <!-- Embed CSS as resource -->
-    <ItemGroup>
-        <EmbeddedResource Include="wwwroot\styles.css" LogicalName="TwitchIntegrationPlugin.styles.css" />
-    </ItemGroup>
 
     <!-- Exclude generated file from default compilation -->
     <ItemGroup>
@@ -57,16 +45,16 @@
     <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
         <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
         <ItemGroup>
-            <StampLines Include="namespace TwitchIntegrationPlugin%3B" />
-            <StampLines Include=" " />
-            <StampLines Include="public static class BuildStamp" />
-            <StampLines Include="{" />
-            <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
-            <StampLines Include="}" />
+        <StampLines Include="namespace ImageDetectionPlugin%3B" />
+        <StampLines Include=" " />
+        <StampLines Include="public static class BuildStamp" />
+        <StampLines Include="{" />
+        <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+        <StampLines Include="}" />
         </ItemGroup>
         <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />
         <ItemGroup>
-            <Compile Include="Generated\BuildStamp.g.cs" />
+        <Compile Include="Generated\BuildStamp.g.cs" />
         </ItemGroup>
     </Target>
     <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">

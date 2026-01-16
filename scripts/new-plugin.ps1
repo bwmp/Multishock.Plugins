@@ -37,7 +37,8 @@ function Write-Err { param($text) Write-Host $text -ForegroundColor Red }
 
 # Resolve paths
 $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot = Split-Path -Parent $ScriptsDir
+$PluginsRepoRoot = Split-Path -Parent $ScriptsDir
+$RepoRoot = Join-Path $PluginsRepoRoot "Plugins"
 $TemplatesDir = Join-Path $ScriptsDir "templates"
 
 # Verify templates exist
@@ -77,7 +78,7 @@ if (-not $Description) {
 
 # Derived values
 $SafeName = ($Name -replace '[^a-zA-Z0-9]', '')
-$PluginFolder = "${SafeName}Plugin"
+$PluginFolder = "${SafeName}"
 $RouteName = $SafeName.ToLower()
 $NormalizedId = $Id -replace '\.', '-'
 $Date = Get-Date -Format "yyyy-MM-dd"
@@ -187,8 +188,8 @@ $placeholderPath = Join-Path $PluginPath "Generated\.gitkeep"
 
 Write-Header "Updating release-please configuration..."
 
-$releasePleaseConfigPath = Join-Path $RepoRoot "release-please-config.json"
-$manifestPath = Join-Path $RepoRoot ".release-please-manifest.json"
+$releasePleaseConfigPath = Join-Path $PluginsRepoRoot "release-please-config.json"
+$manifestPath = Join-Path $PluginsRepoRoot ".release-please-manifest.json"
 
 # Update release-please-config.json
 if (Test-Path $releasePleaseConfigPath) {
@@ -206,7 +207,8 @@ if (Test-Path $releasePleaseConfigPath) {
         if (-not $config.packages) {
             $config | Add-Member -NotePropertyName "packages" -NotePropertyValue ([PSCustomObject]@{}) -Force
         }
-        $config.packages | Add-Member -NotePropertyName $PluginFolder -NotePropertyValue $newPackage -Force
+        $pluginPackagePath = "Plugins/$PluginFolder"
+        $config.packages | Add-Member -NotePropertyName $pluginPackagePath -NotePropertyValue $newPackage -Force
         
         $config | ConvertTo-Json -Depth 10 | Set-Content $releasePleaseConfigPath -Encoding UTF8
         Write-Success "  Updated: release-please-config.json"
@@ -223,7 +225,8 @@ else {
 if (Test-Path $manifestPath) {
     try {
         $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-        $manifest | Add-Member -NotePropertyName $PluginFolder -NotePropertyValue "1.0.0" -Force
+        $pluginPackagePath = "Plugins/$PluginFolder"
+        $manifest | Add-Member -NotePropertyName $pluginPackagePath -NotePropertyValue "1.0.0" -Force
         $manifest | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -Encoding UTF8
         Write-Success "  Updated: .release-please-manifest.json"
     }

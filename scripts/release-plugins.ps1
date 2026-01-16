@@ -17,11 +17,12 @@ Write-Host "║            MultiShock Plugin Release Builder               ║" 
 Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
 Write-Host ""
 
-# Get the repo root (parent of scripts folder)
+# Get the repo root (parent of scripts folder, then Plugins subfolder)
 $ScriptsDir = $PSScriptRoot
-$RepoRoot = Split-Path -Parent $ScriptsDir
+$PluginsRepoRoot = Split-Path -Parent $ScriptsDir
+$RepoRoot = Join-Path $PluginsRepoRoot "Plugins"
 
-$ReleaseOutputDir = Join-Path $RepoRoot "releases"
+$ReleaseOutputDir = Join-Path $PluginsRepoRoot "releases"
 
 # Create release output directory
 New-Item -ItemType Directory -Force -Path $ReleaseOutputDir | Out-Null
@@ -63,11 +64,12 @@ foreach ($folder in $PluginFolders) {
     try {
         # Read version from manifest or csproj
         $version = "1.0.0"
-        $manifestPath = Join-Path $RepoRoot ".release-please-manifest.json"
+        $manifestPath = Join-Path $PluginsRepoRoot ".release-please-manifest.json"
         if (Test-Path $manifestPath) {
             $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            if ($manifest.$pluginName) {
-                $version = $manifest.$pluginName
+            $pluginPackagePath = "Plugins/$pluginName"
+            if ($manifest.$pluginPackagePath) {
+                $version = $manifest.$pluginPackagePath
             }
         }
         

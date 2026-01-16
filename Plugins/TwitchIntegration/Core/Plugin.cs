@@ -31,6 +31,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         services.AddSingleton<CheerConfigService>();
         services.AddSingleton<SubscriptionConfigService>();
         services.AddSingleton<FollowConfigService>();
+        services.AddSingleton<RedeemConfigService>();
     }
 
     public void Initialize(IServiceProvider sp)
@@ -51,6 +52,9 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
         // Initialize the follow config service (subscribes to follow events in constructor)
         _ = sp.GetService(typeof(FollowConfigService)) as FollowConfigService;
+
+        // Initialize the redeem config service (subscribes to channel point redemption events in constructor)
+        _ = sp.GetService(typeof(RedeemConfigService)) as RedeemConfigService;
 
         // Attempt auto-connect if a stored token exists and auto-connect is enabled
         var authService = sp.GetService(typeof(TwitchAuthService)) as TwitchAuthService;
@@ -133,6 +137,13 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
             Href = "/follow-config",
             Icon = "heart",
             Order = 53
+        },
+        new NavigationItem
+        {
+            Text = "Channel Points",
+            Href = "/redeem-config",
+            Icon = "gift",
+            Order = 54
         }
     ];
 

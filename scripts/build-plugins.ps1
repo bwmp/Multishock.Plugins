@@ -21,9 +21,10 @@ Write-Host " Configuration: $($Configuration)" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Get the repo root (parent of scripts folder)
+# Get the repo root (parent of scripts folder, then Plugins subfolder)
 $ScriptsDir = $PSScriptRoot
-$RepoRoot = Split-Path -Parent $ScriptsDir
+$PluginsRepoRoot = Split-Path -Parent $ScriptsDir
+$RepoRoot = Join-Path $PluginsRepoRoot "Plugins"
 
 $BuiltPlugins = @()
 $FailedPlugins = @()

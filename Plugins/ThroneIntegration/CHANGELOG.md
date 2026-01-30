@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/bwmp/Multishock.Plugins/compare/ThroneIntegration-v1.1.0...ThroneIntegration-v1.1.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* **ThroneIntegration:** change static properties to instance properties for Category, Icon, and Color ([b19267c](https://github.com/bwmp/Multishock.Plugins/commit/b19267cf58fa117f2259d53bd8c218ba4edfab49))
+
 ## [1.1.0](https://github.com/bwmp/Multishock.Plugins/compare/ThroneIntegration-v1.0.0...ThroneIntegration-v1.1.0) (2026-01-30)
 
 

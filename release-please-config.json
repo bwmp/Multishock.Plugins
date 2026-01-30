@@ -13,12 +13,34 @@
         "Plugins/TwitchIntegration": {
             "release-type": "simple",
             "component": "TwitchIntegration",
-            "changelog-path": "CHANGELOG.md"
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "TwitchIntegration.csproj"
+            ]
         },
         "Plugins/ImageDetection": {
             "release-type": "simple",
             "component": "ImageDetection",
-            "changelog-path": "CHANGELOG.md"
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "ImageDetection.csproj"
+            ]
+        },
+        "Plugins/OBSIntegration": {
+            "release-type": "simple",
+            "component": "OBSIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "OBSIntegration.csproj"
+            ]
+        },
+        "Plugins/ThroneIntegration": {
+            "release-type": "simple",
+            "component": "ThroneIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "ThroneIntegration.csproj"
+            ]
         }
     },
     "changelog-sections": [

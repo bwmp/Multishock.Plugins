@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
 using MultiShock.PluginSdk.Flow;
 using TwitchIntegration.Nodes;
@@ -7,19 +8,25 @@ using TwitchIntegration.Services;
 
 namespace TwitchIntegration;
 
-public class TwitchIntegration : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
+public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
 {
     // ========== PLUGIN METADATA ==========
 
-    public string Id => "com.multishock.twitchintegration";
+    public static readonly string PluginId = "com.multishock.twitchintegration";
+
+    public string Id => PluginId;
 
     public string Name => "Twitch Integration";
 
-    public string Version => $"1.0.0+{BuildStamp.Stamp}";
+    public string Version => BuildStamp.Version;
 
     public string Description => "Twitch EventSub integration for channel events like cheers, subs, follows, raids, and more";
 
     private TwitchEventSubService? _eventSubService;
+    private static ILogger? _logger;
+
+    // Expose logger to services and nodes
+    internal static ILogger? Logger => _logger;
 
     // ========== DEPENDENCY INJECTION ==========
 
@@ -38,6 +45,10 @@ public class TwitchIntegration : IPlugin, IConfigurablePlugin, IPluginRouteProvi
     {
         var host = sp.GetService(typeof(IPluginHost)) as IPluginHost;
         var actions = sp.GetService(typeof(IDeviceActions)) as IDeviceActions;
+        
+        // Initialize logger (must include "Plugin" for proper log routing)
+        _logger = host?.CreateLogger("TwitchIntegration.Plugin");
+        _logger?.LogInformation("Twitch Integration plugin initialized");
 
         _eventSubService = sp.GetService(typeof(TwitchEventSubService)) as TwitchEventSubService;
 
@@ -153,9 +164,11 @@ public class TwitchIntegration : IPlugin, IConfigurablePlugin, IPluginRouteProvi
     {
         // Twitch event trigger nodes
         yield return new CheerTriggerNode();
+        yield return new CheerBracketTriggerNode();
         yield return new SubscribeTriggerNode();
         yield return new SubscriptionGiftTriggerNode();
         yield return new SubscriptionMessageTriggerNode();
+        yield return new SubscriptionBracketTriggerNode();
         yield return new FollowTriggerNode();
         yield return new HypeTrainBeginTriggerNode();
         yield return new HypeTrainProgressTriggerNode();
@@ -166,5 +179,7 @@ public class TwitchIntegration : IPlugin, IConfigurablePlugin, IPluginRouteProvi
         
         // Twitch action nodes
         yield return new SendChatMessageNode();
+        yield return new SetRedeemEnabledNode();
+        yield return new SetConfigRedeemEnabledNode();
     }
 }

@@ -1,0 +1,58 @@
+@using MultiShock.PluginSdk
+@using ThroneIntegration.Services
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(ThroneService.IsConnected ? "bg-green-500" : "bg-gray-400")"></div>
+        <span class="text-sm font-medium">
+            @if (ThroneService.IsConnected)
+            {
+                <span>Connected - monitoring @ThroneService.CurrentUsername</span>
+            }
+            else
+            {
+                <span>Not connected</span>
+            }
+        </span>
+    </div>
+
+    <p class="text-sm text-gray-500">
+        Configure your Throne connection on the
+        <a href="/plugins/com-multishock-throneintegration/throneintegration" class="text-purple-500 hover:underline">
+            Throne Integration page
+        </a>.
+    </p>
+
+    <div class="text-xs text-gray-400 space-y-1">
+        <div><strong>Supported Events:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Gift purchases from your Throne wishlist</li>
+            <li>Crowdfund contributions</li>
+            <li>Tip donations</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private string pluginId = ThroneIntegration.ThroneIntegrationPlugin.PluginId;
+    private ThroneService ThroneService => PluginServiceLocator.GetRequiredService<ThroneService>(pluginId);
+
+    [Parameter]
+    public string? PluginId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        ThroneService.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnConnectionChanged(bool connected)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThroneService.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

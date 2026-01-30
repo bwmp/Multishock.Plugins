@@ -150,41 +150,6 @@
             <typeparam name="T">The service type to retrieve.</typeparam>
             <returns>Collection of services from all plugins that provide it.</returns>
         </member>
-        <member name="T:MultiShock.PluginSdk.Flow.FlowConnection">
-            <summary>
-            Represents a connection (wire) between two ports in a flow.
-            </summary>
-        </member>
-        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.Id">
-            <summary>
-            Unique identifier for this connection.
-            </summary>
-        </member>
-        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.FromNodeId">
-            <summary>
-            Source node instance ID.
-            </summary>
-        </member>
-        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.FromPortId">
-            <summary>
-            Source port ID on the source node.
-            </summary>
-        </member>
-        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.ToNodeId">
-            <summary>
-            Target node instance ID.
-            </summary>
-        </member>
-        <member name="P:MultiShock.PluginSdk.Flow.FlowConnection.ToPortId">
-            <summary>
-            Target port ID on the target node.
-            </summary>
-        </member>
-        <member name="M:MultiShock.PluginSdk.Flow.FlowConnection.Create(System.String,System.String,System.String,System.String)">
-            <summary>
-            Creates a new connection with a generated ID.
-            </summary>
-        </member>
         <member name="T:MultiShock.PluginSdk.Flow.FlowExecutionContext">
             <summary>
             Context passed to nodes during execution.
@@ -553,7 +518,7 @@
             Whether the property is required.
             </summary>
         </member>
-        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.String(System.String,System.String,System.String)">
+        <member name="M:MultiShock.PluginSdk.Flow.FlowProperty.String(System.String,System.String,System.String,System.Boolean)">
             <summary>
             Creates a string property.
             </summary>
@@ -1206,6 +1171,12 @@
             Main interface that all plugins must implement.
             </summary>
         </member>
+        <member name="P:MultiShock.PluginSdk.IPlugin.SourceUrl">
+            <summary>
+            Optional URL to the plugin's source code, documentation, or download page.
+            Used when exporting flows to help users find required plugins.
+            </summary>
+        </member>
         <member name="T:MultiShock.PluginSdk.IPluginHost">
             <summary>
             Interface for host app services that plugins can use.
@@ -1216,6 +1187,14 @@
             <summary>
             Gets the application's service provider.
             </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.CreateLogger(System.String)">
+            <summary>
+            Creates a logger for the plugin.
+            Logs will be written to the plugin log file if separate plugin logs are enabled.
+            </summary>
+            <param name="categoryName">The category name for the logger (typically the plugin name or class name).</param>
+            <returns>A logger instance that writes to the application's logging system.</returns>
         </member>
         <member name="M:MultiShock.PluginSdk.IPluginHost.ShowNotificationAsync(System.String,System.String)">
             <summary>
@@ -1436,6 +1415,280 @@
             Called when the plugin is about to be unloaded.
             Override to clean up resources.
             </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.BaseJSInteropLoader">
+            <summary>
+            Base class to load arbitrary JS Objects in a lightweight fashion.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+            <param name="jsFileName">Filename to load, such as dateTime.js</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.BaseJSInteropLoader.#ctor(Microsoft.JSInterop.IJSRuntime,System.String)">
+            <summary>
+            Base class to load arbitrary JS Objects in a lightweight fashion.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+            <param name="jsFileName">Filename to load, such as dateTime.js</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.BaseJSInteropLoader.DisposeAsync">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.IDateTimeInterop">
+            <summary>
+            A series of handlers for interacting with LocalStorage via the browser without having to manually reference the JS.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDateTimeInterop.GetUserTimeZone">
+            <summary>
+            Retrieves a Time Zone from their web UI
+            </summary>
+            <returns>string containing the Time Zone of the user's local machine.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDateTimeInterop.ConvertToLocal(System.DateTime)">
+            <summary>
+            Converts a Date Time Object into the User's Local Date Time.
+            </summary>
+            <param name="FromDateTime">DateTime to convert.</param>
+            <returns>DateTime Object with the appropriate time zone shift.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.DateTimeInterop">
+            <summary>
+            A series of handlers for interacting with JavasScript Date Times to retrieve Time Zone information and perform appropriate conversions.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DateTimeInterop.#ctor(Microsoft.JSInterop.IJSRuntime)">
+            <summary>
+            A series of handlers for interacting with JavasScript Date Times to retrieve Time Zone information and perform appropriate conversions.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DateTimeInterop.GetUserTimeZone">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DateTimeInterop.ConvertToLocal(System.DateTime)">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.BoundingClientRect">
+            <summary>
+            Represents a bounding rectangle with position and size.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.BoundingClientRect.#ctor(System.Double,System.Double,System.Double,System.Double,System.Double,System.Double)">
+            <summary>
+            Represents a bounding rectangle with position and size.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.MenuBounds">
+            <summary>
+            Represents menu bounds with top position and height.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.MenuBounds.#ctor(System.Double,System.Double)">
+            <summary>
+            Represents menu bounds with top position and height.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.ViewportSize">
+            <summary>
+            Represents viewport dimensions.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.ViewportSize.#ctor(System.Double,System.Double)">
+            <summary>
+            Represents viewport dimensions.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.IDomInterop">
+            <summary>
+            Interface for DOM measurement utilities.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDomInterop.GetBoundingClientRectAsync(Microsoft.AspNetCore.Components.ElementReference)">
+            <summary>
+            Gets the bounding client rectangle of an element.
+            </summary>
+            <param name="element">Element reference to measure.</param>
+            <returns>Bounding rectangle or null if element is invalid.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDomInterop.GetMenuBoundsAsync(Microsoft.AspNetCore.Components.ElementReference)">
+            <summary>
+            Gets the menu bounds (top and height) of an element.
+            </summary>
+            <param name="element">Element reference to measure.</param>
+            <returns>Menu bounds or null if element is invalid.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDomInterop.GetViewportAsync">
+            <summary>
+            Gets the current viewport dimensions.
+            </summary>
+            <returns>Viewport width and height.</returns>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.DomInterop">
+            <summary>
+            Provides DOM measurement utilities via JavaScript interop.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DomInterop.#ctor(Microsoft.JSInterop.IJSRuntime)">
+            <summary>
+            Provides DOM measurement utilities via JavaScript interop.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DomInterop.GetBoundingClientRectAsync(Microsoft.AspNetCore.Components.ElementReference)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DomInterop.GetMenuBoundsAsync(Microsoft.AspNetCore.Components.ElementReference)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DomInterop.GetViewportAsync">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.IDropdownInterop">
+            <summary>
+            Interface for dropdown behavior management (close on outside click, Escape, scroll, resize).
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownInterop.GetRectAsync(Microsoft.AspNetCore.Components.ElementReference)">
+            <summary>
+            Gets the bounding client rectangle of an element.
+            </summary>
+            <param name="element">Element reference to measure.</param>
+            <returns>Bounding rectangle or null if element is invalid.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownInterop.GetViewportAsync">
+            <summary>
+            Gets the current viewport dimensions.
+            </summary>
+            <returns>Viewport width and height.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownInterop.RegisterAsync``1(Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.JSInterop.DotNetObjectReference{``0})">
+            <summary>
+            Registers event listeners for dropdown close behavior.
+            </summary>
+            <param name="triggerElement">The trigger element that opens the dropdown.</param>
+            <param name="menuElement">The dropdown menu element.</param>
+            <param name="dotNetRef">DotNet object reference for callbacks (must have CloseFromJs and RepositionFromJs methods).</param>
+            <returns>A token to use when unregistering.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownInterop.UnregisterAsync(System.Int64)">
+            <summary>
+            Unregisters event listeners for a dropdown.
+            </summary>
+            <param name="token">The token returned from RegisterAsync.</param>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.DropdownInterop">
+            <summary>
+            Manages dropdown close behavior via JavaScript interop.
+            Handles close on outside click, Escape key, scroll, and reposition on resize.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownInterop.#ctor(Microsoft.JSInterop.IJSRuntime)">
+            <summary>
+            Manages dropdown close behavior via JavaScript interop.
+            Handles close on outside click, Escape key, scroll, and reposition on resize.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownInterop.GetRectAsync(Microsoft.AspNetCore.Components.ElementReference)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownInterop.GetViewportAsync">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownInterop.RegisterAsync``1(Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.JSInterop.DotNetObjectReference{``0})">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownInterop.UnregisterAsync(System.Int64)">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.IDropdownPortalInterop">
+            <summary>
+            Interface for dropdown portal management - moves dropdown menus to a fixed container
+            to avoid clipping by overflow:hidden ancestors.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownPortalInterop.ShowAsync(Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,System.Int32)">
+            <summary>
+            Moves a menu element to the portal container and positions it relative to the trigger.
+            </summary>
+            <param name="triggerElement">The trigger element that opens the dropdown.</param>
+            <param name="menuElement">The dropdown menu element to portal.</param>
+            <param name="minWidth">Minimum width for the menu (optional).</param>
+            <returns>A token to use when repositioning or hiding.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownPortalInterop.RepositionAsync(System.Int64)">
+            <summary>
+            Repositions a portaled menu element.
+            </summary>
+            <param name="token">The token returned from ShowAsync.</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IDropdownPortalInterop.HideAsync(System.Int64)">
+            <summary>
+            Hides a portaled menu element and restores it to its original DOM position.
+            </summary>
+            <param name="token">The token returned from ShowAsync.</param>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop">
+            <summary>
+            Manages dropdown portal behavior via JavaScript interop.
+            Moves dropdown menus to a fixed portal container to avoid clipping.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop.#ctor(Microsoft.JSInterop.IJSRuntime)">
+            <summary>
+            Manages dropdown portal behavior via JavaScript interop.
+            Moves dropdown menus to a fixed portal container to avoid clipping.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop.ShowAsync(Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,System.Int32)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop.RepositionAsync(System.Int64)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop.HideAsync(System.Int64)">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.IStyleInterop">
+            <summary>
+            Interface for dynamic CSS style injection and removal.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IStyleInterop.InjectStyleAsync(System.String,System.String)">
+            <summary>
+            Injects a CSS style block into the document head.
+            </summary>
+            <param name="styleId">Unique identifier for the style element.</param>
+            <param name="css">CSS content to inject.</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IStyleInterop.RemoveStyleAsync(System.String)">
+            <summary>
+            Removes a previously injected style block from the document.
+            </summary>
+            <param name="styleId">Identifier of the style element to remove.</param>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.StyleInterop">
+            <summary>
+            Handles dynamic CSS style injection and removal via JavaScript interop.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.StyleInterop.#ctor(Microsoft.JSInterop.IJSRuntime)">
+            <summary>
+            Handles dynamic CSS style injection and removal via JavaScript interop.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.StyleInterop.InjectStyleAsync(System.String,System.String)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.StyleInterop.RemoveStyleAsync(System.String)">
+            <inheritdoc />
         </member>
         <member name="P:MultiShock.PluginSdk.Components.ShockerSelect.MultiSelect">
             <summary>

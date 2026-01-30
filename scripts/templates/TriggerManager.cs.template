@@ -1,0 +1,80 @@
+using MultiShock.PluginSdk.Flow;
+
+namespace {{PLUGIN_FOLDER}}.Services;
+
+/// <summary>
+/// Manages {{DISPLAY_NAME}} event triggers for flow nodes.
+/// </summary>
+public class {{SAFE_NAME}}TriggerManager
+{
+    private readonly Dictionary<string, List<TriggerRegistration>> _registrations = [];
+    private readonly object _lock = new();
+
+    public {{SAFE_NAME}}TriggerManager()
+    {
+        // Subscribe to your service events here
+        // Example: _myService.OnSomethingHappened += HandleSomethingHappened;
+    }
+
+    public void Register(string eventType, IFlowNodeInstance instance, Func<IFlowNodeInstance, Dictionary<string, object?>, Task> callback)
+    {
+        lock (_lock)
+        {
+            if (!_registrations.ContainsKey(eventType))
+            {
+                _registrations[eventType] = [];
+            }
+            _registrations[eventType].Add(new TriggerRegistration(instance, callback));
+        }
+    }
+
+    public void Unregister(string eventType, IFlowNodeInstance instance)
+    {
+        lock (_lock)
+        {
+            if (_registrations.TryGetValue(eventType, out var list))
+            {
+                list.RemoveAll(r => r.Instance.InstanceId == instance.InstanceId);
+            }
+        }
+    }
+
+    private async Task FireEvent(string eventType, Dictionary<string, object?> outputs, Func<IFlowNodeInstance, bool>? filter = null)
+    {
+        List<TriggerRegistration> registrations;
+        lock (_lock)
+        {
+            if (!_registrations.TryGetValue(eventType, out var list))
+            {
+                return;
+            }
+            registrations = list.ToList();
+        }
+
+        foreach (var reg in registrations)
+        {
+            try
+            {
+                if (filter == null || filter(reg.Instance))
+                {
+                    await reg.Callback(reg.Instance, outputs);
+                }
+            }
+            catch
+            {
+                // Ignore errors in individual triggers
+            }
+        }
+    }
+
+    // Example event handler
+    // private void HandleSomethingHappened(SomeEventData e)
+    // {
+    //     _ = FireEvent("{{ROUTE_NAME}}.example", new Dictionary<string, object?>
+    //     {
+    //         ["data"] = e.Data,
+    //     });
+    // }
+
+    private record TriggerRegistration(IFlowNodeInstance Instance, Func<IFlowNodeInstance, Dictionary<string, object?>, Task> Callback);
+}

@@ -1,8 +1,8 @@
 @page "/plugins/com-multishock-twitchintegration/sub-config"
-@inject SubscriptionConfigService SubConfigService
-@inject CheerConfigService CheerConfigService
+@using MultiShock.PluginSdk
 @inject IDeviceActions DeviceActions
 @implements IDisposable
+@using global::TwitchIntegration.Components.Config
 
 <div class="p-4 mx-auto">
     <div class="flex items-center justify-between mb-6">
@@ -87,10 +87,7 @@
                                     }
                                 </div>
 
-                                @{
-                                    var orderedBrackets = sec.Brackets.OrderBy(b => b.Count).ToList();
-                                }
-                                <BracketList TBracket="SubscriptionBracket" CountLabel="Subs" Brackets="orderedBrackets"
+                                <BracketList TBracket="SubscriptionBracket" CountLabel="Subs" Brackets="sec.Brackets"
                                     SelectionModeOptions="SelectionModeOptions"
                                     CountSelector="@(b => b.Count)"
                                     IntensitySelector="@(b => b.Intensity)"
@@ -261,6 +258,12 @@
     </div>
 </div>
 @code {
+    // Use service locator instead of @inject for plugin-specific services
+    // This survives hot-reload where the DI container has stale types
+    private const string PluginId = "com.multishock.twitchintegration";
+    private SubscriptionConfigService SubConfigService => PluginServiceLocator.GetRequiredService<SubscriptionConfigService>(PluginId);
+    private CheerConfigService CheerConfigService => PluginServiceLocator.GetRequiredService<CheerConfigService>(PluginId);
+    
     private HashSet<string> ExpandedSections = new();
     private bool ShowHelpCard = false;
     private string? SelectedCheerSectionIdForImport;

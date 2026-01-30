@@ -1,7 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
 using MultiShock.PluginSdk.Flow;
 using {{PLUGIN_FOLDER}}.Nodes;
+using {{PLUGIN_FOLDER}}.Components.Config;
+using {{PLUGIN_FOLDER}}.Services;
 
 namespace {{PLUGIN_FOLDER}};
 
@@ -12,35 +15,41 @@ public class {{SAFE_NAME}}Plugin : IPlugin, IConfigurablePlugin, IPluginRoutePro
 {
     // ========== PLUGIN METADATA ==========
 
-    /// <summary>Unique plugin identifier</summary>
-    public string Id => "{{PLUGIN_ID}}";
+    public static readonly string PluginId = "{{PLUGIN_ID}}";
 
-    /// <summary>Display name shown in the UI</summary>
+    public string Id => PluginId;
+
     public string Name => "{{DISPLAY_NAME}}";
 
-    /// <summary>Plugin version (uses auto-generated build stamp)</summary>
-    public string Version => $"1.0.0+{BuildStamp.Stamp}";
+    public string Version => BuildStamp.Version;
 
-    /// <summary>Short description of what the plugin does</summary>
     public string Description => "{{DESCRIPTION}}";
+
+    private static ILogger? _logger;
+
+    // Expose logger to services and nodes
+    internal static ILogger? Logger => _logger;
 
     // ========== DEPENDENCY INJECTION ==========
 
-    /// <summary>
-    /// Register your plugin's services here.
-    /// </summary>
     public void ConfigureServices(IServiceCollection services)
     {
-        // Example: services.AddSingleton<MyService>();
+        services.AddSingleton<{{SAFE_NAME}}TriggerManager>();
+        // Add your services here
+        // services.AddSingleton<MyService>();
     }
 
-    /// <summary>
-    /// Called when the plugin is initialized.
-    /// </summary>
     public void Initialize(IServiceProvider sp)
     {
         var host = sp.GetService(typeof(IPluginHost)) as IPluginHost;
         var actions = sp.GetService(typeof(IDeviceActions)) as IDeviceActions;
+        
+        // Initialize logger (must include "Plugin" for proper log routing)
+        _logger = host?.CreateLogger("{{PLUGIN_FOLDER}}.Plugin");
+        _logger?.LogInformation("{{DISPLAY_NAME}} plugin initialized");
+        
+        // Initialize the trigger manager (it subscribes to events in constructor)
+        _ = sp.GetService(typeof({{SAFE_NAME}}TriggerManager)) as {{SAFE_NAME}}TriggerManager;
         
         // Initialization logic here
     }
@@ -61,14 +70,7 @@ public class {{SAFE_NAME}}Plugin : IPlugin, IConfigurablePlugin, IPluginRoutePro
 
     // ========== STYLES (IPluginWithStyles) ==========
 
-    public string GetStylesheet() => @"
-        .{{ROUTE_NAME}}-card {
-            border: 1px solid #374151;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            background: #1f2937;
-        }
-    ";
+    public string GetStylesheet() => "";
 
     public string? GetStylesheetId() => "{{ROUTE_NAME}}-styles";
 
@@ -89,12 +91,6 @@ public class {{SAFE_NAME}}Plugin : IPlugin, IConfigurablePlugin, IPluginRoutePro
 
     public IEnumerable<IFlowNode> GetNodeTypes()
     {
-        yield return new ExampleNode();
+        yield return new ExampleTriggerNode();
     }
 }
-
-/// <summary>
-/// Settings UI component placeholder.
-/// Replace with a real .razor component for a full settings UI.
-/// </summary>
-public class PluginConfigComponent { }

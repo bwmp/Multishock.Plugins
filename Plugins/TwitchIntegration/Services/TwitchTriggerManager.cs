@@ -238,5 +238,56 @@ public class TwitchTriggerManager
         });
     }
 
+    public Task FireCheerBracketEvent(string userName, int bits, string message, bool isAnonymous, string sectionName, string sectionKeyword, int bracketBits, int intensity, double duration)
+    {
+        return FireEvent("twitch.cheer_bracket", new Dictionary<string, object?>
+        {
+            ["userName"] = userName,
+            ["bits"] = bits,
+            ["message"] = message,
+            ["isAnonymous"] = isAnonymous,
+            ["sectionName"] = sectionName,
+            ["bracketBits"] = bracketBits,
+            ["intensity"] = intensity,
+            ["duration"] = duration,
+        }, instance =>
+        {
+            var filterKeyword = instance.GetConfig("sectionKeyword", "");
+            var minBracketBits = instance.GetConfig("minBracketBits", 0);
+
+            var keywordMatch = string.IsNullOrEmpty(filterKeyword) || 
+                               sectionKeyword.Equals(filterKeyword, StringComparison.OrdinalIgnoreCase);
+            var bracketMatch = bracketBits >= minBracketBits;
+
+            return keywordMatch && bracketMatch;
+        });
+    }
+
+    public Task FireSubscriptionBracketEvent(string userName, int giftCount, int tier, int totalGifted, bool isAnonymous, string tierName, int bracketCount, int intensity, double duration)
+    {
+        return FireEvent("twitch.subscription_bracket", new Dictionary<string, object?>
+        {
+            ["userName"] = userName,
+            ["giftCount"] = giftCount,
+            ["tier"] = tier,
+            ["totalGifted"] = totalGifted,
+            ["isAnonymous"] = isAnonymous,
+            ["tierName"] = tierName,
+            ["bracketCount"] = bracketCount,
+            ["intensity"] = intensity,
+            ["duration"] = duration,
+        }, instance =>
+        {
+            var tierFilter = instance.GetConfig("tierFilter", "any");
+            var minBracketCount = instance.GetConfig("minBracketCount", 0);
+
+            var tierMatch = tierFilter == "any" || 
+                            (int.TryParse(tierFilter, out var filterTier) && tier == filterTier);
+            var bracketMatch = bracketCount >= minBracketCount;
+
+            return tierMatch && bracketMatch;
+        });
+    }
+
     private record TriggerRegistration(IFlowNodeInstance Instance, Func<IFlowNodeInstance, Dictionary<string, object?>, Task> Callback);
 }

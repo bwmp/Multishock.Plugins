@@ -1,3 +1,4 @@
+@namespace TwitchIntegration.Components.Config
 @typeparam TBracket
 
 <div class="space-y-2">
@@ -19,22 +20,16 @@
         var isFirst = i == 0;
         var isLast = i == Brackets.Count - 1;
         <div class="twitch-bracket">
-            <div class="flex gap-1 w-12">
+            <div class="flex gap-1 w-16">
                 <Button Variant="outline" Size="icon-sm" Disabled="@isFirst"
                     OnClick="@(() => OnMoveUp.InvokeAsync(bracket))"
-                    Class="w-12 h-12 p-0 flex items-center justify-center">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 15l7-7 7 7" />
-                    </svg>
+                    Class="w-8 h-8 flex items-center justify-center">
+                    <LucideIcon Name="arrow-up" Class="w-4 h-4" />
                 </Button>
                 <Button Variant="outline" Size="icon-sm" Disabled="@isLast"
                     OnClick="@(() => OnMoveDown.InvokeAsync(bracket))"
-                    Class="w-12 h-12 p-0 flex items-center justify-center">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 9l-7 7-7-7" />
-                    </svg>
+                    Class="w-8 h-8 flex items-center justify-center">
+                    <LucideIcon Name="arrow-down" Class="w-4 h-4" />
                 </Button>
             </div>
 
@@ -69,12 +64,9 @@
                     Options="@SelectionModeOptions" />
             </div>
 
-            <Button Variant="danger" Size="sm" OnClick="@(() => OnRemove.InvokeAsync(bracket))"
+            <Button Variant="danger" Size="icon-sm"  OnClick="@(() => OnRemove.InvokeAsync(bracket))"
                 Class="w-8 h-8 p-0 flex items-center justify-center">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <LucideIcon Name="trash2" Class="w-4 h-4" />
             </Button>
         </div>
     }

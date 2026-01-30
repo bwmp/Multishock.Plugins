@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        
+        <AssemblyName>OBSIntegration</AssemblyName>
+        <RootNamespace>OBSIntegration</RootNamespace>
+        
+        <RazorLangVersion>Latest</RazorLangVersion>
+        <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
+        <PluginVersion>1.0.0</PluginVersion> <!-- x-release-please-version -->
+    </PropertyGroup>
+
+    <!-- Release optimizations -->
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+    <!-- Dependencies -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.4.0" /> -->
+    </ItemGroup>
+
+    <!-- Debug: Use project reference for full IntelliSense -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" />
+    </ItemGroup>
+
+    <!-- Release: Use DLL reference for standalone builds -->
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <Reference Include="PiShock.MultiShock.PluginSdk">
+            <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <None Include="..\..\Dependencies\PiShock.MultiShock.PluginSdk.xml">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
+    <!-- Version with conditional build stamp -->
+    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <AssemblyInformationalVersion>$(PluginVersion)+$(PluginBuildStamp)</AssemblyInformationalVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <AssemblyInformationalVersion>$(PluginVersion)</AssemblyInformationalVersion>
+    </PropertyGroup>
+
+    <!-- Exclude generated file from default compilation -->
+    <ItemGroup>
+        <Compile Remove="Generated\BuildStamp.g.cs" />
+    </ItemGroup>
+
+    <!-- Generate build stamp and version for runtime display -->
+    <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
+        <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
+        <PropertyGroup>
+            <VersionOutput Condition="'$(Configuration)'=='Debug'">$(PluginVersion)+$(PluginBuildStamp)</VersionOutput>
+            <VersionOutput Condition="'$(Configuration)'=='Release'">$(PluginVersion)</VersionOutput>
+        </PropertyGroup>
+        <ItemGroup>
+        <StampLines Include="namespace OBSIntegration%3B" />
+        <StampLines Include=" " />
+        <StampLines Include="public static class BuildStamp" />
+        <StampLines Include="{" />
+        <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+        <StampLines Include="    public const string Version = &quot;$(VersionOutput)&quot;%3B" />
+        <StampLines Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />
+        <ItemGroup>
+        <Compile Include="Generated\BuildStamp.g.cs" />
+        </ItemGroup>
+    </Target>
+    <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">
+        <PropertyGroup>
+        <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+        </PropertyGroup>
+        <MakeDir Directories="$(LocalPluginDir)" />
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(LocalPluginDir)" />
+        <Message Importance="High" Text="Copied plugin to $(LocalPluginDir)\$(TargetFileName)" />
+    </Target>
+</Project>

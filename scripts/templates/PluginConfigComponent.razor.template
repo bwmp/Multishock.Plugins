@@ -1,0 +1,26 @@
+@using MultiShock.PluginSdk
+
+<div class="space-y-4">
+    <div class="text-sm text-gray-400">
+        <p>{{DISPLAY_NAME}} plugin is active.</p>
+    </div>
+
+    <div class="text-xs text-gray-400 space-y-1">
+        <div><strong>Features:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Feature 1</li>
+            <li>Feature 2</li>
+            <li>Feature 3</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? PluginId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Initialization logic
+    }
+}

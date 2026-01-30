@@ -23,6 +23,11 @@ public class RedeemConfig
     public int Cost { get; set; }
 
     /// <summary>
+    /// Whether this reward is manageable (created by this application).
+    /// </summary>
+    public bool IsManageable { get; set; } = false;
+
+    /// <summary>
     /// Whether this redemption action is enabled.
     /// </summary>
     public bool Enabled { get; set; } = true;

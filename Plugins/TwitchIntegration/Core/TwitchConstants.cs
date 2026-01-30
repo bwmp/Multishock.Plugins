@@ -2,7 +2,7 @@ namespace TwitchIntegration;
 
 public static class TwitchConstants
 {
-    public const string ClientId = "p8ocxh0kltx07kivciequxrsuqx2ng";
+    public const string ClientId = "2usq7xnhsujju3ezja2nzb5j7vtd84";
 
     public const string EventSubWebSocketUrl = "wss://eventsub.wss.twitch.tv/ws";
     public const string EventSubWebSocketUrlLocal = "ws://127.0.0.1:8080/ws";
@@ -21,6 +21,7 @@ public static class TwitchConstants
         "moderator:read:followers",     // channel.follow
         "channel:read:hype_train",      // channel.hype_train.*
         "channel:read:redemptions",     // channel.channel_points_custom_reward_redemption.add
+        "channel:manage:redemptions",   // enable/disable channel point rewards
         "user:read:chat",               // channel.chat.message
         "user:write:chat",              // send chat messages
     ];

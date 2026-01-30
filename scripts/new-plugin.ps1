@@ -140,6 +140,8 @@ Write-Header "Creating plugin: $PluginFolder"
 $directories = @(
     $PluginPath,
     (Join-Path $PluginPath "Nodes"),
+    (Join-Path $PluginPath "Services"),
+    (Join-Path $PluginPath "Components\Config"),
     (Join-Path $PluginPath "Generated")
 )
 foreach ($dir in $directories) {
@@ -169,13 +171,37 @@ foreach ($mapping in $templateMappings.GetEnumerator()) {
     }
 }
 
-# Process Nodes template
-$nodesTemplatePath = Join-Path $TemplatesDir "ExampleNode.cs.template"
-$nodesOutputPath = Join-Path $PluginPath "Nodes\ExampleNode.cs"
-if (Expand-Template -TemplateFile $nodesTemplatePath -OutputFile $nodesOutputPath) {
-    Write-Success "  Created: Nodes\ExampleNode.cs"
+# Process Nodes templates
+$nodesTemplates = @{
+    "EventNodeBase.cs.template" = "Nodes\$($SafeName)EventNodeBase.cs"
+    "ExampleNode.cs.template" = "Nodes\ExampleTriggerNode.cs"
+}
+foreach ($mapping in $nodesTemplates.GetEnumerator()) {
+    $templatePath = Join-Path $TemplatesDir $mapping.Key
+    $outputPath = Join-Path $PluginPath $mapping.Value
+    if (Expand-Template -TemplateFile $templatePath -OutputFile $outputPath) {
+        Write-Success "  Created: $($mapping.Value)"
+    } else {
+        Write-Err "  Failed: $($mapping.Value)"
+    }
+}
+
+# Process Services templates
+$servicesTemplatePath = Join-Path $TemplatesDir "TriggerManager.cs.template"
+$servicesOutputPath = Join-Path $PluginPath "Services\$($SafeName)TriggerManager.cs"
+if (Expand-Template -TemplateFile $servicesTemplatePath -OutputFile $servicesOutputPath) {
+    Write-Success "  Created: Services\$($SafeName)TriggerManager.cs"
 } else {
-    Write-Err "  Failed: Nodes\ExampleNode.cs"
+    Write-Err "  Failed: Services\$($SafeName)TriggerManager.cs"
+}
+
+# Process Components templates
+$configTemplatePath = Join-Path $TemplatesDir "PluginConfigComponent.razor.template"
+$configOutputPath = Join-Path $PluginPath "Components\Config\PluginConfigComponent.razor"
+if (Expand-Template -TemplateFile $configTemplatePath -OutputFile $configOutputPath) {
+    Write-Success "  Created: Components\Config\PluginConfigComponent.razor"
+} else {
+    Write-Err "  Failed: Components\Config\PluginConfigComponent.razor"
 }
 
 # Create placeholder in Generated folder
@@ -201,6 +227,9 @@ if (Test-Path $releasePleaseConfigPath) {
             "release-type" = "simple"
             "component" = "$PluginFolder"
             "changelog-path" = "CHANGELOG.md"
+            "extra-files" = @(
+                "$PluginFolder.csproj"
+            )
         }
         
         # Add to packages

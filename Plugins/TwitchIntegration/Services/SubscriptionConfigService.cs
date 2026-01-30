@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
 using TwitchIntegration.Models;
 
@@ -11,6 +12,7 @@ public class SubscriptionConfigService
     private readonly IPluginHost _pluginHost;
     private readonly IDeviceActions _deviceActions;
     private readonly TwitchEventSubService _eventSubService;
+    private readonly TwitchTriggerManager _triggerManager;
     private readonly string _configPath;
 
     // Round-robin state: tracks current index per section
@@ -26,11 +28,13 @@ public class SubscriptionConfigService
     public SubscriptionConfigService(
         IPluginHost pluginHost,
         IDeviceActions deviceActions,
-        TwitchEventSubService eventSubService)
+        TwitchEventSubService eventSubService,
+        TwitchTriggerManager triggerManager)
     {
         _pluginHost = pluginHost;
         _deviceActions = deviceActions;
         _eventSubService = eventSubService;
+        _triggerManager = triggerManager;
 
         var dataPath = _pluginHost.GetPluginDataPath("com.multishock.twitchintegration");
         _configPath = Path.Combine(dataPath, ConfigFileName);
@@ -60,7 +64,7 @@ public class SubscriptionConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SubscriptionConfigService] Failed to load config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to load subscription config");
             _config = CreateDefaultConfig();
         }
     }
@@ -75,7 +79,7 @@ public class SubscriptionConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SubscriptionConfigService] Failed to save config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to save subscription config");
         }
     }
 
@@ -179,7 +183,24 @@ public class SubscriptionConfigService
 
         if (section.Mode == SubscriptionMode.Brackets)
         {
-            ExecuteBracketAction(section, count);
+            var bracket = FindMatchingBracket(section, count);
+            if (bracket != null)
+            {
+                ExecuteBracketAction(section, count);
+
+                // Fire bracket activation trigger
+                _ = _triggerManager.FireSubscriptionBracketEvent(
+                    giftEvent.IsAnonymous ? "Anonymous" : giftEvent.UserName,
+                    giftEvent.Total,
+                    giftEvent.TierNumber,
+                    giftEvent.CumulativeTotal ?? giftEvent.Total,
+                    giftEvent.IsAnonymous,
+                    section.Name,
+                    bracket.Count,
+                    bracket.Intensity,
+                    bracket.Duration
+                );
+            }
         }
         else
         {

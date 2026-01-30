@@ -1,6 +1,5 @@
 @page "/plugins/com-multishock-twitchintegration/follow-config"
-@page "/follow-config"
-@inject FollowConfigService FollowConfigService
+@using MultiShock.PluginSdk
 @implements IDisposable
 
 <div class="p-4 mx-auto space-y-4">
@@ -24,21 +23,15 @@
                 <div class="flex items-center gap-2">
                     <Toggle Label="Startup Fetch" Value="FollowConfigService.Config.FetchFollowersOnStartup"
                         ValueChanged="@(v => ToggleFetchOnStartup(v))" />
-                    <Button Text="Refresh Followers" Variant="secondary" Size="sm"
+                    <Button Text="Refresh Followers" Variant="secondary" Size="icon-sm"
                         Disabled="@FollowConfigService.IsFetchingFollowers" OnClick="@(() => RefreshFollowers())">
                         @if (FollowConfigService.IsFetchingFollowers)
                         {
-                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 12a8 8 0 018-8m0 0a8 8 0 018 8m-8-8v4" />
-                            </svg>
+                            <LucideIcon Name="refresh-cw" Class="w-4 h-4 animate-spin" />
                         }
                         else
                         {
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9M20 20v-5h-.581m-15.357-2a8.003 8.003 0 0115.356 2" />
-                            </svg>
+                            <LucideIcon Name="refresh-cw" Class="w-4 h-4" />
                         }
                     </Button>
                 </div>
@@ -118,6 +111,11 @@
 </div>
 
 @code {
+    // Use service locator instead of @inject for plugin-specific services
+    // This survives hot-reload where the DI container has stale types
+    private const string PluginId = "com.multishock.twitchintegration";
+    private FollowConfigService FollowConfigService => PluginServiceLocator.GetRequiredService<FollowConfigService>(PluginId);
+    
     private string? StatusMessage;
     private bool StatusIsSuccess;
 

@@ -1,0 +1,15 @@
+<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+  <Costura>
+    <IncludeAssemblies>
+      ThroneAPI.Client
+      Microsoft.Kiota.Abstractions
+      Microsoft.Kiota.Authentication.Azure
+      Microsoft.Kiota.Http.HttpClientLibrary
+      Microsoft.Kiota.Serialization.Json
+      Microsoft.Kiota.Serialization.Text
+      Microsoft.Kiota.Serialization.Form
+      Microsoft.Kiota.Serialization.Multipart
+      Std.UriTemplate
+    </IncludeAssemblies>
+  </Costura>
+</Weavers>

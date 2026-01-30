@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
 
 namespace TwitchIntegration.Services;
@@ -203,15 +205,20 @@ public class RedeemConfigService : IDisposable
             var added = 0;
             var updated = 0;
 
+            // Check which rewards are manageable by this app
+            var manageableRewardIds = await FetchManageableRewardIdsAsync(userId, token, baseUrl, cancellationToken);
+
             foreach (var reward in allRewards)
             {
+                var isManageable = manageableRewardIds.Contains(reward.Id);
                 var existing = _config.Redeems.FirstOrDefault(r => r.RewardId == reward.Id);
                 if (existing != null)
                 {
-                    if (existing.RewardTitle != reward.Title || existing.Cost != reward.Cost)
+                    if (existing.RewardTitle != reward.Title || existing.Cost != reward.Cost || existing.IsManageable != isManageable)
                     {
                         existing.RewardTitle = reward.Title;
                         existing.Cost = reward.Cost;
+                        existing.IsManageable = isManageable;
                         updated++;
                     }
                 }
@@ -222,6 +229,7 @@ public class RedeemConfigService : IDisposable
                         RewardId = reward.Id,
                         RewardTitle = reward.Title,
                         Cost = reward.Cost,
+                        IsManageable = isManageable,
                         Enabled = false,
                         Intensity = 50,
                         Duration = 1.0,
@@ -253,6 +261,233 @@ public class RedeemConfigService : IDisposable
         finally
         {
             _isFetching = false;
+        }
+    }
+
+    private async Task<HashSet<string>> FetchManageableRewardIdsAsync(string userId, string token, string baseUrl, CancellationToken cancellationToken)
+    {
+        var manageableIds = new HashSet<string>();
+        try
+        {
+            // Query with only_manageable_rewards_by_id parameter to get rewards we can manage
+            var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}&only_manageable_rewards_by_id=true";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("Client-Id", TwitchConstants.ClientId);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+                var page = JsonSerializer.Deserialize<RewardListResponse>(payload);
+                if (page?.Data != null)
+                {
+                    foreach (var reward in page.Data)
+                    {
+                        manageableIds.Add(reward.Id);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            TwitchIntegration.Logger?.LogWarning(ex, "Failed to fetch manageable rewards");
+        }
+
+        return manageableIds;
+    }
+
+    public async Task<RewardOperationResult> CreateRewardAsync(string title, int cost, string? prompt = null, string? backgroundColor = null, CancellationToken cancellationToken = default)
+    {
+        var token = _authService.StoredToken;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return new RewardOperationResult(false, "No OAuth token available", null);
+        }
+
+        var userId = _eventSubService.CurrentUserId;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return new RewardOperationResult(false, "User ID not available", null);
+        }
+
+        try
+        {
+            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}";
+
+            var requestBody = new
+            {
+                title,
+                cost,
+                prompt = prompt ?? "",
+                is_enabled = true,
+                background_color = backgroundColor
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("Client-Id", TwitchConstants.ClientId);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new RewardOperationResult(false, $"Failed to create reward: {response.StatusCode} - {responseContent}", null);
+            }
+
+            var result = JsonSerializer.Deserialize<RewardOperationResponse>(responseContent);
+            if (result?.Data == null || result.Data.Count == 0)
+            {
+                return new RewardOperationResult(false, "No reward data returned", null);
+            }
+
+            var createdReward = result.Data[0];
+
+            // Add to config
+            _config.Redeems.Add(new RedeemConfig
+            {
+                RewardId = createdReward.Id,
+                RewardTitle = createdReward.Title,
+                Cost = createdReward.Cost,
+                IsManageable = true,
+                Enabled = false,
+                Intensity = 50,
+                Duration = 1.0,
+                Mode = SelectionMode.All,
+                CommandType = "Shock"
+            });
+
+            SaveConfig();
+
+            return new RewardOperationResult(true, "Reward created successfully", createdReward.Id);
+        }
+        catch (Exception ex)
+        {
+            TwitchIntegration.Logger?.LogError(ex, "Failed to create reward");
+            return new RewardOperationResult(false, $"Exception: {ex.Message}", null);
+        }
+    }
+
+    public async Task<RewardOperationResult> UpdateRewardAsync(string rewardId, string? title = null, int? cost = null, string? prompt = null, string? backgroundColor = null, bool? isEnabled = null, bool? isPaused = null, CancellationToken cancellationToken = default)
+    {
+        var token = _authService.StoredToken;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return new RewardOperationResult(false, "No OAuth token available", null);
+        }
+
+        var userId = _eventSubService.CurrentUserId;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return new RewardOperationResult(false, "User ID not available", null);
+        }
+
+        var redeemConfig = _config.Redeems.FirstOrDefault(r => r.RewardId == rewardId);
+        if (redeemConfig == null || !redeemConfig.IsManageable)
+        {
+            return new RewardOperationResult(false, "Reward not found or not manageable", null);
+        }
+
+        try
+        {
+            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}&id={rewardId}";
+
+            var requestBody = new Dictionary<string, object?>();
+            if (title != null) requestBody["title"] = title;
+            if (cost.HasValue) requestBody["cost"] = cost.Value;
+            if (prompt != null) requestBody["prompt"] = prompt;
+            if (backgroundColor != null) requestBody["background_color"] = backgroundColor;
+            if (isEnabled.HasValue) requestBody["is_enabled"] = isEnabled.Value;
+            if (isPaused.HasValue) requestBody["is_paused"] = isPaused.Value;
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var request = new HttpRequestMessage(HttpMethod.Patch, url) { Content = content };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("Client-Id", TwitchConstants.ClientId);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new RewardOperationResult(false, $"Failed to update reward: {response.StatusCode} - {responseContent}", null);
+            }
+
+            var result = JsonSerializer.Deserialize<RewardOperationResponse>(responseContent);
+            if (result?.Data != null && result.Data.Count > 0)
+            {
+                var updatedReward = result.Data[0];
+                redeemConfig.RewardTitle = updatedReward.Title;
+                redeemConfig.Cost = updatedReward.Cost;
+                SaveConfig();
+            }
+
+            return new RewardOperationResult(true, "Reward updated successfully", rewardId);
+        }
+        catch (Exception ex)
+        {
+            TwitchIntegration.Logger?.LogError(ex, "Failed to update reward");
+            return new RewardOperationResult(false, $"Exception: {ex.Message}", null);
+        }
+    }
+
+    public async Task<RewardOperationResult> DeleteRewardAsync(string rewardId, CancellationToken cancellationToken = default)
+    {
+        var token = _authService.StoredToken;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return new RewardOperationResult(false, "No OAuth token available", null);
+        }
+
+        var userId = _eventSubService.CurrentUserId;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return new RewardOperationResult(false, "User ID not available", null);
+        }
+
+        var redeemConfig = _config.Redeems.FirstOrDefault(r => r.RewardId == rewardId);
+        if (redeemConfig == null || !redeemConfig.IsManageable)
+        {
+            return new RewardOperationResult(false, "Reward not found or not manageable", null);
+        }
+
+        try
+        {
+            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}&id={rewardId}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("Client-Id", TwitchConstants.ClientId);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new RewardOperationResult(false, $"Failed to delete reward: {response.StatusCode} - {responseContent}", null);
+            }
+
+            // Remove from config
+            _config.Redeems.RemoveAll(r => r.RewardId == rewardId);
+            SaveConfig();
+
+            return new RewardOperationResult(true, "Reward deleted successfully", null);
+        }
+        catch (Exception ex)
+        {
+            TwitchIntegration.Logger?.LogError(ex, "Failed to delete reward");
+            return new RewardOperationResult(false, $"Exception: {ex.Message}", null);
         }
     }
 
@@ -366,7 +601,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[RedeemConfigService] Failed to load config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to load redeem config");
             _config = CreateDefaultConfig();
         }
     }
@@ -381,7 +616,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[RedeemConfigService] Failed to save config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to save redeem config");
         }
     }
 
@@ -413,6 +648,18 @@ public class RedeemConfigService : IDisposable
 
         [JsonPropertyName("cost")]
         public int Cost { get; set; }
+
+        [JsonPropertyName("is_enabled")]
+        public bool IsEnabled { get; set; } = true;
+
+        [JsonPropertyName("is_paused")]
+        public bool IsPaused { get; set; } = false;
+
+        [JsonPropertyName("prompt")]
+        public string? Prompt { get; set; }
+
+        [JsonPropertyName("background_color")]
+        public string? BackgroundColor { get; set; }
     }
 
     private sealed class Pagination
@@ -420,6 +667,14 @@ public class RedeemConfigService : IDisposable
         [JsonPropertyName("cursor")]
         public string? Cursor { get; set; }
     }
+
+    private sealed class RewardOperationResponse
+    {
+        [JsonPropertyName("data")]
+        public List<TwitchReward> Data { get; set; } = new();
+    }
 }
 
 public record RedeemFetchResult(bool Success, string Message, int AddedCount, int UpdatedCount);
+
+public record RewardOperationResult(bool Success, string Message, string? RewardId);

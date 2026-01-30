@@ -26,11 +26,11 @@ public sealed class SendChatMessageNode : IFlowProcessNode
 
     public IReadOnlyDictionary<string, FlowProperty> Properties => new Dictionary<string, FlowProperty>
     {
-        ["message"] = FlowProperty.String("Message", "", "Message to send (can be overridden by input port)"),
+        ["message"] = FlowProperty.String("Message", "", "Message to send (can be overridden by input port)", multiline: true),
     };
 
 
-  public async Task<FlowNodeResult> ExecuteAsync(
+    public async Task<FlowNodeResult> ExecuteAsync(
         IFlowNodeInstance instance,
         FlowExecutionContext context,
         CancellationToken cancellationToken)
@@ -53,19 +53,19 @@ public sealed class SendChatMessageNode : IFlowProcessNode
                 });
             }
 
-      // Get Twitch service from context
+            // Get Twitch service from context
 
-      if (context.Services.GetService(typeof(TwitchEventSubService)) is not TwitchEventSubService twitchService || !twitchService.IsConnected)
-      {
-        return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
-        {
-          ["success"] = false,
-          ["error"] = "Twitch not connected",
-        });
-      }
+            if (context.Services.GetService(typeof(TwitchEventSubService)) is not TwitchEventSubService twitchService || !twitchService.IsConnected)
+            {
+                return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
+                {
+                    ["success"] = false,
+                    ["error"] = "Twitch not connected",
+                });
+            }
 
-      // Send the chat message via Twitch API
-      var success = await twitchService.SendChatMessageAsync(message, cancellationToken);
+            // Send the chat message via Twitch API
+            var success = await twitchService.SendChatMessageAsync(message, cancellationToken);
 
             return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
             {

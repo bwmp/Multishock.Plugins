@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
 using TwitchIntegration.Models;
 
@@ -11,6 +12,7 @@ public class CheerConfigService
     private readonly IPluginHost _pluginHost;
     private readonly IDeviceActions _deviceActions;
     private readonly TwitchEventSubService _eventSubService;
+    private readonly TwitchTriggerManager _triggerManager;
     private readonly string _configPath;
 
     // Round-robin state: tracks current index per section
@@ -26,11 +28,13 @@ public class CheerConfigService
     public CheerConfigService(
         IPluginHost pluginHost,
         IDeviceActions deviceActions,
-        TwitchEventSubService eventSubService)
+        TwitchEventSubService eventSubService,
+        TwitchTriggerManager triggerManager)
     {
         _pluginHost = pluginHost;
         _deviceActions = deviceActions;
         _eventSubService = eventSubService;
+        _triggerManager = triggerManager;
 
         var dataPath = _pluginHost.GetPluginDataPath("com.multishock.twitchintegration");
         _configPath = Path.Combine(dataPath, ConfigFileName);
@@ -57,7 +61,7 @@ public class CheerConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[CheerConfigService] Failed to load config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to load cheer config");
             _config = CreateDefaultConfig();
         }
     }
@@ -72,7 +76,7 @@ public class CheerConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[CheerConfigService] Failed to save config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to save cheer config");
         }
     }
 
@@ -112,6 +116,19 @@ public class CheerConfigService
         if (bracket == null) return;
 
         ExecuteAction(matchedSection, bracket);
+
+        // Fire bracket activation trigger
+        _ = _triggerManager.FireCheerBracketEvent(
+            cheerEvent.UserName,
+            cheerEvent.Bits,
+            cheerEvent.Message,
+            cheerEvent.IsAnonymous,
+            matchedSection.Name,
+            matchedSection.Keyword,
+            bracket.BitAmount,
+            bracket.Intensity,
+            bracket.Duration
+        );
     }
 
     private CheerSection? FindMatchingSection(string message, int bits)

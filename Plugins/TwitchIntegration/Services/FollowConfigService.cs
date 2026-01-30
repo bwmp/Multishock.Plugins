@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
 
 namespace TwitchIntegration.Services;
@@ -338,7 +339,7 @@ public class FollowConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FollowConfigService] Failed to load config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to load follow config");
             _config = CreateDefaultConfig();
         }
 
@@ -360,7 +361,7 @@ public class FollowConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FollowConfigService] Failed to save config: {ex.Message}");
+            TwitchIntegration.Logger?.LogError(ex, "Failed to save follow config");
         }
     }
 

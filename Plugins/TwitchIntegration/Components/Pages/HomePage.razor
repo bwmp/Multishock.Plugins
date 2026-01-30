@@ -1,8 +1,6 @@
 @page "/plugins/com-multishock-twitchintegration/twitchintegration"
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
-@inject TwitchEventSubService TwitchService
-@inject TwitchAuthService AuthService
 @inject IDeviceActions Actions
 @implements IDisposable
 
@@ -90,29 +88,25 @@
                         @if (!string.IsNullOrWhiteSpace(SavedToken))
                         {
                             <Button Disabled="@(TwitchService.IsConnecting)" OnClick="ConnectWithSavedToken"
-                                Class="bg-[#9146FF] hover:bg-[#772ce8]">
-                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-                                </svg>
+                                Variant="none"
+                                Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
+                                <LucideIcon Name="twitch" Class="w-5 h-5" />
                                 @if (TwitchService.IsConnecting)
                                 {
                                     <span>Connecting...</span>
                                 }
                                 else
                                 {
-                                    <span>Connect to Twitch</span>
+                                    <span>Connect</span>
                                 }
                             </Button>
                         }
                         else
                         {
                             <Button Disabled="@(IsAuthenticating || TwitchService.IsConnecting)" OnClick="LoginWithTwitch"
-                                Class="bg-[#9146FF] hover:bg-[#772ce8]">
-                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-                                </svg>
+                                Variant="none"
+                                Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
+                                <LucideIcon Name="twitch" Class="w-5 h-5" />
                                 @if (IsAuthenticating)
                                 {
                                     <span>Waiting for login...</span>
@@ -147,7 +141,7 @@
                         </summary>
                         <div class="mt-4 space-y-3">
                             <div class="flex gap-2">
-                                <TextInput Placeholder="Enter your Twitch OAuth token" Value="@OAuthToken"
+                                <TextInput InputType="password" Placeholder="Enter your Twitch OAuth token" Value="@OAuthToken"
                                     ValueChanged="@((value) => OAuthToken = value ?? "")" Class="flex-1" />
                                 <Button Text="Connect" Variant="primary"
                                     Disabled="@(string.IsNullOrWhiteSpace(OAuthToken) || TwitchService.IsConnecting)"
@@ -272,6 +266,12 @@
 </div>
 
 @code {
+    // Use service locator instead of @inject for plugin-specific services
+    // This survives hot-reload where the DI container has stale types
+    private const string PluginId = "com.multishock.twitchintegration";
+    private TwitchEventSubService TwitchService => PluginServiceLocator.GetRequiredService<TwitchEventSubService>(PluginId);
+    private TwitchAuthService AuthService => PluginServiceLocator.GetRequiredService<TwitchAuthService>(PluginId);
+    
     private string OAuthToken = "";
     private string? SavedToken;
     private string? ErrorMessage;
@@ -378,6 +378,15 @@
         if (!success)
         {
             AddLog("Connection failed", isError: true);
+            
+            // Check if it's a scope issue
+            if (ErrorMessage?.Contains("scope", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                AddLog("Detected missing scopes, clearing token and re-authenticating...");
+                await LogoutAsync();
+                await Task.Delay(500); // Brief delay to ensure UI updates
+                await LoginWithTwitch();
+            }
         }
         else if (!string.IsNullOrWhiteSpace(token))
         {
@@ -403,6 +412,15 @@
         if (!success)
         {
             AddLog("Connection failed", isError: true);
+            
+            // Check if it's a scope issue
+            if (ErrorMessage?.Contains("scope", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                AddLog("Detected missing scopes, clearing token and re-authenticating...");
+                await LogoutAsync();
+                await Task.Delay(500); // Brief delay to ensure UI updates
+                await LoginWithTwitch();
+            }
         }
     }
 

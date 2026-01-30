@@ -1,0 +1,404 @@
+@page "/plugins/com-multishock-obsintegration/obsintegration"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using OBSIntegration.Services
+@inject ObsWebSocketService ObsService
+@inject ObsConfigService ConfigService
+@implements IDisposable
+
+<div class="p-4">
+    <div class="flex items-center gap-2 mb-4 p-2 rounded-md bg-app-surface border border-app-border">
+        @if (!ObsService.IsConnected)
+        {
+            <Button Variant="outline" Size="sm" Disabled="@ObsService.IsConnecting"
+                OnClick="Connect" Class="w-8 h-8 p-0 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+                </svg>
+            </Button>
+        }
+        else
+        {
+            <Button Variant="danger" Size="sm" OnClick="Disconnect" Class="w-8 h-8 p-0 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+            </Button>
+        }
+
+        <div class="w-px h-5 bg-app-border"></div>
+
+        @if (ObsService.IsConnected)
+        {
+            <div class="text-green-500 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                Connected to @ObsService.ConnectedHost
+                @if (!string.IsNullOrEmpty(ObsService.ObsVersion))
+                {
+                    <span class="text-xs text-app-muted">(OBS @ObsService.ObsVersion)</span>
+                }
+            </div>
+        }
+        else if (ObsService.IsConnecting)
+        {
+            <span class="text-yellow-500 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+                Connecting...
+            </span>
+        }
+        else
+        {
+            <div class="text-red-500 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                Disconnected
+            </div>
+        }
+
+        <div class="flex-1"></div>
+
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5" style="color: #302E70;" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <span class="text-sm font-semibold text-app-text">OBS Integration</span>
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        <Card Title="Connection Settings">
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm mb-1 text-app-muted">Host</label>
+                        <TextInput Placeholder="localhost" Value="@Host" ValueChanged="@((value) => Host = value ?? "localhost")" />
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-1 text-app-muted">Port</label>
+                        <TextInput Placeholder="4455" Value="@PortString" ValueChanged="@((value) => PortString = value ?? "4455")" />
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm mb-1 text-app-muted">Password (optional)</label>
+                    <TextInput Placeholder="Leave empty if no password set in OBS"
+                        Value="@Password" ValueChanged="@((value) => Password = value ?? "")" />
+                </div>
+                <div class="flex items-center gap-4">
+                    <Toggle Label="Auto-connect on startup" Value="AutoConnect" ValueChanged="@ToggleAutoConnect" />
+                </div>
+                <div class="flex gap-2">
+                    @if (!ObsService.IsConnected)
+                    {
+                        <Button Text="@(ObsService.IsConnecting ? "Connecting..." : "Connect")"
+                            Variant="primary" Disabled="@ObsService.IsConnecting" OnClick="Connect" />
+                        <Button Text="Save Settings" Variant="secondary" OnClick="SaveSettings" />
+                    }
+                    else
+                    {
+                        <Button Text="Disconnect" Variant="secondary" OnClick="Disconnect" />
+                    }
+                </div>
+            </div>
+        </Card>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <Card Class="border-red-500">
+                <div class="flex items-center gap-2 text-red-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>@ErrorMessage</span>
+                </div>
+            </Card>
+        }
+
+        @if (ObsService.IsConnected || EventLog.Count > 0)
+        {
+            <Card>
+                <Header>
+                    <span>Event Log</span>
+                    <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
+                </Header>
+                <ChildContent>
+                    <div class="space-y-1 max-h-64 overflow-y-auto">
+                        @if (EventLog.Count == 0)
+                        {
+                            <p class="text-sm text-app-muted">No events yet. Waiting for OBS events...</p>
+                        }
+                        else
+                        {
+                            @foreach (var log in EventLog.TakeLast(50).Reverse())
+                            {
+                                <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
+                                    style="background: rgba(255, 255, 255, 0.02);">
+                                    <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
+                                    <span class="@(log.IsError ? "text-red-500" : "text-app-text")">@log.Message</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </ChildContent>
+            </Card>
+        }
+
+        @if (ObsService.IsConnected)
+        {
+            <Card>
+                <Header>
+                    <span>Scenes</span>
+                    <Button Text="Refresh" Variant="secondary" Size="sm" OnClick="RefreshScenes" />
+                </Header>
+                <ChildContent>
+                    @if (Scenes.Count == 0)
+                    {
+                        <p class="text-sm text-app-muted">Loading scenes...</p>
+                    }
+                    else
+                    {
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var scene in Scenes)
+                            {
+                                <Button Text="@scene"
+                                    Variant="@(scene == CurrentScene ? "primary" : "secondary")"
+                                    Size="sm"
+                                    OnClick="@(() => SwitchToScene(scene))" />
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </Card>
+        }
+
+        <Card Title="Available Flow Nodes">
+            <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                    <h4 class="text-sm font-semibold mb-2 text-app-primary">Action Nodes</h4>
+                    <div class="space-y-1 text-sm">
+                        @foreach (var node in ActionNodes)
+                        {
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full" style="background: #302E70;"></span>
+                                <span class="font-semibold text-app-text">@node.Name</span>
+                                <span class="text-app-muted">- @node.Description</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-semibold mb-2 text-app-primary">Trigger Nodes</h4>
+                    <div class="space-y-1 text-sm">
+                        @foreach (var node in TriggerNodes)
+                        {
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full" style="background: #302E70;"></span>
+                                <span class="font-semibold text-app-text">@node.Name</span>
+                                <span class="text-app-muted">- @node.Description</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </Card>
+
+        <Card Title="OBS WebSocket Setup">
+            <div class="text-sm space-y-2 text-app-muted">
+                <p>To use OBS Integration, you need to enable the WebSocket server in OBS:</p>
+                <ol class="list-decimal list-inside space-y-1 pl-2">
+                    <li>Open OBS Studio</li>
+                    <li>Go to <strong class="text-app-text">Tools</strong> &rarr; <strong class="text-app-text">WebSocket Server Settings</strong></li>
+                    <li>Check <strong class="text-app-text">"Enable WebSocket server"</strong></li>
+                    <li>Set a password if desired (recommended for security)</li>
+                    <li>Note the port number (default: 4455)</li>
+                    <li>Click <strong class="text-app-text">Apply</strong> or <strong class="text-app-text">OK</strong></li>
+                </ol>
+                <p class="mt-2">OBS WebSocket is included by default in OBS Studio 28.0 and later.</p>
+            </div>
+        </Card>
+    </div>
+</div>
+
+@code {
+    private string Host = "localhost";
+    private string PortString = "4455";
+    private string Password = "";
+    private bool AutoConnect;
+    private string? ErrorMessage;
+    private List<LogEntry> EventLog = new();
+    private List<string> Scenes = new();
+    private string? CurrentScene;
+
+    private record LogEntry(DateTime Time, string Message, bool IsError = false);
+
+    private static readonly (string Name, string Description)[] ActionNodes =
+    [
+        ("Set Scene", "Switch to a specific scene"),
+        ("Source Visibility", "Show, hide, or toggle a source"),
+        ("Filter Enabled", "Enable, disable, or toggle a filter"),
+        ("Stream", "Start, stop, or toggle streaming"),
+        ("Record", "Start, stop, or toggle recording"),
+        ("Input Mute", "Mute, unmute, or toggle an audio input"),
+        ("Trigger Hotkey", "Trigger an OBS hotkey by name"),
+    ];
+
+    private static readonly (string Name, string Description)[] TriggerNodes =
+    [
+        ("Scene Changed", "Triggers when the scene changes"),
+        ("Source Visibility Changed", "Triggers when a source is shown/hidden"),
+        ("Stream State Changed", "Triggers when stream starts/stops"),
+        ("Record State Changed", "Triggers when recording starts/stops"),
+        ("Input Mute Changed", "Triggers when an input is muted/unmuted"),
+        ("Filter Enabled Changed", "Triggers when a filter is enabled/disabled"),
+    ];
+
+    protected override void OnInitialized()
+    {
+        ObsService.ConnectionStateChanged += OnConnectionStateChanged;
+        ObsService.ErrorOccurred += OnError;
+        ObsService.StatusMessage += OnStatusMessage;
+        ObsService.OnCurrentProgramSceneChanged += OnSceneChanged;
+
+        // Load saved settings
+        Host = ConfigService.Host;
+        PortString = ConfigService.Port.ToString();
+        Password = ConfigService.Password ?? "";
+        AutoConnect = ConfigService.AutoConnect;
+
+        if (ObsService.IsConnected)
+        {
+            _ = RefreshScenes();
+        }
+    }
+
+    private async Task Connect()
+    {
+        ErrorMessage = null;
+        SaveSettings();
+        AddLog($"Connecting to {Host}:{PortString}...");
+
+        if (!int.TryParse(PortString, out var port))
+        {
+            port = 4455;
+        }
+
+        var success = await ObsService.ConnectAsync(Host, port, string.IsNullOrEmpty(Password) ? null : Password);
+        if (success)
+        {
+            await RefreshScenes();
+        }
+    }
+
+    private async Task Disconnect()
+    {
+        await ObsService.DisconnectAsync();
+        Scenes.Clear();
+        CurrentScene = null;
+        AddLog("Disconnected");
+    }
+
+    private void SaveSettings()
+    {
+        ConfigService.Host = Host;
+        if (int.TryParse(PortString, out var port))
+        {
+            ConfigService.Port = port;
+        }
+        ConfigService.Password = string.IsNullOrEmpty(Password) ? null : Password;
+        AddLog("Settings saved");
+    }
+
+    private void ToggleAutoConnect(bool enabled)
+    {
+        AutoConnect = enabled;
+        ConfigService.AutoConnect = enabled;
+        AddLog(enabled ? "Auto-connect enabled" : "Auto-connect disabled");
+    }
+
+    private async Task RefreshScenes()
+    {
+        var scenes = await ObsService.GetSceneListAsync();
+        Scenes = scenes.Select(s => s.SceneName).ToList();
+        CurrentScene = await ObsService.GetCurrentProgramSceneAsync();
+        StateHasChanged();
+    }
+
+    private async Task SwitchToScene(string sceneName)
+    {
+        var success = await ObsService.SetCurrentProgramSceneAsync(sceneName);
+        if (success)
+        {
+            CurrentScene = sceneName;
+            AddLog($"Switched to scene: {sceneName}");
+        }
+        else
+        {
+            AddLog($"Failed to switch to scene: {sceneName}", isError: true);
+        }
+        StateHasChanged();
+    }
+
+    private void OnSceneChanged(Models.SceneChangedEventData data)
+    {
+        InvokeAsync(() =>
+        {
+            CurrentScene = data.SceneName;
+            AddLog($"Scene changed: {data.SceneName}");
+            StateHasChanged();
+        });
+    }
+
+    private void OnConnectionStateChanged(bool connected)
+    {
+        InvokeAsync(() =>
+        {
+            AddLog(connected ? "Connected to OBS!" : "Disconnected from OBS");
+            if (connected)
+            {
+                _ = RefreshScenes();
+            }
+            StateHasChanged();
+        });
+    }
+
+    private void OnError(string error)
+    {
+        InvokeAsync(() =>
+        {
+            ErrorMessage = error;
+            AddLog($"Error: {error}", isError: true);
+            StateHasChanged();
+        });
+    }
+
+    private void OnStatusMessage(string message)
+    {
+        InvokeAsync(() =>
+        {
+            AddLog(message);
+            StateHasChanged();
+        });
+    }
+
+    private void AddLog(string message, bool isError = false)
+    {
+        EventLog.Add(new LogEntry(DateTime.Now, message, isError));
+        if (EventLog.Count > 100)
+        {
+            EventLog.RemoveAt(0);
+        }
+    }
+
+    private void ClearLog()
+    {
+        EventLog.Clear();
+    }
+
+    public void Dispose()
+    {
+        ObsService.ConnectionStateChanged -= OnConnectionStateChanged;
+        ObsService.ErrorOccurred -= OnError;
+        ObsService.StatusMessage -= OnStatusMessage;
+        ObsService.OnCurrentProgramSceneChanged -= OnSceneChanged;
+    }
+}

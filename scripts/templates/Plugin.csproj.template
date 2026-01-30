@@ -9,6 +9,7 @@
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
+        <PluginVersion>1.0.0</PluginVersion> <!-- x-release-please-version -->
     </PropertyGroup>
 
     <!-- Release optimizations -->
@@ -21,16 +22,16 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.4.0" /> -->
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.6.0" />
     </ItemGroup>
 
     <!-- Debug: Use project reference for full IntelliSense -->
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- <ItemGroup Condition="'$(Configuration)' == 'Debug'">
         <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" />
-    </ItemGroup>
+    </ItemGroup> -->
 
     <!-- Release: Use DLL reference for standalone builds -->
-    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- <ItemGroup Condition="'$(Configuration)' == 'Release'">
         <Reference Include="PiShock.MultiShock.PluginSdk">
             <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
             <Private>true</Private>
@@ -38,11 +39,14 @@
         <None Include="..\..\Dependencies\PiShock.MultiShock.PluginSdk.xml">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
-    </ItemGroup>
+    </ItemGroup> -->
 
-    <!-- Version with build stamp -->
-    <PropertyGroup>
-        <AssemblyInformationalVersion>1.0.0+$(PluginBuildStamp)</AssemblyInformationalVersion>
+    <!-- Version with conditional build stamp -->
+    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <AssemblyInformationalVersion>$(PluginVersion)+$(PluginBuildStamp)</AssemblyInformationalVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <AssemblyInformationalVersion>$(PluginVersion)</AssemblyInformationalVersion>
     </PropertyGroup>
 
     <!-- Exclude generated file from default compilation -->
@@ -50,20 +54,25 @@
         <Compile Remove="Generated\BuildStamp.g.cs" />
     </ItemGroup>
 
-    <!-- Generate build stamp for runtime version display -->
+    <!-- Generate build stamp and version for runtime display -->
     <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
         <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
+        <PropertyGroup>
+            <VersionOutput Condition="'$(Configuration)'=='Debug'">$(PluginVersion)+$(PluginBuildStamp)</VersionOutput>
+            <VersionOutput Condition="'$(Configuration)'=='Release'">$(PluginVersion)</VersionOutput>
+        </PropertyGroup>
         <ItemGroup>
-        <StampLines Include="namespace {{PLUGIN_FOLDER}}%3B" />
-        <StampLines Include=" " />
-        <StampLines Include="public static class BuildStamp" />
-        <StampLines Include="{" />
-        <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
-        <StampLines Include="}" />
+            <StampLines Include="namespace {{PLUGIN_FOLDER}}%3B" />
+            <StampLines Include=" " />
+            <StampLines Include="public static class BuildStamp" />
+            <StampLines Include="{" />
+            <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+            <StampLines Include="    public const string Version = &quot;$(VersionOutput)&quot;%3B" />
+            <StampLines Include="}" />
         </ItemGroup>
         <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />
         <ItemGroup>
-        <Compile Include="Generated\BuildStamp.g.cs" />
+            <Compile Include="Generated\BuildStamp.g.cs" />
         </ItemGroup>
     </Target>
     <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">

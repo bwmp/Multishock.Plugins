@@ -1,0 +1,206 @@
+@page "/plugins/com-multishock-throneintegration/throneintegration"
+@implements IDisposable
+
+<div class="space-y-4 p-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold">Throne Integration</h1>
+    </div>
+
+    <Card Title="Connection Settings">
+        <div class="space-y-4">
+            <div>
+                <TextInput Label="Throne Username" 
+                    Placeholder="Enter your Throne username"
+                    Value="@CreatorId" ValueChanged="@OnCreatorIdChanged" />
+            </div>
+
+            <div class="flex gap-2">
+                @if (IsConnected)
+                {
+                    <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
+                }
+                else
+                {
+                    <Button Text="Connect" Variant="primary" OnClick="Connect"
+                        Disabled="@string.IsNullOrWhiteSpace(CreatorId)" />
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(StatusMessage))
+            {
+                <div class="text-sm @(IsConnected ? "text-green-500" : "text-gray-500")">
+                    @StatusMessage
+                </div>
+            }
+        </div>
+    </Card>
+
+    @if (IsConnected)
+    {
+        <Card Title="Recent Throne Gifts">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-sm text-gray-400">Showing latest gifts (up to 50 stored)</div>
+                @if (RecentEvents.Count > 0)
+                {
+                    <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearRecent" />
+                }
+            </div>
+            <div class="space-y-2">
+                @if (RecentEvents.Count == 0)
+                {
+                    <div class="text-gray-500 text-sm">No gifts received yet. Waiting for events...</div>
+                }
+                else
+                {
+                    @foreach (var evt in RecentEvents.Take(10))
+                    {
+                        <div class="throneintegration-card flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="font-medium">@evt.OverlayInformation?.GifterUsername</div>
+                                <div class="text-sm text-gray-500">
+                                    @evt.OverlayInformation?.Type
+                                    @if (!string.IsNullOrEmpty(evt.OverlayInformation?.ItemName))
+                                    {
+                                        <span> • @evt.OverlayInformation.ItemName</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(evt.OverlayInformation?.Message))
+                                {
+                                    <div class="text-sm italic text-gray-400 mt-1">
+                                        "@evt.OverlayInformation.Message"
+                                    </div>
+                                }
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                @FormatTimestamp(evt.CreatedAt)
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </Card>
+    }
+</div>
+
+@code {
+    private string pluginId = ThroneIntegration.ThroneIntegrationPlugin.PluginId;
+    private ThroneService ThroneService => PluginServiceLocator.GetRequiredService<ThroneService>(pluginId);
+    private ThroneSettingsService SettingsService =>
+        PluginServiceLocator.GetRequiredService<ThroneSettingsService>(pluginId);
+
+    private string CreatorId = string.Empty;
+    private bool IsConnected => ThroneService.IsConnected;
+    private string? StatusMessage;
+    private List<ThroneEvent> RecentEvents = new();
+
+    protected override void OnInitialized()
+    {
+        LoadSettings();
+        RecentEvents = SettingsService.GetRecentEvents().ToList();
+
+        // Subscribe to service events
+        ThroneService.OnGiftReceived += OnGiftReceived;
+        ThroneService.ConnectionStateChanged += OnConnectionStateChanged;
+        ThroneService.StatusMessage += OnStatusMessage;
+        ThroneService.ErrorOccurred += OnError;
+    }
+
+    private void LoadSettings()
+    {
+        CreatorId = SettingsService.CreatorId;
+
+        if (IsConnected)
+        {
+            StatusMessage = $"Connected and listening for gifts";
+        }
+    }
+
+    private void OnCreatorIdChanged(string? value)
+    {
+        CreatorId = value ?? string.Empty;
+    }
+
+    private async Task Connect()
+    {
+        if (string.IsNullOrWhiteSpace(CreatorId))
+        {
+            StatusMessage = "Please enter a Creator ID";
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            SettingsService.CreatorId = CreatorId;
+            SettingsService.Enabled = true;
+
+            await ThroneService.StartAsync(CreatorId);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error connecting: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private void Disconnect()
+    {
+        ThroneService.Stop();
+        SettingsService.Enabled = false;
+    }
+
+    private void ClearRecent()
+    {
+        SettingsService.ClearRecentEvents();
+        RecentEvents.Clear();
+        StateHasChanged();
+    }
+
+    private void OnConnectionStateChanged(bool connected)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnStatusMessage(string message)
+    {
+        StatusMessage = message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnError(string error)
+    {
+        StatusMessage = $"Error: {error}";
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGiftReceived(ThroneEvent evt)
+    {
+        SettingsService.AddRecentEvent(evt);
+        RecentEvents = SettingsService.GetRecentEvents().ToList();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string FormatTimestamp(long timestamp)
+    {
+        var dateTime = DateTimeOffset.FromUnixTimeMilliseconds(timestamp).ToLocalTime();
+        var now = DateTimeOffset.Now;
+        var diff = now - dateTime;
+
+        if (diff.TotalMinutes < 1)
+            return "Just now";
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours}h ago";
+
+        return dateTime.ToString("MMM d, h:mm tt");
+    }
+
+    public void Dispose()
+    {
+        ThroneService.OnGiftReceived -= OnGiftReceived;
+        ThroneService.ConnectionStateChanged -= OnConnectionStateChanged;
+        ThroneService.StatusMessage -= OnStatusMessage;
+        ThroneService.ErrorOccurred -= OnError;
+    }
+}

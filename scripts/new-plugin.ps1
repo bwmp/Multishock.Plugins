@@ -126,7 +126,8 @@ function Expand-Template {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
     }
     
-    Set-Content -Path $OutputFile -Value $content -Encoding UTF8 -NoNewline
+    # Write without BOM
+    [System.IO.File]::WriteAllText($OutputFile, $content, [System.Text.UTF8Encoding]::new($false))
     return $true
 }
 
@@ -239,7 +240,8 @@ if (Test-Path $releasePleaseConfigPath) {
         $pluginPackagePath = "Plugins/$PluginFolder"
         $config.packages | Add-Member -NotePropertyName $pluginPackagePath -NotePropertyValue $newPackage -Force
         
-        $config | ConvertTo-Json -Depth 10 | Set-Content $releasePleaseConfigPath -Encoding UTF8
+        $jsonContent = $config | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($releasePleaseConfigPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
         Write-Success "  Updated: release-please-config.json"
     }
     catch {
@@ -256,7 +258,8 @@ if (Test-Path $manifestPath) {
         $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
         $pluginPackagePath = "Plugins/$PluginFolder"
         $manifest | Add-Member -NotePropertyName $pluginPackagePath -NotePropertyValue "1.0.0" -Force
-        $manifest | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -Encoding UTF8
+        $jsonContent = $manifest | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($manifestPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
         Write-Success "  Updated: .release-please-manifest.json"
     }
     catch {

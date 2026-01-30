@@ -11,10 +11,10 @@ public abstract class ThroneEventNodeBase : IFlowTriggerNode
 
     public abstract string TypeId { get; }
     public abstract string DisplayName { get; }
-    public static string Category => FlowNodeCategory.Trigger;
+    public string Category => FlowNodeCategory.Trigger;
     public abstract string? Description { get; }
-    public static string Icon => "gift";
-    public static string? Color => "#8b5cf6";
+    public string Icon => "gift";
+    public string? Color => "#8b5cf6";
 
     public IReadOnlyList<FlowPort> InputPorts => [];
 

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
-      paths_released: ${{ steps.release.outputs.paths_released }}
+      paths_released: ${{ steps.transform.outputs.matrix }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -22,11 +22,32 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      - name: Output release info
+      - name: Debug release outputs
         if: ${{ steps.release.outputs.releases_created }}
         run: |
-          echo "Releases created: ${{ steps.release.outputs.releases_created }}"
-          echo "Paths released: ${{ steps.release.outputs.paths_released }}"
+          echo "releases_created: ${{ steps.release.outputs.releases_created }}"
+          echo "paths_released: ${{ steps.release.outputs.paths_released }}"
+          echo "All outputs:"
+          echo '${{ toJSON(steps.release.outputs) }}'
+
+      - name: Transform paths for matrix
+        id: transform
+        if: ${{ steps.release.outputs.releases_created }}
+        run: |
+          echo "Raw paths: ${{ steps.release.outputs.paths_released }}"
+          # Transform ["path1", "path2"] to [{"path": "path1"}, {"path": "path2"}]
+          PATHS='${{ steps.release.outputs.paths_released }}'
+          
+          # Check if PATHS is empty or null
+          if [ -z "$PATHS" ] || [ "$PATHS" = "null" ]; then
+            echo "No paths to process"
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          MATRIX=$(echo "$PATHS" | jq -c 'map({"path": .})')
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Transformed matrix: $MATRIX"
 
   build-releases:
     needs: release-please
@@ -34,7 +55,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        include: ${{ fromJson(needs.release-please.outputs.paths_released) }}
+        plugin: ${{ fromJson(needs.release-please.outputs.paths_released) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,15 +75,26 @@ jobs:
         id: plugin-info
         shell: pwsh
         run: |
-          $path = "${{ matrix.path }}"
+          $path = "${{ matrix.plugin.path }}"
+          Write-Host "Processing path: $path"
+          
           # Extract plugin name from path like "Plugins/PluginName"
           $pluginName = Split-Path -Leaf $path
+          Write-Host "Plugin name: $pluginName"
+          
           $csprojPath = "$path/$pluginName.csproj"
+          Write-Host "Csproj path: $csprojPath"
+          
+          if (-not (Test-Path $csprojPath)) {
+            Write-Error "Csproj file not found at: $csprojPath"
+            exit 1
+          }
           
           # Read version from csproj
           $content = Get-Content $csprojPath -Raw
           $versionMatch = [regex]::Match($content, '<AssemblyInformationalVersion>([^<+]+)')
           $version = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "1.0.0" }
+          Write-Host "Version: $version"
           
           echo "plugin_name=$pluginName" >> $env:GITHUB_OUTPUT
           echo "version=$version" >> $env:GITHUB_OUTPUT
@@ -71,7 +103,13 @@ jobs:
       - name: Build plugin
         shell: pwsh
         run: |
-          dotnet build "${{ steps.plugin-info.outputs.csproj_path }}" -c Release
+          $csprojPath = "${{ steps.plugin-info.outputs.csproj_path }}"
+          Write-Host "Building: $csprojPath"
+          dotnet build "$csprojPath" -c Release
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Build failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
 
       - name: Create release archive
         id: archive
@@ -79,14 +117,31 @@ jobs:
         run: |
           $pluginName = "${{ steps.plugin-info.outputs.plugin_name }}"
           $version = "${{ steps.plugin-info.outputs.version }}"
-          $buildOutput = "${{ matrix.path }}/bin/Release/net10.0"
-          $tempDir = "${{ matrix.path }}/bin/Publish"
+          $buildOutput = "${{ matrix.plugin.path }}/bin/Release/net10.0"
+          $tempDir = "${{ matrix.plugin.path }}/bin/Publish"
+          
+          Write-Host "Creating archive for $pluginName v$version"
+          Write-Host "Build output: $buildOutput"
+          
+          if (-not (Test-Path $buildOutput)) {
+            Write-Error "Build output directory not found: $buildOutput"
+            exit 1
+          }
           
           New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
           
-          Get-ChildItem -Path $buildOutput -Filter "$pluginName.*" | Where-Object {
+          $files = Get-ChildItem -Path $buildOutput -Filter "$pluginName.*" | Where-Object {
               $_.Extension -in @(".dll", ".pdb")
-          } | ForEach-Object {
+          }
+          
+          if ($files.Count -eq 0) {
+            Write-Error "No DLL or PDB files found for $pluginName in $buildOutput"
+            exit 1
+          }
+          
+          Write-Host "Copying $($files.Count) files:"
+          $files | ForEach-Object {
+              Write-Host "  - $($_.Name)"
               Copy-Item $_.FullName -Destination $tempDir
           }
           
@@ -95,6 +150,8 @@ jobs:
           
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/releases" | Out-Null
           Compress-Archive -Path "$tempDir/*" -DestinationPath $zipPath -CompressionLevel Optimal
+          
+          Write-Host "Created archive: $zipPath"
           
           echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
           echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
@@ -106,3 +163,11 @@ jobs:
           files: ${{ steps.archive.outputs.zip_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify upload
+        shell: pwsh
+        run: |
+          $pluginName = "${{ steps.plugin-info.outputs.plugin_name }}"
+          $version = "${{ steps.plugin-info.outputs.version }}"
+          $tagName = "$pluginName-v$version"
+          Write-Host "Successfully uploaded ${{ steps.archive.outputs.zip_name }} to release $tagName"

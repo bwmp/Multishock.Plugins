@@ -293,7 +293,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogWarning(ex, "Failed to fetch manageable rewards");
+            TwitchIntegrationPlugin.Logger?.LogWarning(ex, "Failed to fetch manageable rewards");
         }
 
         return manageableIds;
@@ -370,7 +370,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to create reward");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to create reward");
             return new RewardOperationResult(false, $"Exception: {ex.Message}", null);
         }
     }
@@ -436,7 +436,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to update reward");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to update reward");
             return new RewardOperationResult(false, $"Exception: {ex.Message}", null);
         }
     }
@@ -486,7 +486,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to delete reward");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to delete reward");
             return new RewardOperationResult(false, $"Exception: {ex.Message}", null);
         }
     }
@@ -601,7 +601,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to load redeem config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to load redeem config");
             _config = CreateDefaultConfig();
         }
     }
@@ -616,7 +616,7 @@ public class RedeemConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to save redeem config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to save redeem config");
         }
     }
 

@@ -106,7 +106,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     private static readonly Lazy<string> _stylesheet = new(() =>
     {
-        using var stream = typeof(TwitchIntegration).Assembly
+        using var stream = typeof(TwitchIntegrationPlugin).Assembly
             .GetManifestResourceStream("TwitchIntegration.styles.css");
         if (stream == null) return string.Empty;
         using var reader = new StreamReader(stream);

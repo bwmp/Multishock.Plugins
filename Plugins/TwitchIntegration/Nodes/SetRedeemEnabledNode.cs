@@ -84,7 +84,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             // Get Twitch service from context
             if (context.Services.GetService(typeof(TwitchEventSubService)) is not TwitchEventSubService twitchService || !twitchService.IsConnected)
             {
-                TwitchIntegration.Logger?.LogWarning("SetRedeemEnabled: Twitch not connected");
+                TwitchIntegrationPlugin.Logger?.LogWarning("SetRedeemEnabled: Twitch not connected");
                 return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
                     ["success"] = false,
@@ -96,7 +96,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             var userId = twitchService.CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
-                TwitchIntegration.Logger?.LogWarning("SetRedeemEnabled: User ID not available");
+                TwitchIntegrationPlugin.Logger?.LogWarning("SetRedeemEnabled: User ID not available");
                 return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
                     ["success"] = false,
@@ -119,7 +119,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             var token = authService.StoredToken;
             if (string.IsNullOrEmpty(token))
             {
-                TwitchIntegration.Logger?.LogWarning("SetRedeemEnabled: No OAuth token available");
+                TwitchIntegrationPlugin.Logger?.LogWarning("SetRedeemEnabled: No OAuth token available");
                 return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
                     ["success"] = false,
@@ -142,7 +142,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
                 var currentState = await GetRewardStateAsync(httpClient, baseUrl, userId, rewardId, token, cancellationToken);
                 if (currentState == null)
                 {
-                    TwitchIntegration.Logger?.LogError("SetRedeemEnabled: Failed to get current reward state for reward ID: {RewardId}", rewardId);
+                    TwitchIntegrationPlugin.Logger?.LogError("SetRedeemEnabled: Failed to get current reward state for reward ID: {RewardId}", rewardId);
                     return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                     {
                         ["success"] = false,
@@ -177,7 +177,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                TwitchIntegration.Logger?.LogError("SetRedeemEnabled: Failed to update reward {RewardId}: {StatusCode} - {Error}", rewardId, response.StatusCode, errorContent);
+                TwitchIntegrationPlugin.Logger?.LogError("SetRedeemEnabled: Failed to update reward {RewardId}: {StatusCode} - {Error}", rewardId, response.StatusCode, errorContent);
                 return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
                     ["success"] = false,
@@ -187,7 +187,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             }
 
             var isEnabled = !isPaused;
-            TwitchIntegration.Logger?.LogInformation("SetRedeemEnabled: Successfully updated reward {RewardId} to {State}", rewardId, isEnabled ? "enabled" : "disabled");
+            TwitchIntegrationPlugin.Logger?.LogInformation("SetRedeemEnabled: Successfully updated reward {RewardId} to {State}", rewardId, isEnabled ? "enabled" : "disabled");
             return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
             {
                 ["success"] = true,
@@ -197,7 +197,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "SetRedeemEnabled: Exception during execution");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "SetRedeemEnabled: Exception during execution");
             return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
             {
                 ["success"] = false,
@@ -257,7 +257,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             using var response = await httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                TwitchIntegration.Logger?.LogError("SetRedeemEnabled: Failed to refresh reward cache: {StatusCode}", response.StatusCode);
+                TwitchIntegrationPlugin.Logger?.LogError("SetRedeemEnabled: Failed to refresh reward cache: {StatusCode}", response.StatusCode);
                 return;
             }
 
@@ -297,7 +297,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "SetRedeemEnabled: Exception during reward cache refresh");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "SetRedeemEnabled: Exception during reward cache refresh");
         }
         finally
         {
@@ -324,7 +324,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             using var response = await httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                TwitchIntegration.Logger?.LogError("SetRedeemEnabled: Failed to get reward state for {RewardId}: {StatusCode}", rewardId, response.StatusCode);
+                TwitchIntegrationPlugin.Logger?.LogError("SetRedeemEnabled: Failed to get reward state for {RewardId}: {StatusCode}", rewardId, response.StatusCode);
                 return null;
             }
 

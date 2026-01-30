@@ -81,7 +81,7 @@ public sealed class SetConfigRedeemEnabledNode : IFlowProcessNode
             // Get RedeemConfigService from context
             if (context.Services.GetService(typeof(RedeemConfigService)) is not RedeemConfigService redeemService)
             {
-                TwitchIntegration.Logger?.LogWarning("SetConfigRedeemEnabled: Redeem config service not available");
+                TwitchIntegrationPlugin.Logger?.LogWarning("SetConfigRedeemEnabled: Redeem config service not available");
                 return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
                     ["success"] = false,
@@ -94,7 +94,7 @@ public sealed class SetConfigRedeemEnabledNode : IFlowProcessNode
             var redeem = redeemService.Config.Redeems.FirstOrDefault(r => r.RewardId == rewardId);
             if (redeem == null)
             {
-                TwitchIntegration.Logger?.LogWarning("SetConfigRedeemEnabled: Reward {RewardId} not found in config", rewardId);
+                TwitchIntegrationPlugin.Logger?.LogWarning("SetConfigRedeemEnabled: Reward {RewardId} not found in config", rewardId);
                 return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
                     ["success"] = false,
@@ -117,7 +117,7 @@ public sealed class SetConfigRedeemEnabledNode : IFlowProcessNode
             // Update the reward in config
             redeemService.SetRedeemEnabled(rewardId, isEnabled);
             
-            TwitchIntegration.Logger?.LogInformation("SetConfigRedeemEnabled: Successfully updated reward {RewardId} to {State}", rewardId, isEnabled ? "enabled" : "disabled");
+            TwitchIntegrationPlugin.Logger?.LogInformation("SetConfigRedeemEnabled: Successfully updated reward {RewardId} to {State}", rewardId, isEnabled ? "enabled" : "disabled");
             return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
             {
                 ["success"] = true,
@@ -127,7 +127,7 @@ public sealed class SetConfigRedeemEnabledNode : IFlowProcessNode
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "SetConfigRedeemEnabled: Exception during execution");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "SetConfigRedeemEnabled: Exception during execution");
             return FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
             {
                 ["success"] = false,
@@ -178,12 +178,12 @@ public sealed class SetConfigRedeemEnabledNode : IFlowProcessNode
             {
                 _cachedRewardOptions = newOptions;
                 _cacheExpiry = DateTime.UtcNow.AddMinutes(5);
-                TwitchIntegration.Logger?.LogDebug("SetConfigRedeemEnabled: Successfully cached {Count} rewards", newOptions.Count);
+                TwitchIntegrationPlugin.Logger?.LogDebug("SetConfigRedeemEnabled: Successfully cached {Count} rewards", newOptions.Count);
             }
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "SetConfigRedeemEnabled: Exception during reward cache refresh");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "SetConfigRedeemEnabled: Exception during reward cache refresh");
         }
         finally
         {

@@ -61,7 +61,7 @@ public class CheerConfigService
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to load cheer config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to load cheer config");
             _config = CreateDefaultConfig();
         }
     }
@@ -76,7 +76,7 @@ public class CheerConfigService
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to save cheer config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to save cheer config");
         }
     }
 

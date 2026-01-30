@@ -339,7 +339,7 @@ public class FollowConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to load follow config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to load follow config");
             _config = CreateDefaultConfig();
         }
 
@@ -361,7 +361,7 @@ public class FollowConfigService : IDisposable
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to save follow config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to save follow config");
         }
     }
 

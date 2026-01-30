@@ -64,7 +64,7 @@ public class SubscriptionConfigService
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to load subscription config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to load subscription config");
             _config = CreateDefaultConfig();
         }
     }
@@ -79,7 +79,7 @@ public class SubscriptionConfigService
         }
         catch (Exception ex)
         {
-            TwitchIntegration.Logger?.LogError(ex, "Failed to save subscription config");
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to save subscription config");
         }
     }
 

@@ -37,7 +37,7 @@
 </div>
 
 @code {
-    private string pluginId = TwitchIntegration.TwitchIntegration.PluginId;
+    private string pluginId = TwitchIntegration.TwitchIntegrationPlugin.PluginId;
     private TwitchEventSubService TwitchService => PluginServiceLocator.GetRequiredService<TwitchEventSubService>(pluginId);
     
     [Parameter]

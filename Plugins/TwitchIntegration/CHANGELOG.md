@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.1.0...TwitchIntegration-v1.1.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* **TwitchIntegration:** update logger references to use TwitchIntegrationPlugin instead of TwitchIntegration ([00316c1](https://github.com/bwmp/Multishock.Plugins/commit/00316c1745ea4ad4e951e1a0d3f7a290915c0571))
+
 ## [1.1.0](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.0.0...TwitchIntegration-v1.1.0) (2026-01-30)
 
 

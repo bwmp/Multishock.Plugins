@@ -1,0 +1,233 @@
+@using ImageDetection.Services
+@using ImageDetection.Models
+@inject ScreenCaptureService ScreenCapture
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (IsVisible && _screenshot != null)
+{
+    <div class="visual-selector-modal">
+        <div class="modal-backdrop" @onclick="Close"></div>
+        
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h4>Visual Section Selector</h4>
+                    <span class="resolution-info">@_actualResolution</span>
+                </div>
+                <div class="header-info">
+                    <span class="status-badge">@GetEnabledCount() of 9 sections enabled</span>
+                    <button class="btn-close" @onclick="Close">&times;</button>
+                </div>
+            </div>
+            
+            <div class="modal-body">
+                <div class="screenshot-info">
+                    <span class="info-badge">Monitor @MonitorIndex</span>
+                    <span class="info-badge">@(_isScaled ? "Scaled for display" : "Actual size")</span>
+                </div>
+                
+                <div class="screenshot-container" @ref="_containerRef">
+                    <img src="@GetImageDataUrl()" alt="Screen preview" />
+
+                    <div class="grid-overlay">
+                        @for (int row = 0; row < 3; row++)
+                        {
+                            @for (int col = 0; col < 3; col++)
+                            {
+                                var index = row * 3 + col;
+                                <div class="grid-cell @GetCellClass(index)" 
+                                     style="grid-row: @(row + 1); grid-column: @(col + 1);"
+                                     @onclick="() => ToggleSection(index)">
+                                    <span class="cell-number">@(index + 1)</span>
+                                    <div class="cell-indicator"></div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+                
+                <div class="controls-bar">
+                    <button class="btn-control" @onclick="SelectAll">Enable All</button>
+                    <button class="btn-control" @onclick="SelectNone">Disable All</button>
+                    <button class="btn-control btn-invert" @onclick="Invert">Invert</button>
+                    <button class="btn-control btn-refresh" @onclick="RefreshScreenshot">
+                        <span>Refresh Screenshot</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <p class="help-text">
+                    Click on the image sections to toggle them on/off. 
+                    The grid matches the detection resolution exactly.
+                    Green = enabled, Red = disabled.
+                </p>
+                <button class="btn-done" @onclick="Close">Done</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference _containerRef;
+    private Emgu.CV.Mat? _screenshot;
+    private bool[] _sectionStates = new bool[9];
+    private bool _isCapturing = false;
+    private string _actualResolution = "";
+    private bool _isScaled = false;
+    private const int MaxDisplayWidth = 1200;
+    private const int MaxDisplayHeight = 800;
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public int MonitorIndex { get; set; } = 1;
+
+    [Parameter]
+    public EventCallback<bool[]> OnSelectionChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public bool[]? SectionStates { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (SectionStates?.Length == 9)
+        {
+            _sectionStates = SectionStates.ToArray();
+        }
+        else
+        {
+            _sectionStates = Enumerable.Repeat(true, 9).ToArray();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && IsVisible)
+        {
+            await CaptureScreenshot();
+        }
+        else if (IsVisible && _screenshot == null && !_isCapturing)
+        {
+            await CaptureScreenshot();
+        }
+    }
+
+    private async Task CaptureScreenshot()
+    {
+        if (_isCapturing) return;
+        
+        _isCapturing = true;
+        try
+        {
+            await Task.Run(() =>
+            {
+                _screenshot = ScreenCapture.CaptureMonitor(MonitorIndex);
+
+                _actualResolution = $"{_screenshot.Width}x{_screenshot.Height}";
+
+                _isScaled = _screenshot.Width > MaxDisplayWidth || _screenshot.Height > MaxDisplayHeight;
+            });
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to capture screenshot: {ex.Message}");
+            _actualResolution = "Capture failed";
+        }
+        finally
+        {
+            _isCapturing = false;
+        }
+    }
+
+    private async Task RefreshScreenshot()
+    {
+        _screenshot?.Dispose();
+        _screenshot = null;
+        await CaptureScreenshot();
+    }
+
+    private string GetImageDataUrl()
+    {
+        if (_screenshot == null) return "";
+        
+        try
+        {
+            using var resized = new Emgu.CV.Mat();
+            
+            double scale = Math.Min(
+                (double)MaxDisplayWidth / _screenshot.Width,
+                (double)MaxDisplayHeight / _screenshot.Height
+            );
+            
+            if (scale < 1.0)
+            {
+                var newWidth = (int)(_screenshot.Width * scale);
+                var newHeight = (int)(_screenshot.Height * scale);
+                Emgu.CV.CvInvoke.Resize(_screenshot, resized, new System.Drawing.Size(newWidth, newHeight), 
+                    interpolation: Emgu.CV.CvEnum.Inter.Linear);
+            }
+            else
+            {
+                _screenshot.CopyTo(resized);
+            }
+
+            var bytes = resized.ToImage<Emgu.CV.Structure.Bgra, byte>().ToJpegData(85);
+            var base64 = Convert.ToBase64String(bytes);
+            return $"data:image/jpeg;base64,{base64}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to convert screenshot: {ex.Message}");
+            return "";
+        }
+    }
+
+    private string GetCellClass(int index) => _sectionStates[index] ? "enabled" : "disabled";
+
+    private void ToggleSection(int index)
+    {
+        _sectionStates[index] = !_sectionStates[index];
+        StateHasChanged();
+        OnSelectionChanged.InvokeAsync(_sectionStates);
+    }
+
+    private void SelectAll()
+    {
+        for (int i = 0; i < 9; i++) _sectionStates[i] = true;
+        StateHasChanged();
+        OnSelectionChanged.InvokeAsync(_sectionStates);
+    }
+
+    private void SelectNone()
+    {
+        for (int i = 0; i < 9; i++) _sectionStates[i] = false;
+        StateHasChanged();
+        OnSelectionChanged.InvokeAsync(_sectionStates);
+    }
+
+    private void Invert()
+    {
+        for (int i = 0; i < 9; i++) _sectionStates[i] = !_sectionStates[i];
+        StateHasChanged();
+        OnSelectionChanged.InvokeAsync(_sectionStates);
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private int GetEnabledCount() => _sectionStates.Count(s => s);
+
+    public void Dispose()
+    {
+        _screenshot?.Dispose();
+    }
+}

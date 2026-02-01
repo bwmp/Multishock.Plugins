@@ -1,88 +1,971 @@
-﻿@page "/plugins/com-multishock-imagedetection/imagedetection"
+@page "/plugins/com-multishock-imagedetection/imagedetection"
+@using ImageDetection.Components
+@using ImageDetection.Models
+@using ImageDetection.Services
 @using MultiShock.PluginSdk
-@inject IDeviceActions Actions
+@using MultiShock.PluginSdk.Components
+@inject ImageDetectionService DetectionService
+@inject ImageConfigService ConfigService
+@inject ScreenCaptureService CaptureService
+@implements IDisposable
 
-<div class="space-y-4 p-4">
-    @* Page Header *@
-    <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold">Image Detection</h1>
-        <button class="btn btn-secondary" type="button" @onclick="Refresh">
-            Refresh
-        </button>
-    </div>
-
-    @* Status Message *@
-    @if (!string.IsNullOrEmpty(StatusMessage))
-    {
-        <div class="text-sm text-gray-500 dark:text-gray-400">
-            @StatusMessage
+@if (SelectedModule == null)
+{
+    @* ========== MODULE SELECTION VIEW ========== *@
+    <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-bold">Image Detection</h1>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-green-500/20" : "bg-red-500/20")">
+                    <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-green-500 animate-pulse" : "bg-red-500")"></span>
+                    <span class="text-sm font-medium @(IsRunning ? "text-green-400" : "text-red-400")">
+                        @(IsRunning ? "Running" : "Stopped")
+                    </span>
+                </div>
+                <Button Text="@(IsRunning ? "Stop Detection" : "Start Detection")" 
+                        Variant="@(IsRunning ? "danger" : "primary")" 
+                        OnClick="ToggleDetection" />
+            </div>
         </div>
-    }
 
-    @* Shockers List *@
-    @if (Shockers.Count == 0)
-    {
-        <div class="text-gray-500">No shockers loaded. Connect a device first.</div>
-    }
-    else
-    {
-        <div class="grid gap-3">
-            @foreach (var shocker in Shockers)
-            {
-                <div class="imagedetection-card flex items-center justify-between">
-                    <div>
-                        <div class="font-medium">@shocker.Name</div>
-                        <div class="text-sm text-gray-500">
-                            Device @shocker.DeviceId • Shocker @shocker.ShockerId
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between">
+                <span>@ErrorMessage</span>
+                <button @onclick="@(() => ErrorMessage = null)" class="text-red-400 hover:text-red-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        }
+
+        <div class="flex items-center gap-4 mb-6 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-zinc-400">Monitor:</label>
+                <select class="px-3 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                        value="@SelectedMonitor"
+                        @onchange="OnMonitorChanged">
+                    @foreach (var monitor in Monitors)
+                    {
+                        <option value="@monitor.Index">
+                            @(monitor.IsPrimary ? "Primary" : $"Monitor {monitor.Index}") (@monitor.Resolution.Width x @monitor.Resolution.Height)
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-zinc-400">Delay:</label>
+                <input type="number" min="10" max="5000" step="10"
+                       class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                       value="@CaptureDelayMs"
+                       @onchange="OnCaptureDelayChanged" />
+                <span class="text-xs text-zinc-500">ms</span>
+            </div>
+            <div class="ml-auto text-sm text-zinc-400">
+                <span class="text-zinc-500">Detections:</span> @DetectionService.Stats.SuccessfulDetections / @DetectionService.Stats.TotalDetections
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-zinc-300">Modules</h2>
+            <Button Text="+ New Module" Variant="primary" Size="sm" OnClick="CreateModule" />
+        </div>
+
+        @if (Modules.Count == 0)
+        {
+            <div class="text-center py-12 text-zinc-500">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <p class="text-lg mb-2">No modules yet</p>
+                <p class="text-sm">Create a module to organize your detection images</p>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach (var module in Modules.Values)
+                {
+                    <div class="group bg-zinc-800 rounded-lg p-4 border border-zinc-700 hover:border-blue-500/50 transition-all cursor-pointer"
+                         @onclick="@(() => SelectModule(module.Id))">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div @onclick:stopPropagation="true">
+                                <Toggle Value="@module.Enabled" 
+                                        ValueChanged="@(v => ToggleModule(module.Id, v))" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium truncate">@module.Name</div>
+                                <div class="text-xs text-zinc-500">@module.Images.Count image(s)</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="flex-1 px-3 py-1.5 text-sm rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                                    @onclick="@(() => SelectModule(module.Id))"
+                                    @onclick:stopPropagation="true">
+                                Configure
+                            </button>
+                            <button class="px-3 py-1.5 text-sm rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                                    @onclick="@(() => ConfirmDeleteModule(module.Id))"
+                                    @onclick:stopPropagation="true">
+                                Delete
+                            </button>
                         </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button class="btn btn-primary" type="button"
-                                @onclick="@(() => SendVibrate(shocker))">
-                            Vibrate
-                        </button>
-                    </div>
-                </div>
-            }
+                }
+            </div>
+        }
+
+        <div class="mt-8">
+            <RecentDetections />
         </div>
-    }
-</div>
+    </div>
+}
+else
+{
+    @* ========== MODULE CONFIGURATION VIEW ========== *@
+    <div class="p-6 overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <button class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                        @onclick="GoBack">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h1 class="text-2xl font-bold">@SelectedModuleData?.Name</h1>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-green-500/20" : "bg-red-500/20")">
+                <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-green-500 animate-pulse" : "bg-red-500")"></span>
+                <span class="text-sm @(IsRunning ? "text-green-400" : "text-red-400")">
+                    @(IsRunning ? "Running" : "Stopped")
+                </span>
+            </div>
+        </div>
+
+        <div class="flex items-end gap-4 mb-6">
+            <div class="flex-1">
+                <label class="block text-sm text-zinc-400 mb-1.5">Selected Image</label>
+                <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-blue-500 transition-colors"
+                        value="@SelectedImageId"
+                        @onchange="OnImageSelected">
+                    @if (SelectedModuleData?.Images.Count == 0)
+                    {
+                        <option value="">No images - upload one below</option>
+                    }
+                    else
+                    {
+                        @foreach (var image in SelectedModuleData?.Images.Values ?? Enumerable.Empty<DetectionImage>())
+                        {
+                            <option value="@image.Id">@image.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <Toggle Value="@(SelectedImage?.Enabled ?? false)" 
+                        ValueChanged="OnImageEnabledChanged" />
+                <span class="text-sm text-zinc-400">Enabled</span>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mb-6">
+            <label class="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-center font-medium cursor-pointer transition-colors">
+                Upload Image
+                <InputFile OnChange="HandleFileUpload" accept=".png,.jpg,.jpeg" class="hidden" />
+            </label>
+            <button class="px-4 py-2.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled="@(SelectedImage == null)"
+                    @onclick="ConfirmDeleteImage">
+                Delete Image
+            </button>
+        </div>
+
+        @if (SelectedImage != null)
+        {
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-5">
+                    <h3 class="text-lg font-semibold text-zinc-300 border-b border-zinc-700 pb-2">Action Settings</h3>
+
+                    <div>
+                        <div class="flex justify-between mb-1.5">
+                            <label class="text-sm text-zinc-400">Intensity</label>
+                            <span class="text-sm font-medium">@SelectedImage.Action.Intensity%</span>
+                        </div>
+                        <input type="range" min="1" max="100" step="1"
+                               class="w-full accent-blue-500"
+                               value="@SelectedImage.Action.Intensity"
+                               @onchange="@(e => UpdateIntensity(int.Parse(e.Value?.ToString() ?? "50")))" />
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1.5">
+                            <label class="text-sm text-zinc-400">Duration</label>
+                            <span class="text-sm font-medium">@SelectedImage.Action.DurationSeconds.ToString("0.0")s</span>
+                        </div>
+                        <input type="range" min="0.1" max="15" step="0.1"
+                               class="w-full accent-blue-500"
+                               value="@SelectedImage.Action.DurationSeconds"
+                               @onchange="@(e => UpdateDuration(double.Parse(e.Value?.ToString() ?? "1")))" />
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1.5">
+                            <label class="text-sm text-zinc-400">Detection Threshold</label>
+                            <span class="text-sm font-medium">@SelectedImage.Threshold.ToString("P0")</span>
+                        </div>
+                        <input type="range" min="0.5" max="1" step="0.01"
+                               class="w-full accent-blue-500"
+                               value="@SelectedImage.Threshold"
+                               @onchange="@(e => UpdateThreshold(double.Parse(e.Value?.ToString() ?? "0.8")))" />
+                        <div class="flex justify-between text-xs text-zinc-500 mt-1">
+                            <span>Lenient</span>
+                            <span>Strict</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-zinc-400 mb-1.5">Action Type</label>
+                        <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700"
+                                value="@SelectedImage.Action.Type"
+                                @onchange="OnActionTypeChanged">
+                            <option value="@ActionType.Shock">Shock</option>
+                            <option value="@ActionType.Vibrate">Vibrate</option>
+                            <option value="@ActionType.Beep">Beep</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-zinc-400 mb-1.5">Target Mode</label>
+                        <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700"
+                                value="@SelectedImage.Action.Mode"
+                                @onchange="OnModeChanged">
+                            <option value="@ShockerMode.All">All Shockers</option>
+                            <option value="@ShockerMode.Random">Random Shocker</option>
+                            <option value="@ShockerMode.Specific">Specific Shockers</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-zinc-400 mb-1.5">Cooldown (seconds)</label>
+                            <input type="number" min="0" max="3600" step="1"
+                                   class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700"
+                                   value="@SelectedImage.Cooldown.DurationSeconds"
+                                   @onchange="OnCooldownChanged" />
+                        </div>
+                        <div>
+                            <label class="block text-sm text-zinc-400 mb-1.5">Cooldown Type</label>
+                            <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700"
+                                    value="@SelectedImage.Cooldown.Type"
+                                    @onchange="OnCooldownTypeChanged">
+                                <option value="@CooldownType.Standard">Standard</option>
+                                <option value="@CooldownType.Continuous">Reset on Detection</option>
+                                <option value="@CooldownType.ImageReset">Wait for Reset Image</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (SelectedImage.Cooldown.Type == CooldownType.ImageReset)
+                    {
+                        <div>
+                            <label class="block text-sm text-zinc-400 mb-1.5">Reset Image</label>
+                            <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700"
+                                    value="@SelectedImage.Cooldown.ResetImagePath"
+                                    @onchange="OnResetImageChanged">
+                                <option value="">Select an image...</option>
+                                @foreach (var image in SelectedModuleData?.Images.Values.Where(i => i.Id != SelectedImageId) ?? Enumerable.Empty<DetectionImage>())
+                                {
+                                    <option value="@image.FilePath">@image.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+
+                <div class="space-y-5">
+                    <h3 class="text-lg font-semibold text-zinc-300 border-b border-zinc-700 pb-2">Detection Region</h3>
+
+                    <div>
+                        <label class="block text-sm text-zinc-400 mb-1.5">Region Type</label>
+                        <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700"
+                                value="@SelectedImage.Region.Type"
+                                @onchange="OnRegionTypeChanged">
+                            <option value="@RegionType.FullScreen">Full Screen</option>
+                            <option value="@RegionType.Grid">Grid Sections</option>
+                            <option value="@RegionType.Custom">Custom Region</option>
+                        </select>
+                    </div>
+
+                    @if (SelectedImage.Region.Type == RegionType.Grid)
+                    {
+                        <div>
+                            <label class="block text-sm text-zinc-400 mb-3">Active Sections</label>
+                            <div class="inline-block">
+                                <div class="grid grid-cols-3 gap-1">
+                                    @for (int i = 0; i < 9; i++)
+                                    {
+                                        var index = i;
+                                        var isActive = SelectedImage.Region.GridSections?.Sections[index] ?? true;
+                                        <button type="button"
+                                                class="w-16 h-12 rounded text-xs font-medium transition-all @(isActive ? "bg-green-600 hover:bg-green-500" : "bg-red-600/50 hover:bg-red-500/50")"
+                                                @onclick="@(() => ToggleSection(index))">
+                                            @(index + 1)
+                                        </button>
+                                    }
+                                </div>
+                                <div class="flex gap-2 mt-3">
+                                    <button class="px-3 py-1 text-xs rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                                            @onclick="EnableAllSections">All</button>
+                                    <button class="px-3 py-1 text-xs rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                                            @onclick="DisableAllSections">None</button>
+                                    <button class="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 transition-colors text-white"
+                                            @onclick="OpenVisualSelector">
+                                        <span class="flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                            Visual Preview
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-xs text-zinc-500 mt-2">Green = enabled, Red = disabled</p>
+                        </div>
+                    }
+
+                    @if (SelectedImage.Region.Type == RegionType.Custom)
+                    {
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-zinc-500 mb-1">X Position</label>
+                                <input type="number" min="0" class="w-full px-2 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-sm"
+                                       value="@(SelectedImage.Region.CustomRegion?.X ?? 0)"
+                                       @onchange="@(e => UpdateCustomRegion(x: int.Parse(e.Value?.ToString() ?? "0")))" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-zinc-500 mb-1">Y Position</label>
+                                <input type="number" min="0" class="w-full px-2 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-sm"
+                                       value="@(SelectedImage.Region.CustomRegion?.Y ?? 0)"
+                                       @onchange="@(e => UpdateCustomRegion(y: int.Parse(e.Value?.ToString() ?? "0")))" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-zinc-500 mb-1">Width</label>
+                                <input type="number" min="1" class="w-full px-2 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-sm"
+                                       value="@(SelectedImage.Region.CustomRegion?.Width ?? 100)"
+                                       @onchange="@(e => UpdateCustomRegion(width: int.Parse(e.Value?.ToString() ?? "100")))" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-zinc-500 mb-1">Height</label>
+                                <input type="number" min="1" class="w-full px-2 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-sm"
+                                       value="@(SelectedImage.Region.CustomRegion?.Height ?? 100)"
+                                       @onchange="@(e => UpdateCustomRegion(height: int.Parse(e.Value?.ToString() ?? "100")))" />
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(SelectedImage.FilePath) && File.Exists(SelectedImage.FilePath))
+                    {
+                        <div class="mt-6">
+                            <label class="block text-sm text-zinc-400 mb-2">Image Preview</label>
+                            <div class="rounded-lg border border-zinc-700 overflow-hidden bg-zinc-900">
+                                <img src="@GetImageDataUri(SelectedImage.FilePath)" 
+                                     alt="@SelectedImage.Name"
+                                     class="max-w-full max-h-64 mx-auto object-contain" />
+                            </div>
+                            <div class="mt-2 flex flex-col gap-1 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-zinc-500">Captured at:</span>
+                                    <span class="text-zinc-300 font-medium">@SelectedImage.CaptureResolution.Width&times;@SelectedImage.CaptureResolution.Height</span>
+                                    @if (IsResolutionMismatch(SelectedImage.CaptureResolution))
+                                    {
+                                        <span class="text-yellow-500" title="Resolution differs from current monitor">(mismatch)</span>
+                                    }
+                                </div>
+                                @if (IsResolutionMismatch(SelectedImage.CaptureResolution))
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-zinc-500">Auto-resize:</span>
+                                        <span class="@(SelectedImage.AutoResize ? "text-green-400" : "text-red-400")">
+                                            @(SelectedImage.AutoResize ? $"Enabled (will resize to {GetCurrentMonitorResolution()?.Width}×{GetCurrentMonitorResolution()?.Height})" : "Disabled")
+                                        </span>
+                                        <button class="text-blue-400 hover:text-blue-300 underline" @onclick="ToggleAutoResize">
+                                            @(SelectedImage.AutoResize ? "Disable" : "Enable")
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-12 text-zinc-500">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <p class="text-lg mb-2">No images in this module</p>
+                <p class="text-sm">Upload an image to get started</p>
+            </div>
+        }
+    </div>
+}
+
+@* ========== CREATE MODULE DIALOG ========== *@
+@if (ShowNewModuleDialog)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @onclick="@(() => ShowNewModuleDialog = false)">
+        <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-md shadow-2xl" @onclick:stopPropagation="true">
+            <h2 class="text-xl font-bold mb-4">Create New Module</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-zinc-400 mb-1.5">Module Name</label>
+                    <input type="text" class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-600 focus:border-blue-500 transition-colors"
+                           placeholder="My Detection Module"
+                           @bind="NewModuleName" />
+                </div>
+                <div>
+                    <label class="block text-sm text-zinc-400 mb-1.5">Description (optional)</label>
+                    <textarea class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-600 focus:border-blue-500 transition-colors resize-none"
+                              rows="2"
+                              placeholder="What does this module detect?"
+                              @bind="NewModuleDescription"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button class="px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                            @onclick="@(() => ShowNewModuleDialog = false)">
+                        Cancel
+                    </button>
+                    <button class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium transition-colors"
+                            @onclick="ConfirmCreateModule">
+                        Create Module
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ========== DELETE CONFIRMATION DIALOG ========== *@
+@if (ShowDeleteConfirmDialog)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @onclick="@(() => ShowDeleteConfirmDialog = false)">
+        <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-sm shadow-2xl" @onclick:stopPropagation="true">
+            <h2 class="text-xl font-bold mb-2">Confirm Delete</h2>
+            <p class="text-zinc-400 mb-6">@DeleteConfirmMessage</p>
+            <div class="flex justify-end gap-3">
+                <button class="px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                        @onclick="@(() => ShowDeleteConfirmDialog = false)">
+                    Cancel
+                </button>
+                <button class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium transition-colors"
+                        @onclick="ExecuteDelete">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* Visual Section Selector Modal *@
+<VisualSectionSelector 
+    IsVisible="ShowVisualSelector"
+    MonitorIndex="SelectedMonitor"
+    SectionStates="SelectedImage?.Region.GridSections?.Sections"
+    OnSelectionChanged="OnVisualSelectionChanged"
+    OnClose="CloseVisualSelector" />
+
+@* Resolution Input Dialog *@
+<ResolutionInputDialog 
+    IsVisible="ShowResolutionDialog"
+    DefaultResolution="_pendingUploadResolution"
+    CurrentMonitorResolution="Monitors.FirstOrDefault(m => m.Index == SelectedMonitor)?.Resolution"
+    OnConfirm="OnResolutionConfirmed"
+    OnCancel="CancelUpload" />
 
 @code {
-    private List<ShockerInfo> Shockers = new();
-    private string? StatusMessage;
+    // ========== STATE ==========
+    private bool IsRunning => DetectionService?.IsRunning ?? false;
+    private string? ErrorMessage;
+    
+    private List<MonitorInfo> Monitors = new();
+    private int SelectedMonitor = 1;
+    private int CaptureDelayMs = 100;
+    
+    private Dictionary<string, DetectionModule> Modules = new();
 
+    private string? SelectedModule;
+    private DetectionModule? SelectedModuleData => SelectedModule != null && Modules.TryGetValue(SelectedModule, out var m) ? m : null;
+
+    private string? SelectedImageId;
+    private DetectionImage? SelectedImage => SelectedModuleData?.Images.TryGetValue(SelectedImageId ?? "", out var img) == true ? img : null;
+
+    private bool ShowNewModuleDialog;
+    private string NewModuleName = "";
+    private string NewModuleDescription = "";
+    
+    private bool ShowDeleteConfirmDialog;
+    private string DeleteConfirmMessage = "";
+    private Action? DeleteAction;
+
+    private bool ShowVisualSelector = false;
+
+    private bool ShowResolutionDialog = false;
+    private byte[]? _pendingUploadBytes;
+    private string? _pendingUploadFileName;
+    private Resolution? _pendingUploadResolution;
+
+    // ========== LIFECYCLE ==========
+    
     protected override void OnInitialized()
     {
-        LoadShockers();
+        LoadData();
+        
+        DetectionService.RunningStateChanged += OnRunningStateChanged;
+        DetectionService.ErrorOccurred += OnError;
+        ConfigService.ConfigurationChanged += OnConfigChanged;
     }
 
-    private void LoadShockers()
+    private void LoadData()
     {
-        if (Actions != null)
+        Monitors = CaptureService.GetMonitors();
+        SelectedMonitor = ConfigService.CaptureConfig.MonitorIndex;
+        CaptureDelayMs = ConfigService.CaptureConfig.CaptureDelayMs;
+        Modules = new Dictionary<string, DetectionModule>(ConfigService.Modules);
+
+        if (SelectedModule != null && SelectedModuleData != null)
         {
-            Shockers = Actions.GetLoadedShockers().ToList();
-            StatusMessage = $"Loaded {Shockers.Count} shocker(s)";
+            if (SelectedImageId == null || !SelectedModuleData.Images.ContainsKey(SelectedImageId))
+            {
+                SelectedImageId = SelectedModuleData.Images.Keys.FirstOrDefault();
+            }
         }
     }
 
-    private void Refresh()
+    public void Dispose()
     {
-        LoadShockers();
+        DetectionService.RunningStateChanged -= OnRunningStateChanged;
+        DetectionService.ErrorOccurred -= OnError;
+        ConfigService.ConfigurationChanged -= OnConfigChanged;
+    }
+
+    // ========== EVENT HANDLERS ==========
+
+    private void OnRunningStateChanged(bool running) => InvokeAsync(StateHasChanged);
+    
+    private void OnError(string error)
+    {
+        ErrorMessage = error;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnConfigChanged()
+    {
+        InvokeAsync(() =>
+        {
+            LoadData();
+            StateHasChanged();
+        });
+    }
+
+    // ========== DETECTION CONTROL ==========
+
+    private async Task ToggleDetection() => await DetectionService.ToggleAsync();
+
+    // ========== GLOBAL SETTINGS ==========
+
+    private void OnMonitorChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var index))
+        {
+            SelectedMonitor = index;
+            var config = ConfigService.CaptureConfig;
+            config.MonitorIndex = index;
+            ConfigService.CaptureConfig = config;
+        }
+    }
+
+    private void OnCaptureDelayChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var delay) && delay >= 10)
+        {
+            CaptureDelayMs = delay;
+            var config = ConfigService.CaptureConfig;
+            config.CaptureDelayMs = delay;
+            ConfigService.CaptureConfig = config;
+        }
+    }
+
+    // ========== MODULE MANAGEMENT ==========
+
+    private void SelectModule(string moduleId)
+    {
+        SelectedModule = moduleId;
+        SelectedImageId = SelectedModuleData?.Images.Keys.FirstOrDefault();
+    }
+
+    private void GoBack()
+    {
+        SelectedModule = null;
+        SelectedImageId = null;
+    }
+
+    private void CreateModule()
+    {
+        NewModuleName = "";
+        NewModuleDescription = "";
+        ShowNewModuleDialog = true;
+    }
+
+    private void ConfirmCreateModule()
+    {
+        if (string.IsNullOrWhiteSpace(NewModuleName)) return;
+        
+        ConfigService.CreateModule(NewModuleName, NewModuleDescription);
+        ShowNewModuleDialog = false;
+        LoadData();
+    }
+
+    private void ToggleModule(string moduleId, bool enabled)
+    {
+        ConfigService.SetModuleEnabled(moduleId, enabled);
+        LoadData();
+    }
+
+    private void ConfirmDeleteModule(string moduleId)
+    {
+        var module = Modules.GetValueOrDefault(moduleId);
+        DeleteConfirmMessage = $"Are you sure you want to delete \"{module?.Name ?? moduleId}\"? This will remove all images in this module.";
+        DeleteAction = () =>
+        {
+            ConfigService.DeleteModule(moduleId);
+            LoadData();
+        };
+        ShowDeleteConfirmDialog = true;
+    }
+
+    // ========== IMAGE MANAGEMENT ==========
+
+    private void OnImageSelected(ChangeEventArgs e)
+    {
+        SelectedImageId = e.Value?.ToString();
         StateHasChanged();
     }
 
-    private void SendVibrate(ShockerInfo shocker)
+    private void OnImageEnabledChanged(bool enabled)
     {
-        Actions?.PerformAction(
-            intensity: 10,
-            durationSeconds: 0.5,
-            command: CommandType.Vibrate,
-            shockerOption: "specific",
-            deviceIds: new[] { shocker.DeviceId },
-            shockerIds: new[] { shocker.ShockerId });
+        if (SelectedModule == null || SelectedImageId == null) return;
+        ConfigService.SetImageEnabled(SelectedModule, SelectedImageId, enabled);
+        LoadData();
+    }
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        if (SelectedModule == null) return;
         
-        StatusMessage = $"Vibrated {shocker.Name}";
+        try
+        {
+            var file = e.File;
+            if (file.Size > 10 * 1024 * 1024)
+            {
+                ErrorMessage = "File too large. Maximum size is 10MB.";
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            _pendingUploadBytes = ms.ToArray();
+            _pendingUploadFileName = file.Name;
+
+            var monitor = Monitors.FirstOrDefault(m => m.Index == SelectedMonitor);
+            _pendingUploadResolution = monitor?.Resolution ?? new Resolution(1920, 1080);
+
+            ShowResolutionDialog = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to read file: {ex.Message}";
+        }
+    }
+
+    private async Task CompleteUpload(Resolution captureResolution)
+    {
+        if (SelectedModule == null || _pendingUploadBytes == null || _pendingUploadFileName == null) return;
+        
+        try
+        {
+            var moduleDir = Path.GetDirectoryName(SelectedModuleData?.Images.Values.FirstOrDefault()?.FilePath) 
+                           ?? Path.Combine(ConfigService.ModulesDirectory, SelectedModule);
+            Directory.CreateDirectory(moduleDir);
+            
+            var fileName = Path.GetFileName(_pendingUploadFileName);
+            var filePath = Path.Combine(moduleDir, fileName);
+
+            var counter = 1;
+            while (File.Exists(filePath))
+            {
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                var ext = Path.GetExtension(fileName);
+                filePath = Path.Combine(moduleDir, $"{nameWithoutExt}_{counter++}{ext}");
+            }
+
+            await File.WriteAllBytesAsync(filePath, _pendingUploadBytes);
+
+            var imageId = Path.GetFileNameWithoutExtension(filePath);
+            var image = new DetectionImage
+            {
+                Id = imageId,
+                Name = Path.GetFileNameWithoutExtension(_pendingUploadFileName),
+                FilePath = filePath,
+                Enabled = true,
+                Threshold = 0.8,
+                CaptureResolution = captureResolution,
+                AutoResize = true,
+                Action = new ActionConfig { Enabled = true, Type = ActionType.Shock, Intensity = 50, DurationSeconds = 1 },
+                Cooldown = new CooldownConfig { Type = CooldownType.Standard, DurationSeconds = 30 },
+                Region = new RegionConfig { Type = RegionType.FullScreen }
+            };
+
+            ConfigService.AddImage(SelectedModule, image);
+            SelectedImageId = imageId;
+
+            _pendingUploadBytes = null;
+            _pendingUploadFileName = null;
+            _pendingUploadResolution = null;
+            
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to save image: {ex.Message}";
+        }
+    }
+
+    private void CancelUpload()
+    {
+        _pendingUploadBytes = null;
+        _pendingUploadFileName = null;
+        _pendingUploadResolution = null;
+        ShowResolutionDialog = false;
         StateHasChanged();
+    }
+
+    private async Task OnResolutionConfirmed(Resolution resolution)
+    {
+        ShowResolutionDialog = false;
+        await CompleteUpload(resolution);
+    }
+
+    private bool IsResolutionMismatch(Resolution captureResolution)
+    {
+        var currentMonitor = Monitors.FirstOrDefault(m => m.Index == SelectedMonitor);
+        if (currentMonitor?.Resolution == null) return false;
+        
+        return captureResolution.Width != currentMonitor.Resolution.Width || 
+               captureResolution.Height != currentMonitor.Resolution.Height;
+    }
+
+    private Resolution? GetCurrentMonitorResolution()
+    {
+        return Monitors.FirstOrDefault(m => m.Index == SelectedMonitor)?.Resolution;
+    }
+
+    private void ToggleAutoResize()
+    {
+        if (SelectedImage != null)
+        {
+            SelectedImage.AutoResize = !SelectedImage.AutoResize;
+            SaveImageConfig();
+            StateHasChanged();
+        }
+    }
+
+    private void ConfirmDeleteImage()
+    {
+        if (SelectedImage == null) return;
+        
+        DeleteConfirmMessage = $"Are you sure you want to delete \"{SelectedImage.Name}\"?";
+        DeleteAction = () =>
+        {
+            if (SelectedModule != null && SelectedImageId != null)
+            {
+                ConfigService.DeleteImage(SelectedModule, SelectedImageId);
+                SelectedImageId = null;
+                LoadData();
+                SelectedImageId = SelectedModuleData?.Images.Keys.FirstOrDefault();
+            }
+        };
+        ShowDeleteConfirmDialog = true;
+    }
+
+    private void ExecuteDelete()
+    {
+        ShowDeleteConfirmDialog = false;
+        DeleteAction?.Invoke();
+        DeleteAction = null;
+    }
+
+    // ========== IMAGE CONFIGURATION ==========
+
+    private void UpdateIntensity(int intensity)
+    {
+        if (SelectedModule == null || SelectedImageId == null || SelectedImage == null) return;
+        SelectedImage.Action.Intensity = Math.Clamp(intensity, 1, 100);
+        SaveImageConfig();
+    }
+
+    private void UpdateDuration(double duration)
+    {
+        if (SelectedModule == null || SelectedImageId == null || SelectedImage == null) return;
+        SelectedImage.Action.DurationSeconds = Math.Clamp(duration, 0.1, 15);
+        SaveImageConfig();
+    }
+
+    private void UpdateThreshold(double threshold)
+    {
+        if (SelectedModule == null || SelectedImageId == null || SelectedImage == null) return;
+        SelectedImage.Threshold = Math.Clamp(threshold, 0.5, 1.0);
+        SaveImageConfig();
+    }
+
+    private void OnActionTypeChanged(ChangeEventArgs e)
+    {
+        if (SelectedImage == null || !Enum.TryParse<ActionType>(e.Value?.ToString(), out var type)) return;
+        SelectedImage.Action.Type = type;
+        SaveImageConfig();
+    }
+
+    private void OnModeChanged(ChangeEventArgs e)
+    {
+        if (SelectedImage == null || !Enum.TryParse<ShockerMode>(e.Value?.ToString(), out var mode)) return;
+        SelectedImage.Action.Mode = mode;
+        SaveImageConfig();
+    }
+
+    private void OnCooldownChanged(ChangeEventArgs e)
+    {
+        if (SelectedImage == null || !int.TryParse(e.Value?.ToString(), out var seconds)) return;
+        SelectedImage.Cooldown.DurationSeconds = Math.Max(0, seconds);
+        SaveImageConfig();
+    }
+
+    private void OnCooldownTypeChanged(ChangeEventArgs e)
+    {
+        if (SelectedImage == null || !Enum.TryParse<CooldownType>(e.Value?.ToString(), out var type)) return;
+        SelectedImage.Cooldown.Type = type;
+        SaveImageConfig();
+    }
+
+    private void OnResetImageChanged(ChangeEventArgs e)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Cooldown.ResetImagePath = e.Value?.ToString();
+        SaveImageConfig();
+    }
+
+    private void OnRegionTypeChanged(ChangeEventArgs e)
+    {
+        if (SelectedImage == null || !Enum.TryParse<RegionType>(e.Value?.ToString(), out var type)) return;
+        SelectedImage.Region.Type = type;
+
+        if (type == RegionType.Grid && SelectedImage.Region.GridSections == null)
+            SelectedImage.Region.GridSections = GridSections.All();
+        if (type == RegionType.Custom && SelectedImage.Region.CustomRegion == null)
+            SelectedImage.Region.CustomRegion = new ScreenRegion { X = 0, Y = 0, Width = 100, Height = 100 };
+            
+        SaveImageConfig();
+    }
+
+    private void ToggleSection(int index)
+    {
+        if (SelectedImage?.Region.GridSections == null) return;
+        SelectedImage.Region.GridSections.Sections[index] = !SelectedImage.Region.GridSections.Sections[index];
+        SaveImageConfig();
+        StateHasChanged();
+    }
+
+    private void EnableAllSections()
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Region.GridSections = GridSections.All();
+        SaveImageConfig();
+    }
+
+    private void DisableAllSections()
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Region.GridSections = GridSections.None();
+        SaveImageConfig();
+    }
+
+    private void OpenVisualSelector()
+    {
+        if (SelectedImage?.Region.Type == RegionType.Grid)
+        {
+            ShowVisualSelector = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OnVisualSelectionChanged(bool[] sections)
+    {
+        if (SelectedImage?.Region.GridSections != null)
+        {
+            SelectedImage.Region.GridSections.Sections = sections;
+            SaveImageConfig();
+        }
+    }
+
+    private void CloseVisualSelector()
+    {
+        ShowVisualSelector = false;
+        StateHasChanged();
+    }
+
+    private void UpdateCustomRegion(int? x = null, int? y = null, int? width = null, int? height = null)
+    {
+        if (SelectedImage?.Region.CustomRegion == null) return;
+        
+        if (x.HasValue) SelectedImage.Region.CustomRegion.X = x.Value;
+        if (y.HasValue) SelectedImage.Region.CustomRegion.Y = y.Value;
+        if (width.HasValue) SelectedImage.Region.CustomRegion.Width = width.Value;
+        if (height.HasValue) SelectedImage.Region.CustomRegion.Height = height.Value;
+        
+        SaveImageConfig();
+    }
+
+    private void SaveImageConfig()
+    {
+        if (SelectedModule == null || SelectedImageId == null || SelectedImage == null) return;
+        ConfigService.UpdateImage(SelectedModule, SelectedImage);
+    }
+
+    // ========== HELPERS ==========
+
+    private string GetImageDataUri(string filePath)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(filePath);
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            var mime = ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                _ => "image/png"
+            };
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch
+        {
+            return "";
+        }
     }
 }

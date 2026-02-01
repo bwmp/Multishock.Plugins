@@ -1,0 +1,130 @@
+@using ImageDetection.Services
+
+<div class="space-y-1 max-h-64 overflow-y-auto">
+    @if (Logs.Count == 0)
+    {
+        <div class="text-sm text-app-muted p-2">No detection events yet.</div>
+    }
+    else
+    {
+        @foreach (var log in Logs.TakeLast(MaxEntries).Reverse())
+        {
+            <div class="imgdet-log-entry @GetLogClass(log)">
+                <span class="opacity-60">[@log.Timestamp.ToString("HH:mm:ss")]</span>
+                @if (log.Type == LogType.Detection)
+                {
+                    <span class="font-semibold">@log.ImageName</span>
+                    <span class="opacity-75">- @log.Confidence.ToString("P1")</span>
+                }
+                else
+                {
+                    <span>@log.Message</span>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int MaxEntries { get; set; } = 50;
+    
+    private List<LogEntry> Logs = new();
+    private DetectionTriggerManager? _triggerManager;
+
+    [Inject] private DetectionTriggerManager? TriggerManager { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (TriggerManager != null)
+        {
+            _triggerManager = TriggerManager;
+            _triggerManager.OnImageDetected += OnImageDetected;
+            _triggerManager.OnDetectionStarted += OnDetectionStarted;
+            _triggerManager.OnDetectionStopped += OnDetectionStopped;
+        }
+    }
+
+    private void OnImageDetected(DetectionEventArgs args)
+    {
+        var log = new LogEntry
+        {
+            Type = LogType.Detection,
+            ImageName = args.ImageName,
+            ModuleId = args.ModuleId,
+            Confidence = args.Confidence,
+            Timestamp = args.Timestamp
+        };
+        
+        AddLog(log);
+    }
+
+    private void OnDetectionStarted()
+    {
+        AddLog(new LogEntry
+        {
+            Type = LogType.Info,
+            Message = "Detection started",
+            Timestamp = DateTime.Now
+        });
+    }
+
+    private void OnDetectionStopped()
+    {
+        AddLog(new LogEntry
+        {
+            Type = LogType.Info,
+            Message = "Detection stopped",
+            Timestamp = DateTime.Now
+        });
+    }
+
+    private void AddLog(LogEntry entry)
+    {
+        Logs.Add(entry);
+        
+        // Trim old entries
+        if (Logs.Count > MaxEntries * 2)
+        {
+            Logs = Logs.TakeLast(MaxEntries).ToList();
+        }
+        
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetLogClass(LogEntry log)
+    {
+        return log.Type switch
+        {
+            LogType.Detection => "imgdet-log-success",
+            LogType.Error => "imgdet-log-error",
+            _ => "imgdet-log-info"
+        };
+    }
+
+    public void Dispose()
+    {
+        if (_triggerManager != null)
+        {
+            _triggerManager.OnImageDetected -= OnImageDetected;
+            _triggerManager.OnDetectionStarted -= OnDetectionStarted;
+            _triggerManager.OnDetectionStopped -= OnDetectionStopped;
+        }
+    }
+
+    private class LogEntry
+    {
+        public LogType Type { get; set; }
+        public string? Message { get; set; }
+        public string? ImageName { get; set; }
+        public string? ModuleId { get; set; }
+        public double Confidence { get; set; }
+        public DateTime Timestamp { get; set; }
+    }
+
+    private enum LogType
+    {
+        Info,
+        Detection,
+        Error
+    }
+}

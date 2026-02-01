@@ -1,0 +1,132 @@
+@using ImageDetection.Models
+
+@if (IsVisible)
+{
+    <div class="resolution-dialog-overlay">
+        <div class="resolution-dialog">
+            <div class="dialog-header">
+                <h4>Set Image Resolution</h4>
+                <p class="dialog-subtitle">This helps the detector match the image correctly</p>
+            </div>
+            
+            <div class="dialog-body">
+                <div class="info-box">
+                    <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p>
+                        What resolution was this image captured at? 
+                        Template matching works best when detection resolution matches the upload resolution.
+                    </p>
+                </div>
+                
+                <div class="resolution-inputs">
+                    <div class="input-group">
+                        <label>Width (pixels)</label>
+                        <input type="number" min="1" max="10000" @bind="Width" />
+                    </div>
+                    
+                    <span class="separator">&times;</span>
+                    
+                    <div class="input-group">
+                        <label>Height (pixels)</label>
+                        <input type="number" min="1" max="10000" @bind="Height" />
+                    </div>
+                </div>
+                
+                <div class="presets">
+                    <span class="presets-label">Quick presets:</span>
+                    <div class="preset-buttons">
+                        <button @onclick="() => SetPreset(1920, 1080)">1080p</button>
+                        <button @onclick="() => SetPreset(2560, 1440)">1440p</button>
+                        <button @onclick="() => SetPreset(3840, 2160)">4K</button>
+                        <button @onclick="() => SetPreset(1280, 720)">720p</button>
+                        <button @onclick="UseCurrentMonitor">Current Monitor</button>
+                    </div>
+                </div>
+                
+                @if (ShowWarning)
+                {
+                    <div class="warning-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <p>
+                            <strong>Resolution mismatch:</strong> This image was captured at @Width&times;@Height 
+                            but your current monitor is @CurrentMonitorResolution. 
+                            Detection may not work accurately unless you resize the image or adjust your monitor resolution.
+                        </p>
+                    </div>
+                }
+            </div>
+            
+            <div class="dialog-footer">
+                <button class="btn-secondary" @onclick="Cancel">Cancel</button>
+                <button class="btn-primary" @onclick="Confirm">Upload with this Resolution</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int Width { get; set; } = 1920;
+    private int Height { get; set; } = 1080;
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public Resolution? DefaultResolution { get; set; }
+
+    [Parameter]
+    public Resolution? CurrentMonitorResolution { get; set; }
+
+    [Parameter]
+    public EventCallback<Resolution> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private bool ShowWarning => 
+        CurrentMonitorResolution != null && 
+        (Width != CurrentMonitorResolution.Width || Height != CurrentMonitorResolution.Height);
+
+    protected override void OnParametersSet()
+    {
+        if (DefaultResolution != null)
+        {
+            Width = DefaultResolution.Width;
+            Height = DefaultResolution.Height;
+        }
+        else if (CurrentMonitorResolution != null)
+        {
+            Width = CurrentMonitorResolution.Width;
+            Height = CurrentMonitorResolution.Height;
+        }
+    }
+
+    private void SetPreset(int width, int height)
+    {
+        Width = width;
+        Height = height;
+    }
+
+    private void UseCurrentMonitor()
+    {
+        if (CurrentMonitorResolution != null)
+        {
+            Width = CurrentMonitorResolution.Width;
+            Height = CurrentMonitorResolution.Height;
+        }
+    }
+
+    private async Task Confirm()
+    {
+        await OnConfirm.InvokeAsync(new Resolution(Width, Height));
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

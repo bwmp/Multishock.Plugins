@@ -1,0 +1,96 @@
+@using ImageDetection.Services
+@using MultiShock.PluginSdk.Components
+
+<div class="space-y-4">
+    <div>
+        <label class="block text-sm mb-1 text-app-muted">Background Detection</label>
+        <Toggle Label="Auto-start background detection" 
+                Value="@BackgroundDetectionEnabled" 
+                ValueChanged="@OnBackgroundDetectionChanged" />
+    </div>
+    
+    <div>
+        <label class="block text-sm mb-1 text-app-muted">Capture Delay (ms)</label>
+        <TextInput Value="@CaptureDelayMs.ToString()" 
+                   ValueChanged="@OnCaptureDelayChanged" />
+        <div class="text-xs text-app-muted mt-1">Time between screen captures (lower = faster, more CPU)</div>
+    </div>
+    
+    <div>
+        <label class="block text-sm mb-1 text-app-muted">Default Threshold</label>
+        <TextInput Value="@DefaultThreshold.ToString("F2")" 
+                   ValueChanged="@OnThresholdChanged" />
+        <div class="text-xs text-app-muted mt-1">Match threshold for new images (0.0 - 1.0)</div>
+    </div>
+    
+    <div>
+        <label class="block text-sm mb-1 text-app-muted">Debug Mode</label>
+        <Toggle Label="Enable debug logging and image saving" 
+                Value="@DebugMode" 
+                ValueChanged="@OnDebugModeChanged" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public Dictionary<string, object?>? Settings { get; set; }
+    [Parameter] public EventCallback<Dictionary<string, object?>> SettingsChanged { get; set; }
+
+    private bool BackgroundDetectionEnabled;
+    private int CaptureDelayMs = 100;
+    private double DefaultThreshold = 0.8;
+    private bool DebugMode;
+
+    protected override void OnParametersSet()
+    {
+        if (Settings != null)
+        {
+            BackgroundDetectionEnabled = Settings.TryGetValue("backgroundDetectionEnabled", out var e) && e is bool b && b;
+            CaptureDelayMs = Settings.TryGetValue("captureDelayMs", out var d) && d is int i ? i : 100;
+            DefaultThreshold = Settings.TryGetValue("defaultThreshold", out var t) && t is double dt ? dt : 0.8;
+            DebugMode = Settings.TryGetValue("debugMode", out var dm) && dm is bool db && db;
+        }
+    }
+
+    private async Task OnBackgroundDetectionChanged(bool value)
+    {
+        BackgroundDetectionEnabled = value;
+        await SaveSettings();
+    }
+
+    private async Task OnCaptureDelayChanged(string? value)
+    {
+        if (int.TryParse(value, out var delay) && delay >= 10)
+        {
+            CaptureDelayMs = delay;
+            await SaveSettings();
+        }
+    }
+
+    private async Task OnThresholdChanged(string? value)
+    {
+        if (double.TryParse(value, out var threshold) && threshold >= 0 && threshold <= 1)
+        {
+            DefaultThreshold = threshold;
+            await SaveSettings();
+        }
+    }
+
+    private async Task OnDebugModeChanged(bool value)
+    {
+        DebugMode = value;
+        await SaveSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        var newSettings = new Dictionary<string, object?>
+        {
+            ["backgroundDetectionEnabled"] = BackgroundDetectionEnabled,
+            ["captureDelayMs"] = CaptureDelayMs,
+            ["defaultThreshold"] = DefaultThreshold,
+            ["debugMode"] = DebugMode
+        };
+        
+        await SettingsChanged.InvokeAsync(newSettings);
+    }
+}

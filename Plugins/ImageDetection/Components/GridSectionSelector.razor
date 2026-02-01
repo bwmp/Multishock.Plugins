@@ -1,0 +1,61 @@
+@using ImageDetection.Models
+
+<div class="inline-block">
+    <div class="grid grid-cols-3 gap-1">
+        @for (int row = 0; row < 3; row++)
+        {
+            @for (int col = 0; col < 3; col++)
+            {
+                var r = row;
+                var c = col;
+                var index = row * 3 + col;
+                var isEnabled = Sections?.Sections[index] ?? true;
+                
+                <button type="button"
+                        class="imgdet-grid-section @(isEnabled ? "enabled" : "")"
+                        @onclick="@(() => ToggleSection(r, c))"
+                        title="@($"Section {index + 1}: {(isEnabled ? "Enabled" : "Disabled")}")">
+                </button>
+            }
+        }
+    </div>
+    
+    <div class="flex gap-2 mt-2">
+        <button type="button" 
+                class="text-xs text-app-muted hover:text-app-text"
+                @onclick="EnableAll">
+            All
+        </button>
+        <button type="button" 
+                class="text-xs text-app-muted hover:text-app-text"
+                @onclick="DisableAll">
+            None
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public GridSections? Sections { get; set; }
+    [Parameter] public EventCallback<GridSections> SectionsChanged { get; set; }
+
+    private async Task ToggleSection(int row, int col)
+    {
+        if (Sections == null) return;
+        
+        var index = row * 3 + col;
+        Sections.Sections[index] = !Sections.Sections[index];
+        await SectionsChanged.InvokeAsync(Sections);
+    }
+
+    private async Task EnableAll()
+    {
+        var sections = GridSections.All();
+        await SectionsChanged.InvokeAsync(sections);
+    }
+
+    private async Task DisableAll()
+    {
+        var sections = GridSections.None();
+        await SectionsChanged.InvokeAsync(sections);
+    }
+}

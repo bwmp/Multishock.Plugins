@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net10.0-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <UseWindowsForms>false</UseWindowsForms>
         
         <AssemblyName>ImageDetection</AssemblyName>
         <RootNamespace>ImageDetection</RootNamespace>
@@ -20,15 +21,30 @@
     <!-- Dependencies -->
     <ItemGroup>
         <PackageReference Include="Emgu.CV" Version="4.12.0.5764" />
+        <PackageReference Include="Emgu.CV.runtime.windows" Version="4.12.0.5764" />
+        <PackageReference Include="Fody" Version="6.9.2">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Costura.Fody" Version="5.8.0-alpha0098">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.7.0" />
     </ItemGroup>
 
+    <!-- Include native DLLs as embedded resources -->
     <ItemGroup>
-        <Reference Include="MultiShock.PluginSdk">
-            <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
-            <Private>true</Private>
-        </Reference>
+        <EmbeddedResource Include="$(NuGetPackageRoot)emgu.cv.runtime.windows\4.12.0.5764\runtimes\win-x64\native\cvextern.dll">
+            <LogicalName>ImageDetection.cvextern.dll</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="$(NuGetPackageRoot)emgu.cv.runtime.windows\4.12.0.5764\runtimes\win-x64\native\libusb-1.0.dll">
+            <LogicalName>ImageDetection.libusb-1.0.dll</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="$(NuGetPackageRoot)emgu.cv.runtime.windows\4.12.0.5764\runtimes\win-x64\native\opencv_videoio_ffmpeg4120_64.dll">
+            <LogicalName>ImageDetection.opencv_videoio_ffmpeg4120_64.dll</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 
     <!-- Version with build stamp -->
@@ -57,12 +73,15 @@
         <Compile Include="Generated\BuildStamp.g.cs" />
         </ItemGroup>
     </Target>
+
+    <!-- Copy only the plugin DLL -->
     <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">
         <PropertyGroup>
-        <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+            <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
         </PropertyGroup>
         <MakeDir Directories="$(LocalPluginDir)" />
+        <!-- Copy the single plugin DLL with everything embedded -->
         <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(LocalPluginDir)" />
-        <Message Importance="High" Text="Copied plugin to $(LocalPluginDir)\$(TargetFileName)" />
+        <Message Importance="High" Text="Copied single-file plugin to $(LocalPluginDir)" />
     </Target>
 </Project>

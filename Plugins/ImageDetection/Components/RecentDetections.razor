@@ -1,0 +1,260 @@
+@using ImageDetection.Models
+@using ImageDetection.Services
+@inject RecentDetectionsService DetectionHistory
+@inject ImageConfigService ConfigService
+@implements IDisposable
+
+<div class="recent-detections">
+    <div class="detections-header">
+        <h4>Recent Detections</h4>
+        <div class="header-actions">
+            <span class="detection-count">@_detections.Count detections</span>
+            @if (_detections.Any())
+            {
+                <button class="btn-clear" @onclick="ClearDetections" title="Clear all">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (_detections.Any())
+    {
+        <div class="detections-list">
+            @foreach (var detection in _detections)
+            {
+                <div class="detection-item @(detection.ActionTriggered ? "triggered" : "") @(detection.WasInCooldown ? "cooldown" : "")">
+                    <div class="detection-thumbnail" @onclick="() => ShowDetails(detection)">
+                        @if (!string.IsNullOrEmpty(detection.ThumbnailPath) && File.Exists(detection.ThumbnailPath))
+                        {
+                            <img src="@GetImageDataUrl(detection.ThumbnailPath)" alt="Detection" />
+                        }
+                        else if (!string.IsNullOrEmpty(detection.ScreenshotPath) && File.Exists(detection.ScreenshotPath))
+                        {
+                            <img src="@GetImageDataUrl(detection.ScreenshotPath)" alt="Detection" />
+                        }
+                        else
+                        {
+                            <div class="no-thumbnail">
+                                <svg viewBox="0 0 24 24" width="24" height="24">
+                                    <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                </svg>
+                            </div>
+                        }
+                    </div>
+                    <div class="detection-info">
+                        <div class="detection-name">@detection.ImageName</div>
+                        <div class="detection-meta">
+                            <span class="module">@detection.ModuleName</span>
+                            <span class="time" title="@detection.Timestamp.ToString("g")">@detection.TimeAgo</span>
+                        </div>
+                        <div class="detection-stats">
+                            <span class="confidence" title="Match confidence">
+                                <svg viewBox="0 0 24 24" width="12" height="12">
+                                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                                @((detection.Confidence * 100).ToString("F0"))%
+                            </span>
+                            @if (detection.ActionTriggered)
+                            {
+                                <span class="action-badge @GetActionClass(detection.ActionType)">
+                                    @detection.ActionType
+                                </span>
+                            }
+                            else if (detection.WasInCooldown)
+                            {
+                                <span class="cooldown-badge">cooldown</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_stats != null)
+        {
+            <div class="detections-stats">
+                <div class="stat">
+                    <span class="stat-value">@_stats.TotalDetections</span>
+                    <span class="stat-label">24h total</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">@_stats.ActionsTriggered</span>
+                    <span class="stat-label">actions</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">@(_stats.AverageConfidence * 100).ToString("F1")%</span>
+                    <span class="stat-label">avg confidence</span>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="no-detections">
+            <svg viewBox="0 0 24 24" width="48" height="48">
+                <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+            </svg>
+            <p>No detections yet</p>
+            <span class="hint">Detections will appear here when images are found on screen</span>
+        </div>
+    }
+</div>
+
+@if (_selectedDetection != null)
+{
+    <div class="detection-modal-overlay" @onclick="CloseDetails">
+        <div class="detection-modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h4>Detection Details</h4>
+                <button class="btn-close" @onclick="CloseDetails">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-content">
+                @if (!string.IsNullOrEmpty(_selectedDetection.ScreenshotPath) && File.Exists(_selectedDetection.ScreenshotPath))
+                {
+                    <div class="screenshot-container">
+                        <img src="@GetImageDataUrl(_selectedDetection.ScreenshotPath)" alt="Full screenshot" />
+                        <div class="detection-marker" 
+                             style="left: @GetMarkerLeft(); top: @GetMarkerTop(); width: @GetMarkerWidth(); height: @GetMarkerHeight();">
+                        </div>
+                    </div>
+                }
+                <div class="details-grid">
+                    <div class="detail-row">
+                        <span class="label">Image:</span>
+                        <span class="value">@_selectedDetection.ImageName</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Module:</span>
+                        <span class="value">@_selectedDetection.ModuleName</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Time:</span>
+                        <span class="value">@_selectedDetection.Timestamp.ToString("F")</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Confidence:</span>
+                        <span class="value">@((_selectedDetection.Confidence * 100).ToString("F2"))%</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Location:</span>
+                        <span class="value">@_selectedDetection.LocationX, @_selectedDetection.LocationY</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Detection Time:</span>
+                        <span class="value">@_selectedDetection.DetectionTime.TotalMilliseconds.ToString("F0")ms</span>
+                    </div>
+                    @if (_selectedDetection.ActionTriggered)
+                    {
+                        <div class="detail-row">
+                            <span class="label">Action:</span>
+                            <span class="value action">@_selectedDetection.ActionType</span>
+                        </div>
+                    }
+                    @if (_selectedDetection.WasInCooldown)
+                    {
+                        <div class="detail-row">
+                            <span class="label">Status:</span>
+                            <span class="value cooldown">In cooldown (no action)</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<DetectionEvent> _detections = [];
+    private DetectionHistoryStats? _stats;
+    private DetectionEvent? _selectedDetection;
+
+    protected override void OnInitialized()
+    {
+        RefreshDetections();
+        DetectionHistory.DetectionRecorded += OnDetectionRecorded;
+        DetectionHistory.DetectionsCleared += OnDetectionsCleared;
+    }
+
+    public void Dispose()
+    {
+        DetectionHistory.DetectionRecorded -= OnDetectionRecorded;
+        DetectionHistory.DetectionsCleared -= OnDetectionsCleared;
+    }
+
+    private void OnDetectionRecorded(DetectionEvent evt)
+    {
+        InvokeAsync(() =>
+        {
+            RefreshDetections();
+            StateHasChanged();
+        });
+    }
+
+    private void OnDetectionsCleared()
+    {
+        InvokeAsync(() =>
+        {
+            RefreshDetections();
+            StateHasChanged();
+        });
+    }
+
+    private void RefreshDetections()
+    {
+        // Show up to MaxDisplayEvents (default 50) most recent detections
+        _detections = DetectionHistory.GetRecentDetections(DetectionHistory.MaxDisplayEvents);
+        _stats = DetectionHistory.GetStats(TimeSpan.FromHours(24));
+    }
+
+    private void ClearDetections()
+    {
+        DetectionHistory.ClearDetections();
+    }
+
+    private void ShowDetails(DetectionEvent detection)
+    {
+        _selectedDetection = detection;
+    }
+
+    private void CloseDetails()
+    {
+        _selectedDetection = null;
+    }
+
+    private string GetImageDataUrl(string path)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(path);
+            var base64 = Convert.ToBase64String(bytes);
+            return $"data:image/png;base64,{base64}";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private string GetActionClass(string? actionType)
+    {
+        return actionType?.ToLower() switch
+        {
+            "shock" => "shock",
+            "vibrate" => "vibrate",
+            "beep" => "beep",
+            _ => ""
+        };
+    }
+
+    private string GetMarkerLeft() => _selectedDetection?.LocationX + "px";
+    private string GetMarkerTop() => _selectedDetection?.LocationY + "px";
+    private string GetMarkerWidth() => "50px"; // Approximate
+    private string GetMarkerHeight() => "50px"; // Approximate
+}

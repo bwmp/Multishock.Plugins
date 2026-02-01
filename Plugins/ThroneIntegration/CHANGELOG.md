@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/ThroneIntegration-v1.1.1...ThroneIntegration-v1.2.0) (2026-02-01)
+
+
+### Features
+
+* **ThroneIntegration:** actually use PluginConfigComponent since this plugins kinda simple ([f573131](https://github.com/bwmp/Multishock.Plugins/commit/f5731311a1b748013eea368e4fa92aacb4e4422a))
+
 ## [1.1.1](https://github.com/bwmp/Multishock.Plugins/compare/ThroneIntegration-v1.1.0...ThroneIntegration-v1.1.1) (2026-01-30)
 
 

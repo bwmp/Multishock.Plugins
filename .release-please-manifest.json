@@ -1,6 +1,6 @@
 {
     "Plugins/TwitchIntegration": "1.1.1",
-    "Plugins/ImageDetection": "1.0.0",
+    "Plugins/ImageDetection": "1.1.0",
     "Plugins/OBSIntegration": "1.1.0",
-    "Plugins/ThroneIntegration": "1.1.1"
+    "Plugins/ThroneIntegration": "1.2.0"
 }

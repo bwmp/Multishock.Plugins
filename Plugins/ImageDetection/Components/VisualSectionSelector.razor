@@ -1,69 +1,69 @@
 @using ImageDetection.Services
 @using ImageDetection.Models
+@using MultiShock.PluginSdk.Components
 @inject ScreenCaptureService ScreenCapture
 @inject IJSRuntime JS
 @implements IDisposable
 
 @if (IsVisible && _screenshot != null)
 {
-    <div class="visual-selector-modal">
-        <div class="modal-backdrop" @onclick="Close"></div>
+    <div class="fixed inset-0 z-[1000] flex items-center justify-center p-5">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @onclick="Close"></div>
         
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="relative bg-zinc-800 border border-zinc-700 rounded-xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="flex justify-between items-center px-5 py-4 border-b border-zinc-700 bg-zinc-800">
                 <div>
-                    <h4>Visual Section Selector</h4>
-                    <span class="resolution-info">@_actualResolution</span>
+                    <h4 class="m-0 text-lg font-semibold">Visual Section Selector</h4>
+                    <span class="block text-xs text-zinc-400 mt-1">@_actualResolution</span>
                 </div>
-                <div class="header-info">
-                    <span class="status-badge">@GetEnabledCount() of 9 sections enabled</span>
-                    <button class="btn-close" @onclick="Close">&times;</button>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 font-medium">@GetEnabledCount() of 9 sections enabled</span>
+                    <button class="bg-transparent border-none text-zinc-400 cursor-pointer w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 hover:text-zinc-100 transition-all text-xl" 
+                            @onclick="Close">&times;</button>
                 </div>
             </div>
             
-            <div class="modal-body">
-                <div class="screenshot-info">
-                    <span class="info-badge">Monitor @MonitorIndex</span>
-                    <span class="info-badge">@(_isScaled ? "Scaled for display" : "Actual size")</span>
+            <div class="flex-1 overflow-auto p-5 flex flex-col gap-4">
+                <div class="flex gap-2 justify-center">
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-zinc-700/50 text-zinc-400">Monitor @MonitorIndex</span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-zinc-700/50 text-zinc-400">@(_isScaled ? "Scaled for display" : "Actual size")</span>
                 </div>
                 
-                <div class="screenshot-container" @ref="_containerRef">
-                    <img src="@GetImageDataUrl()" alt="Screen preview" />
+                <div class="relative inline-block self-center rounded-lg overflow-hidden shadow-lg" @ref="_containerRef">
+                    <img src="@GetImageDataUrl()" alt="Screen preview" class="block max-w-full max-h-[60vh] object-contain" />
 
-                    <div class="grid-overlay">
+                    <div class="absolute inset-0 grid grid-cols-3 grid-rows-3">
                         @for (int row = 0; row < 3; row++)
                         {
                             @for (int col = 0; col < 3; col++)
                             {
                                 var index = row * 3 + col;
-                                <div class="grid-cell @GetCellClass(index)" 
+                                <div class="relative border-2 border-white/30 cursor-pointer transition-all flex flex-col items-center justify-center hover:border-white/80 hover:scale-[0.98] @GetCellClass(index)" 
                                      style="grid-row: @(row + 1); grid-column: @(col + 1);"
                                      @onclick="() => ToggleSection(index)">
-                                    <span class="cell-number">@(index + 1)</span>
-                                    <div class="cell-indicator"></div>
+                                    <span class="text-2xl font-bold text-white drop-shadow-lg">@(index + 1)</span>
+                                    <div class="absolute top-2 right-2 w-3 h-3 rounded-full @(_sectionStates[index] ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,1)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]")"></div>
                                 </div>
                             }
                         }
                     </div>
                 </div>
                 
-                <div class="controls-bar">
-                    <button class="btn-control" @onclick="SelectAll">Enable All</button>
-                    <button class="btn-control" @onclick="SelectNone">Disable All</button>
-                    <button class="btn-control btn-invert" @onclick="Invert">Invert</button>
-                    <button class="btn-control btn-refresh" @onclick="RefreshScreenshot">
-                        <span>Refresh Screenshot</span>
-                    </button>
+                <div class="flex gap-2 justify-center flex-wrap">
+                    <Button Text="Enable All" Size="sm" Variant="secondary" OnClick="SelectAll" />
+                    <Button Text="Disable All" Size="sm" Variant="secondary" OnClick="SelectNone" />
+                    <Button Text="Invert" Size="sm" Variant="ghost" OnClick="Invert" />
+                    <Button Text="Refresh Screenshot" Size="sm" Variant="primary" OnClick="RefreshScreenshot" />
                 </div>
             </div>
             
-            <div class="modal-footer">
-                <p class="help-text">
+            <div class="flex justify-between items-center px-5 py-4 border-t border-zinc-700 bg-zinc-800 gap-4">
+                <p class="text-sm text-zinc-400 m-0">
                     Click on the image sections to toggle them on/off. 
                     The grid matches the detection resolution exactly.
                     Green = enabled, Red = disabled.
                 </p>
-                <button class="btn-done" @onclick="Close">Done</button>
+                <Button Text="Done" Size="sm" Variant="success" OnClick="Close" />
             </div>
         </div>
     </div>
@@ -189,7 +189,9 @@
         }
     }
 
-    private string GetCellClass(int index) => _sectionStates[index] ? "enabled" : "disabled";
+    private string GetCellClass(int index) => _sectionStates[index] 
+        ? "bg-green-500/25 border-green-500 hover:bg-green-500/35" 
+        : "bg-red-500/25 border-red-500 hover:bg-red-500/35";
 
     private void ToggleSection(int index)
     {

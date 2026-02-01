@@ -317,6 +317,12 @@
             Optional error message if the node failed.
             </summary>
         </member>
+        <member name="P:MultiShock.PluginSdk.Flow.FlowNodeResult.DisplayValue">
+            <summary>
+            Optional display value to show in the flow graph.
+            Used for debugging and visualizing data flowing through nodes.
+            </summary>
+        </member>
         <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.Success(System.Collections.Generic.Dictionary{System.String,System.Object})">
             <summary>
             Creates a successful result with outputs.
@@ -340,6 +346,11 @@
         <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.Fail(System.String)">
             <summary>
             Creates a failed result with an error message.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Flow.FlowNodeResult.WithDisplayValue(System.String)">
+            <summary>
+            Creates a result with a display value for the flow graph.
             </summary>
         </member>
         <member name="T:MultiShock.PluginSdk.Flow.FlowPort">
@@ -1166,6 +1177,18 @@
             Debug/diagnostic data.
             </summary>
         </member>
+        <member name="T:MultiShock.PluginSdk.IDomCleanupService">
+            <summary>
+            Service for cleaning up DOM-related resources during plugin lifecycle events.
+            Particularly useful during plugin hot-reload scenarios.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IDomCleanupService.CleanupAsync">
+            <summary>
+            Cleans up stale DOM references and JavaScript interop resources.
+            Should be called before plugin unload/reload to prevent JavaScript errors.
+            </summary>
+        </member>
         <member name="T:MultiShock.PluginSdk.IPlugin">
             <summary>
             Main interface that all plugins must implement.
@@ -1200,6 +1223,42 @@
             <summary>
             Shows a notification/toast message.
             </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.ShowSuccessToast(System.String,System.String,System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Shows a success toast notification.
+            </summary>
+            <param name="title">The title of the toast.</param>
+            <param name="message">The message content.</param>
+            <param name="durationMs">Optional duration in milliseconds (defaults to 5000ms).</param>
+            <param name="isPersistent">If true, toast won't auto-dismiss (defaults to false).</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.ShowWarningToast(System.String,System.String,System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Shows a warning toast notification.
+            </summary>
+            <param name="title">The title of the toast.</param>
+            <param name="message">The message content.</param>
+            <param name="durationMs">Optional duration in milliseconds (defaults to 5000ms).</param>
+            <param name="isPersistent">If true, toast won't auto-dismiss (defaults to false).</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.ShowInfoToast(System.String,System.String,System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Shows an info toast notification.
+            </summary>
+            <param name="title">The title of the toast.</param>
+            <param name="message">The message content.</param>
+            <param name="durationMs">Optional duration in milliseconds (defaults to 5000ms).</param>
+            <param name="isPersistent">If true, toast won't auto-dismiss (defaults to false).</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.ShowErrorToast(System.String,System.String,System.Nullable{System.Int32},System.Boolean)">
+            <summary>
+            Shows an error toast notification.
+            </summary>
+            <param name="title">The title of the toast.</param>
+            <param name="message">The message content.</param>
+            <param name="durationMs">Optional duration in milliseconds (defaults to 8000ms for errors).</param>
+            <param name="isPersistent">If true, toast won't auto-dismiss (defaults to false).</param>
         </member>
         <member name="M:MultiShock.PluginSdk.IPluginHost.GetSetting``1(System.String)">
             <summary>
@@ -1654,6 +1713,12 @@
         <member name="M:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop.HideAsync(System.Int64)">
             <inheritdoc />
         </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.DropdownPortalInterop.CleanupStaleEntriesAsync">
+            <summary>
+            Cleans up stale portal entries that reference invalid DOM elements.
+            This is useful during plugin hot-reload scenarios where DOM elements may become invalid.
+            </summary>
+        </member>
         <member name="T:MultiShock.PluginSdk.JSInterop.IStyleInterop">
             <summary>
             Interface for dynamic CSS style injection and removal.
@@ -1688,6 +1753,14 @@
             <inheritdoc />
         </member>
         <member name="M:MultiShock.PluginSdk.JSInterop.StyleInterop.RemoveStyleAsync(System.String)">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.Services.DomCleanupService">
+            <summary>
+            Implementation of DOM cleanup service that handles cleanup of JavaScript interop resources.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.Services.DomCleanupService.CleanupAsync">
             <inheritdoc />
         </member>
         <member name="P:MultiShock.PluginSdk.Components.ShockerSelect.MultiSelect">

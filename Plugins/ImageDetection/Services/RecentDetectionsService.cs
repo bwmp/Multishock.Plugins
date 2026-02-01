@@ -237,7 +237,7 @@ public class RecentDetectionsService : IDisposable
             var size = result.MatchSize.Value;
             var rect = new System.Drawing.Rectangle(loc.X, loc.Y, size.Width, size.Height);
 
-            CvInvoke.Rectangle(screenshot, rect, new Emgu.CV.Structure.MCvScalar(0, 0, 255), 3);
+            CvInvoke.Rectangle(screenshot, rect, new Emgu.CV.Structure.MCvScalar(0, 0, 255, 255), 3);
         }
 
         await Task.Run(() =>

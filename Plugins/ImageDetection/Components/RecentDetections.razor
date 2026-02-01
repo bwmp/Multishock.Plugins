@@ -1,17 +1,20 @@
 @using ImageDetection.Models
 @using ImageDetection.Services
+@using MultiShock.PluginSdk.Components
 @inject RecentDetectionsService DetectionHistory
 @inject ImageConfigService ConfigService
 @implements IDisposable
 
-<div class="recent-detections">
-    <div class="detections-header">
-        <h4>Recent Detections</h4>
-        <div class="header-actions">
-            <span class="detection-count">@_detections.Count detections</span>
+<div class="bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 border-b border-zinc-700 bg-zinc-800">
+        <h4 class="m-0 text-sm font-semibold">Recent Detections</h4>
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-zinc-400">@_detections.Count detections</span>
             @if (_detections.Any())
             {
-                <button class="btn-clear" @onclick="ClearDetections" title="Clear all">
+                <button class="bg-transparent border-none text-zinc-400 cursor-pointer p-1 rounded flex items-center justify-center hover:text-red-500 hover:bg-red-500/10 transition-colors" 
+                        @onclick="ClearDetections" 
+                        title="Clear all">
                     <svg viewBox="0 0 24 24" width="16" height="16">
                         <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                     </svg>
@@ -22,36 +25,37 @@
 
     @if (_detections.Any())
     {
-        <div class="detections-list">
+        <div class="max-h-[400px] overflow-y-auto">
             @foreach (var detection in _detections)
             {
-                <div class="detection-item @(detection.ActionTriggered ? "triggered" : "") @(detection.WasInCooldown ? "cooldown" : "")">
-                    <div class="detection-thumbnail" @onclick="() => ShowDetails(detection)">
+                <div class="flex gap-3 px-4 py-3 border-b border-zinc-700 last:border-b-0 transition-colors hover:bg-zinc-700/50 @(detection.ActionTriggered ? "border-l-2 border-l-green-500" : "") @(detection.WasInCooldown ? "border-l-2 border-l-amber-500 opacity-70" : "")">
+                    <div class="w-[60px] h-[60px] rounded-md overflow-hidden flex-shrink-0 cursor-pointer bg-zinc-700 flex items-center justify-center" 
+                         @onclick="() => ShowDetails(detection)">
                         @if (!string.IsNullOrEmpty(detection.ThumbnailPath) && File.Exists(detection.ThumbnailPath))
                         {
-                            <img src="@GetImageDataUrl(detection.ThumbnailPath)" alt="Detection" />
+                            <img src="@GetImageDataUrl(detection.ThumbnailPath)" alt="Detection" class="w-full h-full object-cover" />
                         }
                         else if (!string.IsNullOrEmpty(detection.ScreenshotPath) && File.Exists(detection.ScreenshotPath))
                         {
-                            <img src="@GetImageDataUrl(detection.ScreenshotPath)" alt="Detection" />
+                            <img src="@GetImageDataUrl(detection.ScreenshotPath)" alt="Detection" class="w-full h-full object-cover" />
                         }
                         else
                         {
-                            <div class="no-thumbnail">
+                            <div class="text-zinc-400">
                                 <svg viewBox="0 0 24 24" width="24" height="24">
                                     <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                                 </svg>
                             </div>
                         }
                     </div>
-                    <div class="detection-info">
-                        <div class="detection-name">@detection.ImageName</div>
-                        <div class="detection-meta">
-                            <span class="module">@detection.ModuleName</span>
-                            <span class="time" title="@detection.Timestamp.ToString("g")">@detection.TimeAgo</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate">@detection.ImageName</div>
+                        <div class="flex gap-2 text-xs text-zinc-400 mt-1">
+                            <span>@detection.ModuleName</span>
+                            <span title="@detection.Timestamp.ToString("g")">@detection.TimeAgo</span>
                         </div>
-                        <div class="detection-stats">
-                            <span class="confidence" title="Match confidence">
+                        <div class="flex gap-2 items-center mt-1.5">
+                            <span class="flex items-center gap-1 text-xs text-green-500" title="Match confidence">
                                 <svg viewBox="0 0 24 24" width="12" height="12">
                                     <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                                 </svg>
@@ -59,13 +63,13 @@
                             </span>
                             @if (detection.ActionTriggered)
                             {
-                                <span class="action-badge @GetActionClass(detection.ActionType)">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded font-medium uppercase @GetActionBadgeClass(detection.ActionType)">
                                     @detection.ActionType
                                 </span>
                             }
                             else if (detection.WasInCooldown)
                             {
-                                <span class="cooldown-badge">cooldown</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-600/20 text-zinc-400">cooldown</span>
                             }
                         </div>
                     </div>
@@ -75,93 +79,94 @@
 
         @if (_stats != null)
         {
-            <div class="detections-stats">
-                <div class="stat">
-                    <span class="stat-value">@_stats.TotalDetections</span>
-                    <span class="stat-label">24h total</span>
+            <div class="flex justify-around px-4 py-3 border-t border-zinc-700 bg-zinc-800">
+                <div class="text-center">
+                    <span class="block text-lg font-semibold text-zinc-100">@_stats.TotalDetections</span>
+                    <span class="text-[10px] uppercase text-zinc-400 tracking-wider">24h total</span>
                 </div>
-                <div class="stat">
-                    <span class="stat-value">@_stats.ActionsTriggered</span>
-                    <span class="stat-label">actions</span>
+                <div class="text-center">
+                    <span class="block text-lg font-semibold text-zinc-100">@_stats.ActionsTriggered</span>
+                    <span class="text-[10px] uppercase text-zinc-400 tracking-wider">actions</span>
                 </div>
-                <div class="stat">
-                    <span class="stat-value">@(_stats.AverageConfidence * 100).ToString("F1")%</span>
-                    <span class="stat-label">avg confidence</span>
+                <div class="text-center">
+                    <span class="block text-lg font-semibold text-zinc-100">@((_stats.AverageConfidence * 100).ToString("F1"))%</span>
+                    <span class="text-[10px] uppercase text-zinc-400 tracking-wider">avg confidence</span>
                 </div>
             </div>
         }
     }
     else
     {
-        <div class="no-detections">
-            <svg viewBox="0 0 24 24" width="48" height="48">
+        <div class="p-8 text-center text-zinc-400">
+            <svg viewBox="0 0 24 24" width="48" height="48" class="mx-auto mb-3 opacity-50">
                 <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
             </svg>
-            <p>No detections yet</p>
-            <span class="hint">Detections will appear here when images are found on screen</span>
+            <p class="font-medium m-0">No detections yet</p>
+            <span class="text-xs mt-1 block">Detections will appear here when images are found on screen</span>
         </div>
     }
 </div>
 
 @if (_selectedDetection != null)
 {
-    <div class="detection-modal-overlay" @onclick="CloseDetails">
-        <div class="detection-modal" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <h4>Detection Details</h4>
-                <button class="btn-close" @onclick="CloseDetails">
-                    <svg viewBox="0 0 24 24" width="20" height="20">
+    <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-1000 p-4" @onclick="CloseDetails">
+        <div class="bg-zinc-800 border border-zinc-700 rounded-lg w-5xl     overflow-hidden flex flex-col" @onclick:stopPropagation="true">
+            <div class="flex justify-between items-center px-4 py-2 border-b border-zinc-700">
+                <h4 class="m-0 font-semibold text-sm">Detection Details</h4>
+                <button class="bg-transparent border-none text-zinc-400 cursor-pointer p-2 rounded flex items-center justify-center hover:text-zinc-100 hover:bg-white/10 transition-colors" 
+                        @onclick="CloseDetails" type="button">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
                         <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                     </svg>
                 </button>
             </div>
-            <div class="modal-content">
+            <div class="overflow-y-auto p-4 flex-1 min-h-0">
                 @if (!string.IsNullOrEmpty(_selectedDetection.ScreenshotPath) && File.Exists(_selectedDetection.ScreenshotPath))
                 {
-                    <div class="screenshot-container">
-                        <img src="@GetImageDataUrl(_selectedDetection.ScreenshotPath)" alt="Full screenshot" />
-                        <div class="detection-marker" 
+                    <div class="relative mb-4 rounded-md overflow-hidden bg-black w-full max-w-4xl mx-auto">
+                        <img src="@GetImageDataUrl(_selectedDetection.ScreenshotPath)" alt="Full screenshot" class="w-full h-auto object-contain" />
+                        <div class="absolute border-2 border-green-500 bg-green-500/20 pointer-events-none" 
                              style="left: @GetMarkerLeft(); top: @GetMarkerTop(); width: @GetMarkerWidth(); height: @GetMarkerHeight();">
                         </div>
                     </div>
                 }
-                <div class="details-grid">
-                    <div class="detail-row">
-                        <span class="label">Image:</span>
-                        <span class="value">@_selectedDetection.ImageName</span>
+                <div class="grid gap-2">
+                    <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                        <span class="text-zinc-400 text-sm">Image:</span>
+                        <span class="font-medium text-sm">@_selectedDetection.ImageName</span>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">Module:</span>
-                        <span class="value">@_selectedDetection.ModuleName</span>
+                    <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                        <span class="text-zinc-400 text-sm">Module:</span>
+                        <span class="font-medium text-sm">@_selectedDetection.ModuleName</span>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">Time:</span>
-                        <span class="value">@_selectedDetection.Timestamp.ToString("F")</span>
+                    <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                        <span class="text-zinc-400 text-sm">Time:</span>
+                        <span class="font-medium text-sm">@_selectedDetection.Timestamp.ToString("F")</span>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">Confidence:</span>
-                        <span class="value">@((_selectedDetection.Confidence * 100).ToString("F2"))%</span>
+                    <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                        <span class="text-zinc-400 text-sm">Confidence:</span>
+                        <span class="font-medium text-sm">@((_selectedDetection.Confidence * 100).ToString("F2"))%</span>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">Location:</span>
-                        <span class="value">@_selectedDetection.LocationX, @_selectedDetection.LocationY</span>
+                    <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                        <span class="text-zinc-400 text-sm">Location:</span>
+                        <span class="font-medium text-sm">@_selectedDetection.LocationX, @_selectedDetection.LocationY</span>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">Detection Time:</span>
-                        <span class="value">@_selectedDetection.DetectionTime.TotalMilliseconds.ToString("F0")ms</span>
+                    <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                        <span class="text-zinc-400 text-sm">Detection Time:</span>
+                        <span class="font-medium text-sm">@_selectedDetection.DetectionTime.TotalMilliseconds.ToString("F0")ms</span>
                     </div>
                     @if (_selectedDetection.ActionTriggered)
                     {
-                        <div class="detail-row">
-                            <span class="label">Action:</span>
-                            <span class="value action">@_selectedDetection.ActionType</span>
+                        <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                            <span class="text-zinc-400 text-sm">Action:</span>
+                            <span class="font-medium text-sm text-green-500">@_selectedDetection.ActionType</span>
                         </div>
                     }
                     @if (_selectedDetection.WasInCooldown)
                     {
-                        <div class="detail-row">
-                            <span class="label">Status:</span>
-                            <span class="value cooldown">In cooldown (no action)</span>
+                        <div class="flex justify-between py-2 border-b border-zinc-700 last:border-b-0">
+                            <span class="text-zinc-400 text-sm">Status:</span>
+                            <span class="font-medium text-sm text-amber-500">In cooldown (no action)</span>
                         </div>
                     }
                 </div>
@@ -242,14 +247,14 @@
         }
     }
 
-    private string GetActionClass(string? actionType)
+    private string GetActionBadgeClass(string? actionType)
     {
         return actionType?.ToLower() switch
         {
-            "shock" => "shock",
-            "vibrate" => "vibrate",
-            "beep" => "beep",
-            _ => ""
+            "shock" => "bg-red-500/20 text-red-500",
+            "vibrate" => "bg-blue-500/20 text-blue-500",
+            "beep" => "bg-amber-500/20 text-amber-500",
+            _ => "bg-zinc-600/20 text-zinc-400"
         };
     }
 

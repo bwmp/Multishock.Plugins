@@ -19,6 +19,7 @@ public class ImageDetectionService : IAsyncDisposable
     private readonly AlgorithmRegistry _algorithmRegistry;
     private readonly RecentDetectionsService _recentDetections;
     private readonly IDeviceActions? _deviceActions;
+    private readonly IPluginHost? _pluginHost;
 
     private CancellationTokenSource? _detectionCts;
     private Task? _detectionTask;
@@ -54,7 +55,8 @@ public class ImageDetectionService : IAsyncDisposable
         DetectionTriggerManager triggerManager,
         AlgorithmRegistry algorithmRegistry,
         RecentDetectionsService recentDetections,
-        IDeviceActions? deviceActions = null)
+        IDeviceActions? deviceActions = null,
+        IPluginHost? pluginHost = null)
     {
         _configService = configService;
         _captureService = captureService;
@@ -63,6 +65,7 @@ public class ImageDetectionService : IAsyncDisposable
         _algorithmRegistry = algorithmRegistry;
         _recentDetections = recentDetections;
         _deviceActions = deviceActions;
+        _pluginHost = pluginHost;
 
         _currentResolution = _captureService.GetCurrentMonitorResolution();
 
@@ -316,6 +319,11 @@ public class ImageDetectionService : IAsyncDisposable
         }
 
         await _triggerManager.FireDetectionEvent(moduleId, imageConfig, result);
+
+        _pluginHost?.ShowSuccessToast(
+            $"Image Detected: {imageConfig.Name}",
+            $"Confidence: {result.Confidence:P1}",
+            10000);
 
         if (imageConfig.Action.Enabled && _deviceActions != null)
         {

@@ -1,4 +1,5 @@
 @using ImageDetection.Models
+@using MultiShock.PluginSdk.Components
 
 <div class="inline-block">
     <div class="grid grid-cols-3 gap-1">
@@ -12,7 +13,7 @@
                 var isEnabled = Sections?.Sections[index] ?? true;
                 
                 <button type="button"
-                        class="imgdet-grid-section @(isEnabled ? "enabled" : "")"
+                        class="w-8 h-8 border border-zinc-600 cursor-pointer transition-colors duration-200 @(isEnabled ? "bg-blue-500 hover:bg-blue-400" : "bg-zinc-700 hover:bg-zinc-600")"
                         @onclick="@(() => ToggleSection(r, c))"
                         title="@($"Section {index + 1}: {(isEnabled ? "Enabled" : "Disabled")}")">
                 </button>
@@ -21,16 +22,14 @@
     </div>
     
     <div class="flex gap-2 mt-2">
-        <button type="button" 
-                class="text-xs text-app-muted hover:text-app-text"
-                @onclick="EnableAll">
-            All
-        </button>
-        <button type="button" 
-                class="text-xs text-app-muted hover:text-app-text"
-                @onclick="DisableAll">
-            None
-        </button>
+        <Button Text="All" 
+                Size="xs" 
+                Variant="ghost"
+                OnClick="EnableAll" />
+        <Button Text="None" 
+                Size="xs" 
+                Variant="ghost"
+                OnClick="DisableAll" />
     </div>
 </div>
 

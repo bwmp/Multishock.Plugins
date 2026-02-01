@@ -9,7 +9,7 @@
     {
         @foreach (var log in Logs.TakeLast(MaxEntries).Reverse())
         {
-            <div class="imgdet-log-entry @GetLogClass(log)">
+            <div class="font-mono text-xs px-2 py-1 rounded @GetLogClass(log)">
                 <span class="opacity-60">[@log.Timestamp.ToString("HH:mm:ss")]</span>
                 @if (log.Type == LogType.Detection)
                 {
@@ -95,9 +95,9 @@
     {
         return log.Type switch
         {
-            LogType.Detection => "imgdet-log-success",
-            LogType.Error => "imgdet-log-error",
-            _ => "imgdet-log-info"
+            LogType.Detection => "bg-green-500/10 text-green-500",
+            LogType.Error => "bg-red-500/10 text-red-500",
+            _ => "bg-blue-500/10 text-blue-500"
         };
     }
 

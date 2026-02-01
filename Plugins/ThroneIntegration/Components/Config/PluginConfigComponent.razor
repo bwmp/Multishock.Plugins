@@ -8,7 +8,7 @@
         <span class="text-sm font-medium">
             @if (ThroneService.IsConnected)
             {
-                <span>Connected - monitoring @ThroneService.CurrentUsername</span>
+                <span>Connected as @ThroneService.CurrentUsername</span>
             }
             else
             {
@@ -17,8 +17,34 @@
         </span>
     </div>
 
+    <div class="space-y-3">
+        <TextInput Label="Throne Username" 
+            Placeholder="Enter your Throne username"
+            Value="@Username" 
+            ValueChanged="@OnUsernameChanged" />
+
+        <div class="flex gap-2">
+            @if (ThroneService.IsConnected)
+            {
+                <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
+            }
+            else
+            {
+                <Button Text="Connect" Variant="primary" OnClick="Connect"
+                    Disabled="@string.IsNullOrWhiteSpace(Username)" />
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(StatusMessage))
+        {
+            <div class="text-sm @(ThroneService.IsConnected ? "text-green-500" : "text-gray-500")">
+                @StatusMessage
+            </div>
+        }
+    </div>
+
     <p class="text-sm text-gray-500">
-        Configure your Throne connection on the
+        Configure detailed settings on the
         <a href="/plugins/com-multishock-throneintegration/throneintegration" class="text-purple-500 hover:underline">
             Throne Integration page
         </a>.
@@ -37,13 +63,55 @@
 @code {
     private string pluginId = ThroneIntegration.ThroneIntegrationPlugin.PluginId;
     private ThroneService ThroneService => PluginServiceLocator.GetRequiredService<ThroneService>(pluginId);
+    private ThroneSettingsService SettingsService => PluginServiceLocator.GetRequiredService<ThroneSettingsService>(pluginId);
+
+    private string Username = string.Empty;
+    private string? StatusMessage;
 
     [Parameter]
     public string? PluginId { get; set; }
 
     protected override void OnInitialized()
     {
+        Username = SettingsService.CreatorId;
+        
         ThroneService.ConnectionStateChanged += OnConnectionChanged;
+        ThroneService.StatusMessage += OnStatusMessage;
+        ThroneService.ErrorOccurred += OnError;
+    }
+
+    private void OnUsernameChanged(string? value)
+    {
+        Username = value ?? string.Empty;
+    }
+
+    private async Task Connect()
+    {
+        if (string.IsNullOrWhiteSpace(Username))
+        {
+            StatusMessage = "Please enter a username";
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            SettingsService.CreatorId = Username;
+            SettingsService.Enabled = true;
+            await ThroneService.StartAsync(Username);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error connecting: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private void Disconnect()
+    {
+        ThroneService.Stop();
+        SettingsService.Enabled = false;
+        StatusMessage = "Disconnected";
     }
 
     private void OnConnectionChanged(bool connected)
@@ -51,8 +119,22 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private void OnStatusMessage(string message)
+    {
+        StatusMessage = message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnError(string error)
+    {
+        StatusMessage = $"Error: {error}";
+        InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         ThroneService.ConnectionStateChanged -= OnConnectionChanged;
+        ThroneService.StatusMessage -= OnStatusMessage;
+        ThroneService.ErrorOccurred -= OnError;
     }
 }

@@ -60,7 +60,7 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     // ========== CONFIGURATION (IConfigurablePlugin) ==========
 
-    public Type? GetConfigurationComponentType() => typeof(PluginConfigComponent);
+    public Type? GetConfigurationComponentType() => typeof(Components.Config.PluginConfigComponent);
 
     public Dictionary<string, object?>? GetDefaultSettings() => new()
     {
@@ -110,9 +110,3 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         yield return node;
     }
 }
-
-/// <summary>
-/// Settings UI component placeholder.
-/// Replace with a real .razor component for a full settings UI.
-/// </summary>
-public class PluginConfigComponent { }

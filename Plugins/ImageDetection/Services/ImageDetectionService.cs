@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Emgu.CV;
+using Emgu.CV.CvEnum;
 using ImageDetection.Algorithms;
 using ImageDetection.Models;
 using MultiShock.PluginSdk;
@@ -18,6 +19,7 @@ public class ImageDetectionService : IAsyncDisposable
     private readonly DetectionTriggerManager _triggerManager;
     private readonly AlgorithmRegistry _algorithmRegistry;
     private readonly RecentDetectionsService _recentDetections;
+    private readonly ValueChangeAnalyzerService? _valueAnalyzer;
     private readonly IDeviceActions? _deviceActions;
     private readonly IPluginHost? _pluginHost;
 
@@ -56,7 +58,8 @@ public class ImageDetectionService : IAsyncDisposable
         AlgorithmRegistry algorithmRegistry,
         RecentDetectionsService recentDetections,
         IDeviceActions? deviceActions = null,
-        IPluginHost? pluginHost = null)
+        IPluginHost? pluginHost = null,
+        ValueChangeAnalyzerService? valueAnalyzer = null)
     {
         _configService = configService;
         _captureService = captureService;
@@ -64,9 +67,11 @@ public class ImageDetectionService : IAsyncDisposable
         _triggerManager = triggerManager;
         _algorithmRegistry = algorithmRegistry;
         _recentDetections = recentDetections;
+        _valueAnalyzer = valueAnalyzer;
         _deviceActions = deviceActions;
         _pluginHost = pluginHost;
 
+        SyncCaptureConfig();
         _currentResolution = _captureService.GetCurrentMonitorResolution();
 
         _configService.ConfigurationChanged += OnConfigurationChanged;
@@ -154,6 +159,11 @@ public class ImageDetectionService : IAsyncDisposable
             {
                 if (ct.IsCancellationRequested) break;
 
+                // Meter targets are processed by the background loop (they need state tracking).
+                // One-shot detection only applies to template targets.
+                if (imageConfig.TargetType == DetectionTargetType.Meter)
+                    continue;
+
                 var result = await DetectImageAsync(screenshot, moduleId, imageConfig, ct);
                 results.Add(result);
             }
@@ -179,7 +189,9 @@ public class ImageDetectionService : IAsyncDisposable
 
         try
         {
-            var template = GetOrLoadImage(moduleId, imageConfig);
+            // Clone the template so the detection loop owns its own copy.
+            // ReloadImages() can dispose cached Mats on a config change at any time;
+            using var template = GetOrLoadImage(moduleId, imageConfig)?.Clone();
             if (template == null)
             {
                 return Task.FromResult(DetectionResult.Failed($"Could not load image: {imageConfig.FilePath}", imageConfig));
@@ -243,7 +255,14 @@ public class ImageDetectionService : IAsyncDisposable
                 {
                     if (ct.IsCancellationRequested) break;
 
-                    await ProcessImage(screenshot, moduleId, imageConfig, ct);
+                    if (imageConfig.TargetType == DetectionTargetType.Meter)
+                    {
+                        await ProcessMeter(screenshot, moduleId, imageConfig, ct);
+                    }
+                    else
+                    {
+                        await ProcessImage(screenshot, moduleId, imageConfig, ct);
+                    }
                 }
 
                 loopStart.Stop();
@@ -333,6 +352,98 @@ public class ImageDetectionService : IAsyncDisposable
         _cooldownManager.RecordTrigger(imagePath, imageConfig.Cooldown);
     }
 
+    /// <summary>
+    /// Processes a meter/healthbar target: extract fill %, feed analyzer, emit events.
+    /// </summary>
+    private async Task ProcessMeter(
+        Mat screenshot,
+        string moduleId,
+        DetectionImage imageConfig,
+        CancellationToken ct)
+    {
+        if (_valueAnalyzer == null) return;
+        if (!imageConfig.Meter.Enabled) return;
+
+        if (imageConfig.Meter.RequireFocusedWindow)
+        {
+            var isFocused = _captureService.IsRequiredWindowFocused(
+                imageConfig.Meter.RequiredFocusWindowProcess,
+                imageConfig.Meter.RequiredFocusWindowTitle);
+            if (!isFocused) return;
+        }
+
+        // Meter targets require a custom region
+        if (imageConfig.Region.Type != RegionType.Custom || imageConfig.Region.CustomRegion == null)
+        {
+            return;
+        }
+
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var region = imageConfig.Region.CustomRegion;
+            int x = Math.Max(0, Math.Min(region.X, screenshot.Width - 1));
+            int y = Math.Max(0, Math.Min(region.Y, screenshot.Height - 1));
+            int width = Math.Min(region.Width, screenshot.Width - x);
+            int height = Math.Min(region.Height, screenshot.Height - y);
+
+            if (width <= 2 || height <= 2) return;
+
+            using var subMat = new Mat(screenshot, new System.Drawing.Rectangle(x, y, width, height));
+            using var roi = subMat.Clone();
+
+            // Compute fill percentage (exceptions propagate to outer catch for visibility)
+            var percent = MeterFillAlgorithm.ComputeFillPercent(roi, imageConfig.Meter);
+            if (percent < 0) return;
+
+            Stats.TotalDetections++;
+
+            var changeEvent = _valueAnalyzer.Process(moduleId, imageConfig, percent, DateTime.UtcNow);
+
+            if (changeEvent == null) return; // No significant change so just discard
+
+            Stats.SuccessfulDetections++;
+
+            await _triggerManager.FireMeterChangedEvent(changeEvent);
+
+            if (imageConfig.Action.Enabled && _deviceActions != null)
+            {
+
+                var absDelta = Math.Abs(changeEvent.DeltaPercent);
+                var
+                        // Damage % scaled against max: 30% HP loss with max 80 → 24
+                        intensity = (object)imageConfig.Meter.IntensityMode switch
+                        {
+                            MeterIntensityMode.Scaled => (int)Math.Clamp(imageConfig.Action.Intensity * (absDelta / 100.0), 1, imageConfig.Action.Intensity), // Damage % scaled against max: 30% HP loss with max 80 → 24
+                            MeterIntensityMode.Direct => (int)Math.Clamp(absDelta, 1, imageConfig.Action.Intensity), // Damage % used directly as intensity, capped at max
+                            _ => (int)imageConfig.Action.Intensity,
+                        };
+                var actionConfig = new ActionConfig
+                {
+                    Enabled = true,
+                    Type = imageConfig.Action.Type,
+                    Intensity = intensity,
+                    DurationSeconds = imageConfig.Action.DurationSeconds,
+                    Mode = imageConfig.Action.Mode,
+                    ShockerIds = imageConfig.Action.ShockerIds
+                };
+
+                PerformAction(actionConfig);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown
+        }
+        catch (Exception ex)
+        {
+            ErrorOccurred?.Invoke($"Meter processing failed: {ex.Message}");
+        }
+    }
+
+    private static readonly Random _random = new();
+
     private void PerformAction(ActionConfig config)
     {
         try
@@ -345,7 +456,7 @@ public class ImageDetectionService : IAsyncDisposable
                 _ => CommandType.Vibrate
             };
 
-            if (config.Mode == ShockerMode.Specific && config.ShockerIds.Count > 0)
+            if (config.ShockerIds.Count > 0)
             {
                 var parsedIds = config.ShockerIds
                     .Select(id => id.Split(':'))
@@ -355,6 +466,15 @@ public class ImageDetectionService : IAsyncDisposable
 
                 if (parsedIds.Count > 0)
                 {
+                    // In Random mode, pick a random subset from the selected shockers
+                    if (config.Mode == ShockerMode.Random && parsedIds.Count > 1)
+                    {
+                        var min = Math.Clamp(config.RandomCountMin, 1, parsedIds.Count);
+                        var max = Math.Clamp(config.RandomCountMax, min, parsedIds.Count);
+                        var count = min == max ? min : _random.Next(min, max + 1);
+                        parsedIds = parsedIds.OrderBy(_ => _random.Next()).Take(count).ToList();
+                    }
+
                     var deviceIds = parsedIds.Select(p => p.deviceId).Distinct();
                     var shockerIds = parsedIds.Select(p => p.shockerId);
 
@@ -369,11 +489,7 @@ public class ImageDetectionService : IAsyncDisposable
             }
             else
             {
-                _deviceActions?.PerformAction(
-                    intensity: config.Intensity,
-                    durationSeconds: config.DurationSeconds,
-                    command: commandType
-                );
+                return; // No shocker IDs specified, so skip action to avoid unintended consequences
             }
         }
         catch (Exception ex)
@@ -414,7 +530,17 @@ public class ImageDetectionService : IAsyncDisposable
 
     private void OnConfigurationChanged()
     {
+        SyncCaptureConfig();
         ReloadImages();
+    }
+
+    /// <summary>
+    /// Pushes the user's capture settings (monitor index, source type, etc.)
+    /// into the ScreenCaptureService so CaptureScreen() uses the right monitor.
+    /// </summary>
+    private void SyncCaptureConfig()
+    {
+        _captureService.Config = _configService.CaptureConfig;
     }
 
     public async ValueTask DisposeAsync()

@@ -17,6 +17,7 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     private ImageDetectionService? _detectionService;
     private ImageConfigService? _configService;
+    private GlobalHotkeyService? _hotkeyService;
 
     // ========== PLUGIN METADATA ==========
 
@@ -44,12 +45,27 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         services.AddSingleton<DetectionTriggerManager>();
         services.AddSingleton<RecentDetectionsService>();
 
+        // Global hotkey service for region picker
+        services.AddSingleton<GlobalHotkeyService>();
+
         // Config service depends on IPluginHost
         services.AddSingleton<ImageConfigService>(sp =>
         {
             var host = sp.GetRequiredService<IPluginHost>();
             return new ImageConfigService(host);
         });
+
+        // Region picker arm service (target-scoped one-shot picker)
+        services.AddSingleton<RegionPickerArmService>(sp =>
+        {
+            var hotkeyService = sp.GetRequiredService<GlobalHotkeyService>();
+            var captureService = sp.GetRequiredService<ScreenCaptureService>();
+            var configService = sp.GetRequiredService<ImageConfigService>();
+            return new RegionPickerArmService(hotkeyService, captureService, configService);
+        });
+
+        // Value change analyzer for meter/healthbar tracking
+        services.AddSingleton<ValueChangeAnalyzerService>();
 
         // Main detection service
         services.AddSingleton<ImageDetectionService>(sp =>
@@ -62,6 +78,7 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
             var recentDetections = sp.GetRequiredService<RecentDetectionsService>();
             var deviceActions = sp.GetService<IDeviceActions>();
             var pluginHost = sp.GetService<IPluginHost>();
+            var valueAnalyzer = sp.GetRequiredService<ValueChangeAnalyzerService>();
 
             return new ImageDetectionService(
                 configService,
@@ -71,7 +88,8 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
                 algorithmRegistry,
                 recentDetections,
                 deviceActions,
-                pluginHost);
+                pluginHost,
+                valueAnalyzer);
         });
     }
 
@@ -82,9 +100,19 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
         _configService = sp.GetService<ImageConfigService>();
         _detectionService = sp.GetService<ImageDetectionService>();
+        _hotkeyService = sp.GetService<GlobalHotkeyService>();
 
         // Initialize trigger manager (registers for events)
         _ = sp.GetService<DetectionTriggerManager>();
+
+        // Initialize region picker arm service (subscribes to hotkey events)
+        _ = sp.GetService<RegionPickerArmService>();
+
+        // Register global hotkey if configured
+        if (_configService?.PickerHotkey is { Enabled: true } hotkey && _hotkeyService != null)
+        {
+            _hotkeyService.TryRegister(hotkey, out _);
+        }
 
         // Auto-start detection if configured
         if (_configService?.BackgroundDetectionEnabled == true)
@@ -139,6 +167,13 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
             Href = "/imagedetection",
             Icon = "scan-search",
             Order = 50
+        },
+        new NavigationItem
+        {
+            Text = "Recent Detections",
+            Href = "/recent-detections",
+            Icon = "history",
+            Order = 51
         }
     ];
 
@@ -148,6 +183,8 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     {
         // Trigger nodes
         yield return new ImageDetectedTriggerNode();
+        yield return new MeterChangedTriggerNode();
+        yield return new DamageTakenTriggerNode();
 
         // Process nodes
         yield return new TakeScreenshotNode();

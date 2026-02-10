@@ -1,5 +1,8 @@
+@using ImageDetection.Models
 @using ImageDetection.Services
 @using MultiShock.PluginSdk.Components
+@inject ImageConfigService ConfigService
+@inject GlobalHotkeyService HotkeyService
 
 <div class="space-y-4">
     <div>
@@ -29,9 +32,76 @@
                 Value="@DebugMode" 
                 ValueChanged="@OnDebugModeChanged" />
     </div>
+
+    <div class="border-t border-zinc-700 pt-4 mt-4">
+        <h3 class="text-sm font-semibold text-zinc-300 mb-3">Region Picker Hotkey</h3>
+
+        <div class="space-y-3">
+            <Toggle Label="Enable global hotkey for region picker" 
+                    Value="@HotkeyEnabled" 
+                    ValueChanged="@OnHotkeyEnabledChanged" />
+
+            @if (HotkeyEnabled)
+            {
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-zinc-400">Ctrl</label>
+                        <input type="checkbox" checked="@HotkeyCtrl"
+                               @onchange="@(e => OnHotkeyModifierChanged("ctrl", (bool)(e.Value ?? false)))"
+                               class="accent-blue-500" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-zinc-400">Alt</label>
+                        <input type="checkbox" checked="@HotkeyAlt"
+                               @onchange="@(e => OnHotkeyModifierChanged("alt", (bool)(e.Value ?? false)))"
+                               class="accent-blue-500" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-zinc-400">Shift</label>
+                        <input type="checkbox" checked="@HotkeyShift"
+                               @onchange="@(e => OnHotkeyModifierChanged("shift", (bool)(e.Value ?? false)))"
+                               class="accent-blue-500" />
+                    </div>
+                    <div>
+                        <select class="px-3 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                                value="@HotkeyKey"
+                                @onchange="OnHotkeyKeyChanged">
+                            @foreach (var key in HotkeyBinding.SupportedKeys)
+                            {
+                                <option value="@key">@key</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-zinc-500">Current binding:</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-zinc-700 text-zinc-300 font-mono">
+                        @GetHotkeyDisplayString()
+                    </span>
+                    @if (HotkeyService.IsRegistered)
+                    {
+                        <span class="text-xs text-green-400">Active</span>
+                    }
+                    else if (HotkeyEnabled)
+                    {
+                        <span class="text-xs text-yellow-400">Not registered</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(HotkeyError))
+                {
+                    <div class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
+                        @HotkeyError
+                    </div>
+                }
+            }
+        </div>
+    </div>
 </div>
 
 @code {
+    [Parameter] public string? PluginId { get; set; }
     [Parameter] public Dictionary<string, object?>? Settings { get; set; }
     [Parameter] public EventCallback<Dictionary<string, object?>> SettingsChanged { get; set; }
 
@@ -39,6 +109,13 @@
     private int CaptureDelayMs = 100;
     private double DefaultThreshold = 0.8;
     private bool DebugMode;
+
+    private bool HotkeyEnabled;
+    private string HotkeyKey = "F8";
+    private bool HotkeyCtrl;
+    private bool HotkeyAlt;
+    private bool HotkeyShift;
+    private string? HotkeyError;
 
     protected override void OnParametersSet()
     {
@@ -49,6 +126,13 @@
             DefaultThreshold = Settings.TryGetValue("defaultThreshold", out var t) && t is double dt ? dt : 0.8;
             DebugMode = Settings.TryGetValue("debugMode", out var dm) && dm is bool db && db;
         }
+
+        var hotkey = ConfigService.PickerHotkey;
+        HotkeyEnabled = hotkey.Enabled;
+        HotkeyKey = hotkey.Key;
+        HotkeyCtrl = hotkey.Ctrl;
+        HotkeyAlt = hotkey.Alt;
+        HotkeyShift = hotkey.Shift;
     }
 
     private async Task OnBackgroundDetectionChanged(bool value)
@@ -79,6 +163,69 @@
     {
         DebugMode = value;
         await SaveSettings();
+    }
+
+    private void OnHotkeyEnabledChanged(bool value)
+    {
+        HotkeyEnabled = value;
+        HotkeyError = null;
+        ApplyHotkeySettings();
+    }
+
+    private void OnHotkeyKeyChanged(ChangeEventArgs e)
+    {
+        HotkeyKey = e.Value?.ToString() ?? "F8";
+        HotkeyError = null;
+        ApplyHotkeySettings();
+    }
+
+    private void OnHotkeyModifierChanged(string modifier, bool value)
+    {
+        switch (modifier)
+        {
+            case "ctrl": HotkeyCtrl = value; break;
+            case "alt": HotkeyAlt = value; break;
+            case "shift": HotkeyShift = value; break;
+        }
+        HotkeyError = null;
+        ApplyHotkeySettings();
+    }
+
+    private void ApplyHotkeySettings()
+    {
+        var binding = new HotkeyBinding
+        {
+            Enabled = HotkeyEnabled,
+            Key = HotkeyKey,
+            Ctrl = HotkeyCtrl,
+            Alt = HotkeyAlt,
+            Shift = HotkeyShift
+        };
+
+        ConfigService.PickerHotkey = binding;
+
+        if (!HotkeyService.UpdateBinding(binding, out var error))
+        {
+            HotkeyError = error;
+        }
+        else
+        {
+            HotkeyError = null;
+        }
+
+        StateHasChanged();
+    }
+
+    private string GetHotkeyDisplayString()
+    {
+        var binding = new HotkeyBinding
+        {
+            Key = HotkeyKey,
+            Ctrl = HotkeyCtrl,
+            Alt = HotkeyAlt,
+            Shift = HotkeyShift
+        };
+        return binding.GetDisplayString();
     }
 
     private async Task SaveSettings()

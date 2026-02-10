@@ -1,0 +1,1530 @@
+@using ImageDetection.Algorithms
+@using ImageDetection.Models
+@using ImageDetection.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using MultiShock.PluginSdk.Components
+@inject ImageDetectionService DetectionService
+@inject ImageConfigService ConfigService
+@inject ScreenCaptureService CaptureService
+@inject RegionPickerArmService PickerArmService
+@inject GlobalHotkeyService HotkeyService
+@inject ValueChangeAnalyzerService ValueAnalyzer
+@inject IPluginHost PluginHost
+@implements IDisposable
+
+<div class="p-6 overflow-y-auto">
+    <div class="flex items-end gap-4 mb-6">
+        <div class="flex-1">
+            <label class="block text-sm text-zinc-400 mb-1.5">Selected Target</label>
+            <select class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 focus:border-blue-500 transition-colors"
+                    value="@SelectedImageId"
+                    @onchange="OnImageSelected">
+                @if (SelectedModuleData?.Images.Count == 0)
+                {
+                    <option value="">No targets - upload an image or add a health bar</option>
+                }
+                else
+                {
+                    @foreach (var image in SelectedModuleData?.Images.Values ?? Enumerable.Empty<DetectionImage>())
+                    {
+                        <option value="@image.Id">
+                            @if (image.TargetType == DetectionTargetType.Meter)
+                            {
+                                @($"[Meter] {image.Name}")
+                            }
+                            else
+                            {
+                                @image.Name
+                            }
+                        </option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <Toggle Value="@(SelectedImage?.Enabled ?? false)"
+                    ValueChanged="OnImageEnabledChanged" />
+            <span class="text-sm text-zinc-400">Enabled</span>
+        </div>
+    </div>
+
+    <div class="flex gap-3 mb-6">
+        <label class="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-center font-medium cursor-pointer transition-colors">
+            Upload Image
+            <InputFile OnChange="HandleFileUpload" accept=".png,.jpg,.jpeg" class="hidden" />
+        </label>
+        <button class="px-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-medium transition-colors"
+                @onclick="CreateMeterTarget">
+            + Health Detection
+        </button>
+        <button class="px-4 py-2.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled="@(SelectedImage == null)"
+                @onclick="ConfirmDeleteImage">
+            Delete Image
+        </button>
+    </div>
+
+    @if (SelectedImage != null)
+    {
+        <div class="space-y-4">
+            @if (SelectedImage.TargetType == DetectionTargetType.Meter)
+            {
+                var regionConfigured = SelectedImage.Region.CustomRegion != null
+                    && (SelectedImage.Region.CustomRegion.X != 0 || SelectedImage.Region.CustomRegion.Y != 0
+                        || !string.IsNullOrEmpty(SelectedImage.Meter.RegionPreviewPath));
+
+                @if (!regionConfigured)
+                {
+                    <div class="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-yellow-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-yellow-300">Setup required: Select your health bar region</p>
+                                <p class="text-xs text-yellow-400/80 mt-1">
+                                    Use the region picker below to select where the health bar appears on screen.
+                                    This is required before detection can work.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                }
+                @if (IsRunning && !string.IsNullOrEmpty(ModuleId) && SelectedImageId != null)
+                {
+                    var currentVal = GetMeterCurrentValue(ModuleId, SelectedImageId);
+                    <div class="p-3 rounded-lg bg-black/20 border border-app-border">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-app-muted font-medium uppercase tracking-wide">Live Value</span>
+                            @if (currentVal.HasValue)
+                            {
+                                <span class="text-sm font-mono font-bold text-green-400">@currentVal.Value.ToString("F1")%</span>
+                            }
+                            else
+                            {
+                                <span class="text-xs text-app-muted">Waiting for data...</span>
+                            }
+                        </div>
+                        @if (currentVal.HasValue)
+                        {
+                            <div class="w-full h-2.5 rounded-full bg-app-surface overflow-hidden">
+                                <div class="h-full rounded-full bg-green-500 transition-all duration-300"
+                                     style="width: @(currentVal.Value)%"></div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            @if (SelectedImage.TargetType == DetectionTargetType.Meter)
+            {
+                <Card Title="Step 1: Select Health Bar Region" Description="Define where the health bar is on your screen">
+                    <div class="space-y-4">
+                        @if (!string.IsNullOrEmpty(SelectedImage.Meter.RegionPreviewPath) && File.Exists(SelectedImage.Meter.RegionPreviewPath))
+                        {
+                            <div class="p-3 rounded-lg bg-black/20 border border-app-border">
+                                <span class="text-xs text-app-muted font-medium uppercase tracking-wide mb-2 block">Region Preview</span>
+                                <div class="rounded border border-app-border overflow-hidden bg-black/30">
+                                    <img src="@GetImageDataUri(SelectedImage.Meter.RegionPreviewPath)"
+                                         alt="Region preview"
+                                         class="max-w-full max-h-24 mx-auto object-contain" />
+                                </div>
+                                <span class="text-xs text-app-muted mt-1 block">
+                                    @(SelectedImage.Region.CustomRegion != null
+                                        ? $"{SelectedImage.Region.CustomRegion.Width} x {SelectedImage.Region.CustomRegion.Height} px at ({SelectedImage.Region.CustomRegion.X}, {SelectedImage.Region.CustomRegion.Y})"
+                                        : "")
+                                </span>
+                            </div>
+                        }
+
+                        <p class="text-xs text-app-muted">
+                            Take a screenshot of your game, then draw a box around the health bar.
+                            For best results, select just the filled portion of the bar (avoid borders and text).
+                        </p>
+                        <div class="flex items-center gap-2">
+                            @if (IsArmedForCurrentTarget)
+                            {
+                                <Button Class="flex-1" Variant="none" OnClick="ToggleArmPicker">
+                                    <span class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 font-medium hover:bg-yellow-500/30 transition-colors w-full">
+                                        <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                                        Armed - Press @PickerHotkeyDisplay in game
+                                    </span>
+                                </Button>
+                            }
+                            else
+                            {
+                                <Button Text="Arm Region Picker" Variant="primary" Class="flex-1"
+                                        Disabled="@(!IsHotkeyRegistered)"
+                                        OnClick="ToggleArmPicker" />
+                            }
+                            <Button Variant="secondary" OnClick="CaptureAndOpenPicker">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </Button>
+                        </div>
+
+                        @if (!IsHotkeyRegistered)
+                        {
+                            <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2">
+                                Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow.
+                            </div>
+                        }
+
+                        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
+                            <summary class="cursor-pointer text-sm text-zinc-400">Manual coordinates</summary>
+                            <div class="mt-3 grid grid-cols-2 gap-3">
+                                <NumberInput Label="X Position" Value="(double)(SelectedImage.Region.CustomRegion?.X ?? 0)"
+                                             ValueChanged="@(v => UpdateCustomRegion((int)(v ?? 0), null, null, null))" Min="0" />
+                                <NumberInput Label="Y Position" Value="(double)(SelectedImage.Region.CustomRegion?.Y ?? 0)"
+                                             ValueChanged="@(v => UpdateCustomRegion(null, (int)(v ?? 0), null, null))" Min="0" />
+                                <NumberInput Label="Width" Value="(double)(SelectedImage.Region.CustomRegion?.Width ?? 100)"
+                                             ValueChanged="@(v => UpdateCustomRegion(null, null, (int)(v ?? 100), null))" Min="1" />
+                                <NumberInput Label="Height" Value="(double)(SelectedImage.Region.CustomRegion?.Height ?? 100)"
+                                             ValueChanged="@(v => UpdateCustomRegion(null, null, null, (int)(v ?? 100)))" Min="1" />
+                            </div>
+                        </details>
+                    </div>
+                </Card>
+            }
+            @if (SelectedImage.TargetType == DetectionTargetType.Meter)
+            {
+                <Card Title="Step 2: Detection Settings" Description="Configure how the health bar is read">
+                    <div class="space-y-3">
+
+                        <Select Label="Fill Direction" TValue="MeterFillDirection"
+                                Value="SelectedImage.Meter.Direction"
+                                ValueChanged="OnMeterDirectionChangedSelect"
+                                Options="MeterDirectionOptions"
+                                Description="Which direction the bar fills when full" />
+
+                        <Checkbox Label="Decreases only (damage)" Description="Only trigger when the bar goes down - ignores healing or regeneration"
+                                  Value="SelectedImage.Meter.DecreasesOnly" ValueChanged="OnDecreasesOnlyChanged" />
+
+                        <Slider Label="Min Change %" Value="SelectedImage.Meter.MinDeltaPercent"
+                                ValueChanged="UpdateMeterMinDelta"
+                                Min="0.5" Max="20" Step="0.5" Filled="true" ShowValueDirection="right" />
+                        <p class="text-xs text-app-muted -mt-2">
+                            Ignore changes smaller than this. Increase if you get false triggers from bar animations.
+                        </p>
+                        <div class="rounded-lg border border-app-border bg-black/15 px-3 py-3 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="text-sm text-zinc-300 font-medium">Bar Color</span>
+                                    <p class="text-xs text-app-muted mt-0.5">
+                                        @if (SelectedImage.Meter.UseColorHint && SelectedImage.Meter.ColorHint != null)
+                                        {
+                                            @($"Active - Hue {SelectedImage.Meter.ColorHint.HueMin}-{SelectedImage.Meter.ColorHint.HueMax}")
+                                        }
+                                        else
+                                        {
+                                            @("Not set - using brightness-based detection")
+                                        }
+                                    </p>
+                                </div>
+                                @if (SelectedImage.Meter.UseColorHint)
+                                {
+                                    <Button Text="Re-detect" Size="sm" Variant="secondary" OnClick="RedetectBarColor" />
+                                }
+                            </div>
+
+                            <Checkbox Label="Use color filtering" Description="Filter by the bar's color for more accurate readings"
+                                      Value="SelectedImage.Meter.UseColorHint" ValueChanged="OnUseColorHintChanged" />
+
+                            @if (SelectedImage.Meter.UseColorHint)
+                            {
+                                <div class="space-y-2">
+                                    <label class="block text-xs font-medium text-app-muted">Quick preset</label>
+                                    <div class="flex gap-2 flex-wrap">
+                                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-green-600/30 text-green-300 border border-green-500/40 hover:bg-green-600/50 transition-colors"
+                                                @onclick="@(() => ApplyColorPreset("green"))">Green</button>
+                                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-red-600/30 text-red-300 border border-red-500/40 hover:bg-red-600/50 transition-colors"
+                                                @onclick="@(() => ApplyColorPreset("red"))">Red</button>
+                                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-blue-600/30 text-blue-300 border border-blue-500/40 hover:bg-blue-600/50 transition-colors"
+                                                @onclick="@(() => ApplyColorPreset("blue"))">Blue</button>
+                                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-yellow-600/30 text-yellow-300 border border-yellow-500/40 hover:bg-yellow-600/50 transition-colors"
+                                                @onclick="@(() => ApplyColorPreset("yellow"))">Yellow</button>
+                                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-zinc-600/30 text-zinc-300 border border-zinc-500/40 hover:bg-zinc-600/50 transition-colors"
+                                                @onclick="@(() => ApplyColorPreset("white"))">White</button>
+                                    </div>
+
+                                    @if (SelectedImage.Meter.ColorHint != null)
+                                    {
+                                        <details class="rounded border border-app-border bg-black/10 px-2 py-1.5">
+                                            <summary class="cursor-pointer text-xs text-zinc-500">Manual HSV tuning</summary>
+                                            <div class="mt-2 space-y-2">
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <NumberInput Label="Hue Min" Value="(double)SelectedImage.Meter.ColorHint.HueMin"
+                                                                 ValueChanged="@(v => UpdateColorHint(h => h.HueMin = (int)Math.Clamp(v ?? 0, 0, 180)))"
+                                                                 Min="0" Max="180" Step="1" />
+                                                    <NumberInput Label="Hue Max" Value="(double)SelectedImage.Meter.ColorHint.HueMax"
+                                                                 ValueChanged="@(v => UpdateColorHint(h => h.HueMax = (int)Math.Clamp(v ?? 0, 0, 180)))"
+                                                                 Min="0" Max="180" Step="1" />
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <NumberInput Label="Saturation Min" Value="(double)SelectedImage.Meter.ColorHint.SatMin"
+                                                                 ValueChanged="@(v => UpdateColorHint(h => h.SatMin = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                                 Min="0" Max="255" Step="1" />
+                                                    <NumberInput Label="Saturation Max" Value="(double)SelectedImage.Meter.ColorHint.SatMax"
+                                                                 ValueChanged="@(v => UpdateColorHint(h => h.SatMax = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                                 Min="0" Max="255" Step="1" />
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <NumberInput Label="Brightness Min" Value="(double)SelectedImage.Meter.ColorHint.ValMin"
+                                                                 ValueChanged="@(v => UpdateColorHint(h => h.ValMin = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                                 Min="0" Max="255" Step="1" />
+                                                    <NumberInput Label="Brightness Max" Value="(double)SelectedImage.Meter.ColorHint.ValMax"
+                                                                 ValueChanged="@(v => UpdateColorHint(h => h.ValMax = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                                 Min="0" Max="255" Step="1" />
+                                                </div>
+                                            </div>
+                                        </details>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
+                            <summary class="cursor-pointer text-sm text-zinc-400">Advanced tuning</summary>
+                            <div class="mt-3 space-y-3">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <NumberInput Label="Smoothing Frames" Value="(double)SelectedImage.Meter.SmoothingFrames"
+                                                     ValueChanged="OnMeterSmoothingChanged"
+                                                     Min="1" Max="10" Step="1" />
+                                        <p class="text-xs text-app-muted mt-1">Averages this many readings to reduce noise. Higher = more stable but slower to react.</p>
+                                    </div>
+                                    <div>
+                                        <NumberInput Label="Event Cooldown (ms)" Value="(double)SelectedImage.Meter.EventCooldownMs"
+                                                     ValueChanged="OnMeterCooldownChanged"
+                                                     Min="50" Max="5000" Step="50" />
+                                        <p class="text-xs text-app-muted mt-1">Minimum time between triggers. Prevents rapid repeated activations.</p>
+                                    </div>
+                                </div>
+
+                                <Checkbox Label="Require focused window" Description="Only track when a specific window is in the foreground"
+                                          Value="SelectedImage.Meter.RequireFocusedWindow" ValueChanged="OnRequireFocusedWindowChanged" />
+
+                                @if (SelectedImage.Meter.RequireFocusedWindow)
+                                {
+                                    <div class="pl-6 space-y-2">
+                                        <div class="flex gap-2 items-end">
+                                            <div class="flex-1">
+                                                <Select Label="Required Window" TValue="string"
+                                                        Value="GetRequiredWindowSelectionKey()"
+                                                        ValueChanged="OnRequiredFocusWindowSelect"
+                                                        Placeholder="Select a window..."
+                                                        Options="GetFocusWindowOptions()" />
+                                            </div>
+                                            <Button Text="Refresh" Size="sm" Variant="secondary" OnClick="RefreshWindowOptions" />
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </details>
+                    </div>
+                </Card>
+            }
+            <Card Title="@(SelectedImage.TargetType == DetectionTargetType.Meter ? "Step 3: Action Settings" : "Action Settings")"
+                  Description="@(SelectedImage.TargetType == DetectionTargetType.Meter ? "What happens when damage is detected" : null)">
+                <div class="space-y-4">
+                    @if (SelectedImage.TargetType == DetectionTargetType.Meter)
+                    {
+                        <Select Label="Intensity Mode" TValue="MeterIntensityMode"
+                                Value="SelectedImage.Meter.IntensityMode"
+                                ValueChanged="OnIntensityModeSelect"
+                                Options="IntensityModeOptions" />
+
+                        @switch (SelectedImage.Meter.IntensityMode)
+                        {
+                            case MeterIntensityMode.Scaled:
+                                <Slider Label="Max Intensity" Value="SelectedImage.Action.Intensity"
+                                        ValueChanged="OnIntensitySliderChanged"
+                                        Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                                <p class="text-xs text-app-muted -mt-2">
+                                    Damage % scaled against max. e.g. 30% HP loss at max 80 = intensity 24.
+                                </p>
+                                break;
+
+                            case MeterIntensityMode.Direct:
+                                <Slider Label="Max Intensity" Value="SelectedImage.Action.Intensity"
+                                        ValueChanged="OnIntensitySliderChanged"
+                                        Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                                <p class="text-xs text-app-muted -mt-2">
+                                    Damage % is the intensity directly. e.g. 30% HP loss = intensity 30, capped at max.
+                                </p>
+                                break;
+
+                            case MeterIntensityMode.Fixed:
+                            default:
+                                <Slider Label="Intensity" Value="SelectedImage.Action.Intensity"
+                                        ValueChanged="OnIntensitySliderChanged"
+                                        Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        <Slider Label="Intensity" Value="SelectedImage.Action.Intensity"
+                                ValueChanged="OnIntensitySliderChanged"
+                                Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                    }
+
+                    <Slider Label="Duration (seconds)" Value="SelectedImage.Action.DurationSeconds"
+                            ValueChanged="OnDurationSliderChanged"
+                            Min="0.1" Max="15" Step="0.1" Filled="true" ShowValueDirection="right" />
+
+                    @if (SelectedImage.TargetType == DetectionTargetType.Template)
+                    {
+                        <Slider Label="Detection Threshold" Value="SelectedImage.Threshold"
+                                ValueChanged="OnThresholdSliderChanged"
+                                Min="0.5" Max="1" Step="0.01" Filled="true" ShowValueDirection="right" />
+                    }
+
+                    <Select Label="Action Type" TValue="ActionType"
+                            Value="SelectedImage.Action.Type"
+                            ValueChanged="OnActionTypeSelect"
+                            Options="ActionTypeOptions" />
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <ShockerSelect Label="Shockers" MultiSelect="true"
+                                       SelectedIds="SelectedImage.Action.ShockerIds"
+                                       SelectedIdsChanged="OnShockerIdsChanged"
+                                       Placeholder="Select shockers..."
+                                       GroupByDevice="true" />
+
+                        <Select Label="Target Mode" TValue="ShockerMode"
+                                Value="SelectedImage.Action.Mode"
+                                ValueChanged="OnModeSelect"
+                                Options="ShockerModeOptions" />
+                    </div>
+
+                    @if (SelectedImage.Action.Mode == ShockerMode.Random && SelectedImage.Action.ShockerIds.Count > 1)
+                    {
+                        var maxShockers = SelectedImage.Action.ShockerIds.Count;
+                        <Slider Label="Random Count"
+                                RangeMode="true"
+                                RangeStart="SelectedImage.Action.RandomCountMin"
+                                RangeStartChanged="OnRandomCountMinChanged"
+                                RangeEnd="SelectedImage.Action.RandomCountMax"
+                                RangeEndChanged="OnRandomCountMaxChanged"
+                                Min="1" Max="@maxShockers" Step="1"
+                                Filled="true" ShowValueDirection="right" />
+                        <p class="text-xs text-app-muted -mt-2">
+                            @if (SelectedImage.Action.RandomCountMin == SelectedImage.Action.RandomCountMax)
+                            {
+                                @($"Always picks {SelectedImage.Action.RandomCountMin} of {maxShockers} shockers.")
+                            }
+                            else
+                            {
+                                @($"Randomly picks between {SelectedImage.Action.RandomCountMin} and {SelectedImage.Action.RandomCountMax} of {maxShockers} shockers.")
+                            }
+                        </p>
+                    }
+
+                    <div class="rounded-lg border border-app-border bg-black/15 p-3 space-y-3">
+                        <div class="text-xs text-app-muted uppercase tracking-wide">Cooldown</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <NumberInput Label="Duration (seconds)" Value="(double)SelectedImage.Cooldown.DurationSeconds"
+                                         ValueChanged="OnCooldownNumberChanged"
+                                         Min="0" Max="3600" Step="1" />
+
+                            <Select Label="Type" TValue="CooldownType"
+                                    Value="SelectedImage.Cooldown.Type"
+                                    ValueChanged="OnCooldownTypeSelect"
+                                    Options="CooldownTypeOptions" />
+                        </div>
+
+                        @if (SelectedImage.Cooldown.Type == CooldownType.ImageReset)
+                        {
+                            <Select Label="Reset Trigger Target" TValue="string"
+                                    Value="@(SelectedImage.Cooldown.ResetImagePath ?? "")"
+                                    ValueChanged="OnResetImageSelect"
+                                    Placeholder="Select another target..."
+                                    Options="GetResetImageOptions()" />
+
+                            @if (!GetResetImageOptions().Any())
+                            {
+                                <p class="text-xs text-app-muted">Add another target in this module to use image-reset cooldown.</p>
+                            }
+                        }
+                    </div>
+                </div>
+            </Card>
+
+            @{
+                var showImagePreview = SelectedImage.TargetType == DetectionTargetType.Template
+                    && !string.IsNullOrEmpty(SelectedImage.FilePath)
+                    && File.Exists(SelectedImage.FilePath);
+            }
+
+            @if (SelectedImage.TargetType == DetectionTargetType.Template)
+            {
+                <div class="region-preview-layout @(showImagePreview ? "has-preview" : "")">
+                    <Card Title="Detection Region">
+                        <div class="space-y-4">
+                            <Select Label="Region Type" TValue="RegionType"
+                                    Value="SelectedImage.Region.Type"
+                                    ValueChanged="OnRegionTypeSelect"
+                                    Options="RegionTypeOptions" />
+                            <div class="flex items-center gap-2">
+                                @if (IsArmedForCurrentTarget)
+                                {
+                                    <Button Class="flex-1" Variant="none" OnClick="ToggleArmPicker">
+                                        <span class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 font-medium hover:bg-yellow-500/30 transition-colors w-full">
+                                            <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                                            Armed - Press @PickerHotkeyDisplay in game
+                                        </span>
+                                    </Button>
+                                }
+                                else
+                                {
+                                    <Button Text="Arm Region Picker" Variant="primary" Class="flex-1"
+                                            Disabled="@(!IsHotkeyRegistered)"
+                                            OnClick="ToggleArmPicker" />
+                                }
+                                <Button Variant="secondary" OnClick="CaptureAndOpenPicker">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                </Button>
+                            </div>
+
+                            @if (!IsHotkeyRegistered)
+                            {
+                                <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2">
+                                    Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow.
+                                </div>
+                            }
+
+                            @if (SelectedImage.TargetType == DetectionTargetType.Template && SelectedImage.Region.Type == RegionType.Grid)
+                            {
+                                <div>
+                                    <label class="block text-xs font-medium text-app-muted mb-3">Active Sections</label>
+                                    <div class="inline-block">
+                                        <div class="grid grid-cols-3 gap-1">
+                                            @for (var i = 0; i < 9; i++)
+                                            {
+                                                var index = i;
+                                                var isActive = SelectedImage.Region.GridSections?.Sections[index] ?? true;
+                                                <button type="button"
+                                                        class="w-16 h-12 rounded text-xs font-medium transition-all @(isActive ? "bg-green-600 hover:bg-green-500" : "bg-red-600/50 hover:bg-red-500/50")"
+                                                        @onclick="@(() => ToggleSection(index))">
+                                                    @(index + 1)
+                                                </button>
+                                            }
+                                        </div>
+                                        <div class="flex gap-2 mt-3">
+                                            <Button Text="All" Size="sm" Variant="ghost" OnClick="EnableAllSections" />
+                                            <Button Text="None" Size="sm" Variant="ghost" OnClick="DisableAllSections" />
+                                            <Button Text="Visual Preview" Size="sm" Variant="primary" OnClick="OpenVisualSelector" />
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-app-muted mt-2">Green = enabled, Red = disabled</p>
+                                </div>
+                            }
+
+                            @if (SelectedImage.Region.Type == RegionType.Custom)
+                            {
+                                <div class="grid grid-cols-2 gap-3">
+                                    <NumberInput Label="X Position" Value="(double)(SelectedImage.Region.CustomRegion?.X ?? 0)"
+                                                 ValueChanged="@(v => UpdateCustomRegion((int)(v ?? 0), null, null, null))" Min="0" />
+                                    <NumberInput Label="Y Position" Value="(double)(SelectedImage.Region.CustomRegion?.Y ?? 0)"
+                                                 ValueChanged="@(v => UpdateCustomRegion(null, (int)(v ?? 0), null, null))" Min="0" />
+                                    <NumberInput Label="Width" Value="(double)(SelectedImage.Region.CustomRegion?.Width ?? 100)"
+                                                 ValueChanged="@(v => UpdateCustomRegion(null, null, (int)(v ?? 100), null))" Min="1" />
+                                    <NumberInput Label="Height" Value="(double)(SelectedImage.Region.CustomRegion?.Height ?? 100)"
+                                                 ValueChanged="@(v => UpdateCustomRegion(null, null, null, (int)(v ?? 100)))" Min="1" />
+                                </div>
+                            }
+                        </div>
+                    </Card>
+                    @if (showImagePreview)
+                    {
+                        <Card Title="Image Preview">
+                            <div class="rounded-lg border border-app-border overflow-hidden bg-black/20">
+                                <img src="@GetImageDataUri(SelectedImage.FilePath)"
+                                     alt="@SelectedImage.Name"
+                                     class="max-w-full max-h-64 mx-auto object-contain" />
+                            </div>
+                            <div class="mt-3 flex flex-col gap-1 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-app-muted">Captured at:</span>
+                                    <span class="text-app-text font-medium">@SelectedImage.CaptureResolution.Width&times;@SelectedImage.CaptureResolution.Height</span>
+                                    @if (IsResolutionMismatch(SelectedImage.CaptureResolution))
+                                    {
+                                        <span class="text-yellow-500">(mismatch)</span>
+                                    }
+                                </div>
+                                @if (IsResolutionMismatch(SelectedImage.CaptureResolution))
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-app-muted">Auto-resize:</span>
+                                        <Checkbox Label="@(SelectedImage.AutoResize ? $"Enabled (will resize to {GetCurrentMonitorResolution()?.Width}x{GetCurrentMonitorResolution()?.Height})" : "Disabled")"
+                                                  Value="SelectedImage.AutoResize" ValueChanged="OnAutoResizeChanged" />
+                                    </div>
+                                }
+                            </div>
+                        </Card>
+                    }
+                </div>
+            }
+
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-12 text-zinc-500">
+            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p class="text-lg mb-2">No targets in this module</p>
+            <p class="text-sm">Upload an image or add a health bar to get started</p>
+        </div>
+    }
+</div>
+
+@if (ShowDeleteConfirmDialog)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @onclick="@(() => ShowDeleteConfirmDialog = false)">
+        <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-sm shadow-2xl" @onclick:stopPropagation="true">
+            <h2 class="text-xl font-bold mb-2">Confirm Delete</h2>
+            <p class="text-zinc-400 mb-6">@DeleteConfirmMessage</p>
+            <div class="flex justify-end gap-3">
+                <button class="px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                        @onclick="@(() => ShowDeleteConfirmDialog = false)">
+                    Cancel
+                </button>
+                <button class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium transition-colors"
+                        @onclick="ExecuteDelete">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<VisualSectionSelector
+    IsVisible="ShowVisualSelector"
+    MonitorIndex="SelectedMonitor"
+    SectionStates="SelectedImage?.Region.GridSections?.Sections"
+    OnSelectionChanged="OnVisualSelectionChanged"
+    OnClose="CloseVisualSelector" />
+
+<ResolutionInputDialog
+    IsVisible="ShowResolutionDialog"
+    DefaultResolution="_pendingUploadResolution"
+    CurrentMonitorResolution="Monitors.FirstOrDefault(m => m.Index == SelectedMonitor)?.Resolution"
+    OnConfirm="OnResolutionConfirmed"
+    OnCancel="CancelUpload" />
+
+<RegionPickerModal @ref="_regionPickerModal"
+    IsVisible="_showRegionPicker"
+    TargetName="@(_regionPickerTargetName)"
+    InitialRegion="@(_regionPickerInitialRegion)"
+    OnApply="OnRegionPickerApply"
+    OnCancel="OnRegionPickerCancel" />
+
+<style>
+    .region-preview-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+    }
+
+    .region-preview-layout.has-preview {
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        align-items: start;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+
+    private bool IsRunning => DetectionService?.IsRunning ?? false;
+    private int SelectedMonitor => ConfigService.CaptureConfig.MonitorIndex;
+    private bool IsHotkeyRegistered => HotkeyService.IsRegistered;
+    private string PickerHotkeyDisplay => ConfigService.PickerHotkey.GetDisplayString();
+
+    private static readonly IEnumerable<Select<MeterFillDirection>.SelectOption<MeterFillDirection>> MeterDirectionOptions =
+    [
+        new(MeterFillDirection.LeftToRight, "Left to Right"),
+        new(MeterFillDirection.RightToLeft, "Right to Left"),
+        new(MeterFillDirection.BottomToTop, "Bottom to Top"),
+        new(MeterFillDirection.TopToBottom, "Top to Bottom"),
+    ];
+
+    private static readonly IEnumerable<Select<ActionType>.SelectOption<ActionType>> ActionTypeOptions =
+    [
+        new(ActionType.Shock, "Shock"),
+        new(ActionType.Vibrate, "Vibrate"),
+        new(ActionType.Beep, "Beep"),
+    ];
+
+    private static readonly IEnumerable<Select<ShockerMode>.SelectOption<ShockerMode>> ShockerModeOptions =
+    [
+        new(ShockerMode.Selected, "Selected"),
+        new(ShockerMode.Random, "Random from Selected"),
+    ];
+
+    private static readonly IEnumerable<Select<MeterIntensityMode>.SelectOption<MeterIntensityMode>> IntensityModeOptions =
+    [
+        new(MeterIntensityMode.Scaled, "Scaled (% of max)"),
+        new(MeterIntensityMode.Direct, "Direct (up to max)"),
+        new(MeterIntensityMode.Fixed, "Fixed"),
+    ];
+
+    private static readonly IEnumerable<Select<CooldownType>.SelectOption<CooldownType>> CooldownTypeOptions =
+    [
+        new(CooldownType.Standard, "Standard"),
+        new(CooldownType.Continuous, "Reset on Detection"),
+        new(CooldownType.ImageReset, "Wait for Reset Image"),
+    ];
+
+    private static readonly IEnumerable<Select<RegionType>.SelectOption<RegionType>> RegionTypeOptions =
+    [
+        new(RegionType.FullScreen, "Full Screen"),
+        new(RegionType.Grid, "Grid Sections"),
+        new(RegionType.Custom, "Custom Region"),
+    ];
+
+    private List<MonitorInfo> Monitors = [];
+    private List<WindowInfo> AvailableWindows = [];
+    private string? SelectedImageId;
+
+    private string? _lastModuleId;
+    private bool ShowDeleteConfirmDialog;
+    private string DeleteConfirmMessage = string.Empty;
+    private Action? DeleteAction;
+
+    private bool ShowVisualSelector;
+    private bool ShowResolutionDialog;
+    private byte[]? _pendingUploadBytes;
+    private string? _pendingUploadFileName;
+    private Resolution? _pendingUploadResolution;
+
+    private Timer? _meterRefreshTimer;
+
+    private RegionPickerModal? _regionPickerModal;
+    private bool _showRegionPicker;
+    private string? _regionPickerTargetName;
+    private ScreenRegion? _regionPickerInitialRegion;
+    private string? _regionPickerTargetId;
+    private Emgu.CV.Mat? _regionPickerScreenshot;
+
+    private DetectionModule? SelectedModuleData =>
+        !string.IsNullOrWhiteSpace(ModuleId) && ConfigService.Modules.TryGetValue(ModuleId, out var module)
+            ? module
+            : null;
+
+    private DetectionImage? SelectedImage =>
+        SelectedModuleData?.Images.TryGetValue(SelectedImageId ?? string.Empty, out var image) == true
+            ? image
+            : null;
+
+    private bool IsArmedForCurrentTarget =>
+        PickerArmService.IsArmed &&
+        PickerArmService.Current?.ModuleId == ModuleId &&
+        PickerArmService.Current?.TargetId == SelectedImageId;
+
+    protected override void OnInitialized()
+    {
+        LoadEditorData();
+
+        DetectionService.RunningStateChanged += OnRunningStateChanged;
+        ConfigService.ConfigurationChanged += OnConfigChanged;
+        PickerArmService.Armed += OnPickerArmed;
+        PickerArmService.Disarmed += OnPickerDisarmed;
+        PickerArmService.Triggered += OnPickerTriggered;
+
+        if (DetectionService.IsRunning)
+        {
+            _meterRefreshTimer = new Timer(_ => InvokeAsync(StateHasChanged), null, 0, 500);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_lastModuleId != ModuleId)
+        {
+            _lastModuleId = ModuleId;
+            SelectedImageId = SelectedModuleData?.Images.Keys.FirstOrDefault();
+        }
+
+        EnsureSelectedImage();
+    }
+
+    public void Dispose()
+    {
+        _meterRefreshTimer?.Dispose();
+        _meterRefreshTimer = null;
+        DetectionService.RunningStateChanged -= OnRunningStateChanged;
+        ConfigService.ConfigurationChanged -= OnConfigChanged;
+        PickerArmService.Armed -= OnPickerArmed;
+        PickerArmService.Disarmed -= OnPickerDisarmed;
+        PickerArmService.Triggered -= OnPickerTriggered;
+        _regionPickerScreenshot?.Dispose();
+    }
+
+    private void LoadEditorData()
+    {
+        Monitors = CaptureService.GetMonitors();
+        AvailableWindows = CaptureService.GetWindows();
+        EnsureSelectedImage();
+    }
+
+    private void EnsureSelectedImage()
+    {
+        if (SelectedModuleData == null)
+        {
+            SelectedImageId = null;
+            return;
+        }
+
+        if (SelectedImageId == null || !SelectedModuleData.Images.ContainsKey(SelectedImageId))
+        {
+            SelectedImageId = SelectedModuleData.Images.Keys.FirstOrDefault();
+        }
+    }
+
+    private void OnRunningStateChanged(bool running)
+    {
+        if (running)
+        {
+            _meterRefreshTimer ??= new Timer(_ => InvokeAsync(StateHasChanged), null, 0, 500);
+        }
+        else
+        {
+            _meterRefreshTimer?.Dispose();
+            _meterRefreshTimer = null;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnConfigChanged()
+    {
+        InvokeAsync(() =>
+        {
+            LoadEditorData();
+            StateHasChanged();
+        });
+    }
+
+    private void OnImageSelected(ChangeEventArgs e)
+    {
+        SelectedImageId = e.Value?.ToString();
+        StateHasChanged();
+    }
+
+    private void OnImageEnabledChanged(bool enabled)
+    {
+        if (string.IsNullOrEmpty(ModuleId) || SelectedImageId == null) return;
+        ConfigService.SetImageEnabled(ModuleId, SelectedImageId, enabled);
+        StateHasChanged();
+    }
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        if (string.IsNullOrEmpty(ModuleId)) return;
+
+        try
+        {
+            var file = e.File;
+            if (file.Size > 10 * 1024 * 1024)
+            {
+                PluginHost.ShowErrorToast("Upload Failed", "File too large. Maximum size is 10MB.");
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            _pendingUploadBytes = ms.ToArray();
+            _pendingUploadFileName = file.Name;
+
+            var monitor = Monitors.FirstOrDefault(m => m.Index == SelectedMonitor);
+            _pendingUploadResolution = monitor?.Resolution ?? new Resolution(1920, 1080);
+
+            ShowResolutionDialog = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            PluginHost.ShowErrorToast("Upload Failed", $"Failed to read file: {ex.Message}");
+        }
+    }
+
+    private async Task CompleteUpload(Resolution captureResolution)
+    {
+        if (string.IsNullOrEmpty(ModuleId) || _pendingUploadBytes == null || _pendingUploadFileName == null) return;
+
+        try
+        {
+            var moduleDir = Path.GetDirectoryName(SelectedModuleData?.Images.Values.FirstOrDefault()?.FilePath)
+                           ?? Path.Combine(ConfigService.ModulesDirectory, ModuleId);
+            Directory.CreateDirectory(moduleDir);
+
+            var fileName = Path.GetFileName(_pendingUploadFileName);
+            var filePath = Path.Combine(moduleDir, fileName);
+
+            var counter = 1;
+            while (File.Exists(filePath))
+            {
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                var ext = Path.GetExtension(fileName);
+                filePath = Path.Combine(moduleDir, $"{nameWithoutExt}_{counter++}{ext}");
+            }
+
+            await File.WriteAllBytesAsync(filePath, _pendingUploadBytes);
+
+            var imageId = Path.GetFileName(filePath);
+            var image = new DetectionImage
+            {
+                Id = imageId,
+                Name = Path.GetFileNameWithoutExtension(_pendingUploadFileName),
+                FilePath = filePath,
+                Enabled = true,
+                Threshold = 0.8,
+                CaptureResolution = captureResolution,
+                AutoResize = true,
+                Action = new ActionConfig { Enabled = true, Type = ActionType.Shock, Intensity = 50, DurationSeconds = 1 },
+                Cooldown = new CooldownConfig { Type = CooldownType.Standard, DurationSeconds = 30 },
+                Region = new RegionConfig { Type = RegionType.FullScreen }
+            };
+
+            ConfigService.AddImage(ModuleId, image);
+            SelectedImageId = imageId;
+
+            _pendingUploadBytes = null;
+            _pendingUploadFileName = null;
+            _pendingUploadResolution = null;
+
+            LoadEditorData();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            PluginHost.ShowErrorToast("Upload Failed", $"Failed to save image: {ex.Message}");
+        }
+    }
+
+    private void CancelUpload()
+    {
+        _pendingUploadBytes = null;
+        _pendingUploadFileName = null;
+        _pendingUploadResolution = null;
+        ShowResolutionDialog = false;
+        StateHasChanged();
+    }
+
+    private async Task OnResolutionConfirmed(Resolution resolution)
+    {
+        ShowResolutionDialog = false;
+        await CompleteUpload(resolution);
+    }
+
+    private bool IsResolutionMismatch(Resolution captureResolution)
+    {
+        var currentMonitor = Monitors.FirstOrDefault(m => m.Index == SelectedMonitor);
+        if (currentMonitor?.Resolution == null) return false;
+
+        return captureResolution.Width != currentMonitor.Resolution.Width ||
+               captureResolution.Height != currentMonitor.Resolution.Height;
+    }
+
+    private Resolution? GetCurrentMonitorResolution()
+        => Monitors.FirstOrDefault(m => m.Index == SelectedMonitor)?.Resolution;
+
+    private void ConfirmDeleteImage()
+    {
+        if (SelectedImage == null) return;
+
+        DeleteConfirmMessage = $"Are you sure you want to delete \"{SelectedImage.Name}\"?";
+        DeleteAction = () =>
+        {
+            if (!string.IsNullOrEmpty(ModuleId) && SelectedImageId != null)
+            {
+                ConfigService.DeleteImage(ModuleId, SelectedImageId);
+                SelectedImageId = null;
+                LoadEditorData();
+                SelectedImageId = SelectedModuleData?.Images.Keys.FirstOrDefault();
+            }
+        };
+        ShowDeleteConfirmDialog = true;
+        StateHasChanged();
+    }
+
+    private void ExecuteDelete()
+    {
+        ShowDeleteConfirmDialog = false;
+        DeleteAction?.Invoke();
+        DeleteAction = null;
+        StateHasChanged();
+    }
+
+    private void SaveImageConfig()
+    {
+        if (string.IsNullOrEmpty(ModuleId) || SelectedImageId == null || SelectedImage == null) return;
+        ConfigService.UpdateImage(ModuleId, SelectedImage);
+    }
+
+    private void OnIntensitySliderChanged(double value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Action.Intensity = (int)Math.Clamp(value, 1, 100);
+        SaveImageConfig();
+    }
+
+    private void OnDurationSliderChanged(double value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Action.DurationSeconds = Math.Clamp(value, 0.1, 15);
+        SaveImageConfig();
+    }
+
+    private void OnThresholdSliderChanged(double value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Threshold = Math.Clamp(value, 0.5, 1.0);
+        SaveImageConfig();
+    }
+
+    private void OnActionTypeSelect(ActionType type)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Action.Type = type;
+        SaveImageConfig();
+    }
+
+    private void OnModeSelect(ShockerMode mode)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Action.Mode = mode;
+        SaveImageConfig();
+    }
+
+    private void OnShockerIdsChanged(List<string> ids)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Action.ShockerIds = ids;
+        if (ids.Count > 0)
+        {
+            SelectedImage.Action.RandomCountMin = Math.Clamp(SelectedImage.Action.RandomCountMin, 1, ids.Count);
+            SelectedImage.Action.RandomCountMax = Math.Clamp(SelectedImage.Action.RandomCountMax, SelectedImage.Action.RandomCountMin, ids.Count);
+        }
+
+        SaveImageConfig();
+    }
+
+    private void OnRandomCountMinChanged(double value)
+    {
+        if (SelectedImage == null) return;
+        var cap = Math.Max(1, SelectedImage.Action.ShockerIds.Count);
+        var newMin = (int)Math.Clamp(value, 1, cap);
+        SelectedImage.Action.RandomCountMin = newMin;
+        if (SelectedImage.Action.RandomCountMax < newMin)
+            SelectedImage.Action.RandomCountMax = newMin;
+        SaveImageConfig();
+    }
+
+    private void OnRandomCountMaxChanged(double value)
+    {
+        if (SelectedImage == null) return;
+        var cap = Math.Max(1, SelectedImage.Action.ShockerIds.Count);
+        var newMax = (int)Math.Clamp(value, 1, cap);
+        SelectedImage.Action.RandomCountMax = newMax;
+        if (SelectedImage.Action.RandomCountMin > newMax)
+            SelectedImage.Action.RandomCountMin = newMax;
+        SaveImageConfig();
+    }
+
+    private void OnCooldownNumberChanged(double? value)
+    {
+        if (SelectedImage == null || value == null) return;
+        SelectedImage.Cooldown.DurationSeconds = (int)Math.Max(0, value.Value);
+        SaveImageConfig();
+    }
+
+    private void OnCooldownTypeSelect(CooldownType type)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Cooldown.Type = type;
+        SaveImageConfig();
+    }
+
+    private void OnResetImageSelect(string? path)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Cooldown.ResetImagePath = path;
+        SaveImageConfig();
+    }
+
+    private IEnumerable<Select<string>.SelectOption<string>> GetResetImageOptions()
+    {
+        if (string.IsNullOrEmpty(ModuleId))
+        {
+            return Enumerable.Empty<Select<string>.SelectOption<string>>();
+        }
+
+        var images = SelectedModuleData?.Images.Values.Where(i => i.Id != SelectedImageId) ?? Enumerable.Empty<DetectionImage>();
+        return images.Select(i =>
+        {
+            var label = i.TargetType == DetectionTargetType.Meter ? $"[Meter] {i.Name}" : i.Name;
+            return new Select<string>.SelectOption<string>($"{ModuleId}/{i.Id}", label);
+        });
+    }
+
+    private static string BuildWindowSelectionKey(WindowInfo window)
+        => $"{window.ProcessName}|{window.Title}";
+
+    private string GetRequiredWindowSelectionKey()
+    {
+        if (SelectedImage == null) return string.Empty;
+        var process = SelectedImage.Meter.RequiredFocusWindowProcess ?? string.Empty;
+        var title = SelectedImage.Meter.RequiredFocusWindowTitle ?? string.Empty;
+        return $"{process}|{title}";
+    }
+
+    private IEnumerable<Select<string>.SelectOption<string>> GetFocusWindowOptions()
+    {
+        return AvailableWindows
+            .OrderBy(w => w.ProcessName)
+            .ThenBy(w => w.Title)
+            .Select(w => new Select<string>.SelectOption<string>(
+                BuildWindowSelectionKey(w),
+                string.IsNullOrWhiteSpace(w.ProcessName) ? w.Title : $"{w.ProcessName} - {w.Title}"));
+    }
+
+    private void RefreshWindowOptions()
+    {
+        AvailableWindows = CaptureService.GetWindows();
+        StateHasChanged();
+    }
+
+    private void OnRegionTypeSelect(RegionType type)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Region.Type = type;
+
+        if (type == RegionType.Grid && SelectedImage.Region.GridSections == null)
+            SelectedImage.Region.GridSections = GridSections.All();
+        if (type == RegionType.Custom && SelectedImage.Region.CustomRegion == null)
+            SelectedImage.Region.CustomRegion = new ScreenRegion { X = 0, Y = 0, Width = 100, Height = 100 };
+
+        SaveImageConfig();
+    }
+
+    private void OnAutoResizeChanged(bool value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.AutoResize = value;
+        SaveImageConfig();
+    }
+
+    private void ToggleSection(int index)
+    {
+        if (SelectedImage?.Region.GridSections == null) return;
+        SelectedImage.Region.GridSections.Sections[index] = !SelectedImage.Region.GridSections.Sections[index];
+        SaveImageConfig();
+        StateHasChanged();
+    }
+
+    private void EnableAllSections()
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Region.GridSections = GridSections.All();
+        SaveImageConfig();
+    }
+
+    private void DisableAllSections()
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Region.GridSections = GridSections.None();
+        SaveImageConfig();
+    }
+
+    private void OpenVisualSelector()
+    {
+        if (SelectedImage?.Region.Type == RegionType.Grid)
+        {
+            ShowVisualSelector = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OnVisualSelectionChanged(bool[] sections)
+    {
+        if (SelectedImage?.Region.GridSections != null)
+        {
+            SelectedImage.Region.GridSections.Sections = sections;
+            SaveImageConfig();
+        }
+    }
+
+    private void CloseVisualSelector()
+    {
+        ShowVisualSelector = false;
+        StateHasChanged();
+    }
+
+    private void UpdateCustomRegion(int? x = null, int? y = null, int? width = null, int? height = null)
+    {
+        if (SelectedImage?.Region.CustomRegion == null) return;
+
+        if (x.HasValue) SelectedImage.Region.CustomRegion.X = x.Value;
+        if (y.HasValue) SelectedImage.Region.CustomRegion.Y = y.Value;
+        if (width.HasValue) SelectedImage.Region.CustomRegion.Width = width.Value;
+        if (height.HasValue) SelectedImage.Region.CustomRegion.Height = height.Value;
+
+        SaveImageConfig();
+    }
+
+    private void CreateMeterTarget()
+    {
+        if (string.IsNullOrEmpty(ModuleId)) return;
+
+        var id = $"meter-{DateTime.UtcNow:yyyyMMddHHmmss}";
+        var image = new DetectionImage
+        {
+            Id = id,
+            Name = "Health Bar",
+            TargetType = DetectionTargetType.Meter,
+            Enabled = true,
+            Threshold = 0.8,
+            CaptureResolution = Monitors.FirstOrDefault(m => m.Index == SelectedMonitor)?.Resolution ?? new Resolution(1920, 1080),
+            AutoResize = false,
+            Action = new ActionConfig { Enabled = true, Type = ActionType.Shock, Intensity = 50, DurationSeconds = 1 },
+            Cooldown = new CooldownConfig { Type = CooldownType.Standard, DurationSeconds = 1 },
+            Region = new RegionConfig { Type = RegionType.Custom, CustomRegion = new ScreenRegion(0, 0, 200, 30) },
+            Meter = new MeterDetectionConfig
+            {
+                Enabled = true,
+                Direction = MeterFillDirection.LeftToRight,
+                MinDeltaPercent = 2.0,
+                SmoothingFrames = 3,
+                EventCooldownMs = 300,
+                DecreasesOnly = true
+            }
+        };
+
+        ConfigService.AddImage(ModuleId, image);
+        SelectedImageId = id;
+        LoadEditorData();
+        StateHasChanged();
+    }
+
+    private void OnMeterDirectionChangedSelect(MeterFillDirection direction)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.Direction = direction;
+        SaveImageConfig();
+    }
+
+    private void OnIntensityModeSelect(MeterIntensityMode mode)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.IntensityMode = mode;
+        SaveImageConfig();
+    }
+
+    private void UpdateMeterMinDelta(double value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.MinDeltaPercent = Math.Clamp(value, 0.5, 20);
+        SaveImageConfig();
+    }
+
+    private void OnMeterSmoothingChanged(double? value)
+    {
+        if (SelectedImage == null || value == null) return;
+        SelectedImage.Meter.SmoothingFrames = (int)Math.Clamp(value.Value, 1, 10);
+        SaveImageConfig();
+    }
+
+    private void OnMeterCooldownChanged(double? value)
+    {
+        if (SelectedImage == null || value == null) return;
+        SelectedImage.Meter.EventCooldownMs = (int)Math.Clamp(value.Value, 50, 5000);
+        SaveImageConfig();
+    }
+
+    private void OnDecreasesOnlyChanged(bool value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.DecreasesOnly = value;
+        SaveImageConfig();
+    }
+
+    private void OnRequireFocusedWindowChanged(bool value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.RequireFocusedWindow = value;
+
+        if (!value)
+        {
+            SelectedImage.Meter.RequiredFocusWindowProcess = null;
+            SelectedImage.Meter.RequiredFocusWindowTitle = null;
+        }
+
+        SaveImageConfig();
+    }
+
+    private void OnRequiredFocusWindowSelect(string value)
+    {
+        if (SelectedImage == null) return;
+
+        var split = value.Split('|', 2);
+        SelectedImage.Meter.RequiredFocusWindowProcess = split.Length > 0 ? split[0] : null;
+        SelectedImage.Meter.RequiredFocusWindowTitle = split.Length > 1 ? split[1] : null;
+        SaveImageConfig();
+    }
+
+    private void OnUseColorHintChanged(bool value)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.UseColorHint = value;
+        if (value && SelectedImage.Meter.ColorHint == null)
+        {
+            SelectedImage.Meter.ColorHint = HsvRange.Green;
+        }
+        SaveImageConfig();
+    }
+
+    private void ApplyColorPreset(string preset)
+    {
+        if (SelectedImage == null) return;
+        SelectedImage.Meter.ColorHint = preset switch
+        {
+            "green" => HsvRange.Green,
+            "red" => HsvRange.Red,
+            "blue" => HsvRange.Blue,
+            "yellow" => HsvRange.Yellow,
+            "white" => HsvRange.White,
+            _ => HsvRange.Green
+        };
+        SaveImageConfig();
+    }
+
+    private void UpdateColorHint(Action<HsvRange> update)
+    {
+        if (SelectedImage?.Meter.ColorHint == null) return;
+        update(SelectedImage.Meter.ColorHint);
+        SaveImageConfig();
+    }
+
+    private void RedetectBarColor()
+    {
+        if (SelectedImage == null || string.IsNullOrEmpty(ModuleId)) return;
+        var previewPath = SelectedImage.Meter.RegionPreviewPath;
+        if (!string.IsNullOrEmpty(previewPath) && File.Exists(previewPath))
+        {
+            try
+            {
+                using var previewMat = Emgu.CV.CvInvoke.Imread(previewPath, Emgu.CV.CvEnum.ImreadModes.Unchanged);
+                if (previewMat != null && !previewMat.IsEmpty)
+                {
+                    var autoHsv = MeterFillAlgorithm.ComputeDominantHsvRange(previewMat);
+                    if (autoHsv != null)
+                    {
+                        SelectedImage.Meter.ColorHint = autoHsv;
+                        SelectedImage.Meter.UseColorHint = true;
+                        SaveImageConfig();
+                        PluginHost.ShowSuccessToast("Color Updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
+                        return;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        if (SelectedImage.Region.CustomRegion != null)
+        {
+            try
+            {
+                using var screenshot = CaptureService.CaptureMonitor(SelectedMonitor);
+                var region = SelectedImage.Region.CustomRegion;
+                using var subMat = new Emgu.CV.Mat(screenshot,
+                    new System.Drawing.Rectangle(
+                        Math.Max(0, region.X), Math.Max(0, region.Y),
+                        Math.Min(region.Width, screenshot.Width - Math.Max(0, region.X)),
+                        Math.Min(region.Height, screenshot.Height - Math.Max(0, region.Y))));
+                using var roiClone = subMat.Clone();
+
+                var autoHsv = MeterFillAlgorithm.ComputeDominantHsvRange(roiClone);
+                if (autoHsv != null)
+                {
+                    SelectedImage.Meter.ColorHint = autoHsv;
+                    SelectedImage.Meter.UseColorHint = true;
+                    SaveImageConfig();
+                    PluginHost.ShowSuccessToast("Color Updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                PluginHost.ShowErrorToast("Re-detect Failed", $"Failed to re-detect color: {ex.Message}");
+                return;
+            }
+        }
+
+        PluginHost.ShowErrorToast("Re-detect Failed", "Could not detect bar color. Try re-picking the region first.");
+    }
+
+    private double? GetMeterCurrentValue(string moduleId, string targetId)
+    {
+        try
+        {
+            return ValueAnalyzer.GetCurrentValue(moduleId, targetId);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void ToggleArmPicker()
+    {
+        if (string.IsNullOrEmpty(ModuleId) || string.IsNullOrEmpty(SelectedImageId)) return;
+        PickerArmService.Toggle(ModuleId, SelectedImageId);
+        StateHasChanged();
+    }
+
+    private void CaptureAndOpenPicker()
+    {
+        if (string.IsNullOrEmpty(ModuleId) || string.IsNullOrEmpty(SelectedImageId) || SelectedImage == null) return;
+
+        try
+        {
+            var screenshot = CaptureService.CaptureMonitor(SelectedMonitor);
+            OpenRegionPicker(SelectedImageId, SelectedImage.Name, screenshot,
+                SelectedImage.Region.Type == RegionType.Custom ? SelectedImage.Region.CustomRegion : null);
+        }
+        catch (Exception ex)
+        {
+            PluginHost.ShowErrorToast("Capture Failed", $"Failed to capture screenshot: {ex.Message}");
+        }
+    }
+
+    private void OnPickerArmed(RegionPickerContext context)
+    {
+        if (context.ModuleId != ModuleId) return;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnPickerDisarmed()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnPickerTriggered(RegionPickerTriggerArgs args)
+    {
+        if (args.Context.ModuleId != ModuleId) return;
+
+        InvokeAsync(() =>
+        {
+            ScreenRegion? initialRegion = null;
+            var image = ConfigService.GetImage(args.Context.ModuleId, args.Context.TargetId);
+            if (image?.Region.Type == RegionType.Custom)
+            {
+                initialRegion = image.Region.CustomRegion;
+            }
+
+            OpenRegionPicker(args.Context.TargetId, args.Context.TargetName, args.Screenshot, initialRegion);
+            StateHasChanged();
+        });
+    }
+
+    private void OpenRegionPicker(string targetId, string targetName, Emgu.CV.Mat screenshot, ScreenRegion? initialRegion)
+    {
+        _regionPickerScreenshot?.Dispose();
+        _regionPickerScreenshot = screenshot;
+        _regionPickerTargetId = targetId;
+        _regionPickerTargetName = targetName;
+        _regionPickerInitialRegion = initialRegion;
+        _showRegionPicker = true;
+
+        _regionPickerModal?.SetScreenshot(screenshot);
+    }
+
+    private async Task OnRegionPickerApply(ScreenRegion region)
+    {
+        _showRegionPicker = false;
+
+        if (!string.IsNullOrEmpty(ModuleId) && !string.IsNullOrEmpty(_regionPickerTargetId))
+        {
+            var image = ConfigService.GetImage(ModuleId, _regionPickerTargetId);
+            if (image != null)
+            {
+                image.Region.Type = RegionType.Custom;
+                image.Region.CustomRegion = region;
+                if (image.TargetType == DetectionTargetType.Meter && _regionPickerScreenshot != null)
+                {
+                    var previewPath = ConfigService.SaveRegionPreview(ModuleId, _regionPickerTargetId, _regionPickerScreenshot, region);
+
+                    if (previewPath != null)
+                    {
+                        image.Meter.RegionPreviewPath = previewPath;
+                        using var subMat = new Emgu.CV.Mat(_regionPickerScreenshot,
+                            new System.Drawing.Rectangle(
+                                Math.Max(0, region.X), Math.Max(0, region.Y),
+                                Math.Min(region.Width, _regionPickerScreenshot.Width - Math.Max(0, region.X)),
+                                Math.Min(region.Height, _regionPickerScreenshot.Height - Math.Max(0, region.Y))));
+                        using var roiClone = subMat.Clone();
+
+                        var autoHsv = MeterFillAlgorithm.ComputeDominantHsvRange(roiClone);
+                        if (autoHsv != null)
+                        {
+                            image.Meter.ColorHint = autoHsv;
+                            image.Meter.UseColorHint = true;
+                        }
+                    }
+                }
+
+                ConfigService.UpdateImage(ModuleId, image);
+                LoadEditorData();
+            }
+        }
+
+        CleanupRegionPicker();
+        StateHasChanged();
+    }
+
+    private async Task OnRegionPickerCancel()
+    {
+        _showRegionPicker = false;
+        CleanupRegionPicker();
+        StateHasChanged();
+    }
+
+    private void CleanupRegionPicker()
+    {
+        _regionPickerScreenshot?.Dispose();
+        _regionPickerScreenshot = null;
+        _regionPickerTargetId = null;
+        _regionPickerTargetName = null;
+        _regionPickerInitialRegion = null;
+    }
+
+    private string GetImageDataUri(string filePath)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(filePath);
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            var mime = ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                _ => "image/png"
+            };
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+}

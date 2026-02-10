@@ -1,31 +1,23 @@
-@page "/plugins/com-multishock-imagedetection/imagedetection"
+@page "/plugins/com-multishock-imagedetection/recent-detections"
 @inject ImageDetectionService DetectionService
-@inject ImageConfigService ConfigService
 @inject NavigationManager NavManager
 @implements IDisposable
 
 <div class="p-6 pb-0">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3 min-w-0">
-            @if (!string.IsNullOrEmpty(SelectedModule))
-            {
-                <button class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-                        @onclick="GoBack"
-                        title="Back to modules">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-            }
+            <button class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                    @onclick="GoHome"
+                    title="Back to dashboard">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
 
-            <h1 class="text-2xl font-bold truncate">@GetPageTitle()</h1>
+            <h1 class="text-2xl font-bold truncate">Recent Detections</h1>
         </div>
 
         <div class="flex items-center gap-3">
-            <Button Text="Recent Detections"
-                    Variant="secondary"
-                    OnClick="OpenRecentDetections" />
-
             <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-green-500/20" : "bg-red-500/20")">
                 <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-green-500 animate-pulse" : "bg-red-500")"></span>
                 <span class="text-sm font-medium @(IsRunning ? "text-green-400" : "text-red-400")">
@@ -52,68 +44,33 @@
     }
 </div>
 
-@if (string.IsNullOrEmpty(SelectedModule))
-{
-    <HomeDashboard OnModuleSelected="SelectModule" />
-}
-else
-{
-    <HomeModuleEditor ModuleId="@(SelectedModule!)" />
-}
+<div class="p-6 pt-0">
+    <RecentDetections />
+</div>
 
 @code {
-    private const string RecentDetectionsRoute = "/plugins/com-multishock-imagedetection/recent-detections";
+    private const string HomeRoute = "/plugins/com-multishock-imagedetection/imagedetection";
 
     private bool IsRunning => DetectionService?.IsRunning ?? false;
     private string? ErrorMessage;
-    private string? SelectedModule;
 
     protected override void OnInitialized()
     {
         DetectionService.RunningStateChanged += OnRunningStateChanged;
         DetectionService.ErrorOccurred += OnError;
-        ConfigService.ConfigurationChanged += OnConfigChanged;
     }
 
     public void Dispose()
     {
         DetectionService.RunningStateChanged -= OnRunningStateChanged;
         DetectionService.ErrorOccurred -= OnError;
-        ConfigService.ConfigurationChanged -= OnConfigChanged;
-    }
-
-    private string GetPageTitle()
-    {
-        if (string.IsNullOrEmpty(SelectedModule))
-        {
-            return "Image Detection";
-        }
-
-        if (ConfigService.Modules.TryGetValue(SelectedModule, out var module))
-        {
-            return module.Name;
-        }
-
-        return "Image Detection";
     }
 
     private Task ToggleDetection() => DetectionService.ToggleAsync();
 
-    private void OpenRecentDetections()
+    private void GoHome()
     {
-        NavManager.NavigateTo(RecentDetectionsRoute);
-    }
-
-    private void SelectModule(string moduleId)
-    {
-        SelectedModule = moduleId;
-        StateHasChanged();
-    }
-
-    private void GoBack()
-    {
-        SelectedModule = null;
-        StateHasChanged();
+        NavManager.NavigateTo(HomeRoute);
     }
 
     private void ClearErrorMessage()
@@ -131,18 +88,5 @@ else
     {
         ErrorMessage = error;
         InvokeAsync(StateHasChanged);
-    }
-
-    private void OnConfigChanged()
-    {
-        InvokeAsync(() =>
-        {
-            if (!string.IsNullOrEmpty(SelectedModule) && !ConfigService.Modules.ContainsKey(SelectedModule))
-            {
-                SelectedModule = null;
-            }
-
-            StateHasChanged();
-        });
     }
 }

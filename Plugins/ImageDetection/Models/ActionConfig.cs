@@ -28,12 +28,25 @@ public class ActionConfig
     /// <summary>
     /// Mode for selecting which shockers to target.
     /// </summary>
-    public ShockerMode Mode { get; set; } = ShockerMode.All;
+    public ShockerMode Mode { get; set; } = ShockerMode.Selected;
 
     /// <summary>
-    /// Specific shocker IDs to target (when Mode is Specific).
+    /// Shocker IDs to target. All selected shockers are activated in Selected mode;
+    /// a random subset is chosen in Random mode.
     /// </summary>
     public List<string> ShockerIds { get; set; } = [];
+
+    /// <summary>
+    /// Minimum number of random shockers to activate when Mode is Random.
+    /// Clamped to the number of selected shockers at runtime.
+    /// </summary>
+    public int RandomCountMin { get; set; } = 1;
+
+    /// <summary>
+    /// Maximum number of random shockers to activate when Mode is Random.
+    /// Clamped to the number of selected shockers at runtime.
+    /// </summary>
+    public int RandomCountMax { get; set; } = 1;
 }
 
 /// <summary>
@@ -52,17 +65,16 @@ public enum ActionType
 public enum ShockerMode
 {
     /// <summary>
-    /// Target all connected shockers.
+    /// Activate all selected shockers.
+    /// Kept as value 0 for backward compatibility (previously "All").
+    /// Legacy configs with no ShockerIds will target all connected shockers.
     /// </summary>
-    All,
+    Selected = 0,
 
     /// <summary>
-    /// Target specific shockers by ID.
+    /// Pick a random subset from the selected shockers.
+    /// The number of shockers to activate is controlled by <see cref="ActionConfig.RandomCount"/>.
+    /// Value kept at 2 for backward compatibility with legacy "Random" configs.
     /// </summary>
-    Specific,
-
-    /// <summary>
-    /// Target a random shocker.
-    /// </summary>
-    Random
+    Random = 2
 }

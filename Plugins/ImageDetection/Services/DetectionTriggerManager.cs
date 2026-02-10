@@ -123,6 +123,48 @@ public class DetectionTriggerManager
     }
 
     /// <summary>
+    /// Event fired when a meter value changes significantly.
+    /// </summary>
+    public event Action<ValueChangeEvent>? OnMeterChanged;
+
+    /// <summary>
+    /// Fires a meter value change event to registered flow nodes.
+    /// </summary>
+    public async Task FireMeterChangedEvent(ValueChangeEvent changeEvent)
+    {
+        OnMeterChanged?.Invoke(changeEvent);
+
+        var outputs = new Dictionary<string, object?>
+        {
+            ["moduleId"] = changeEvent.ModuleId,
+            ["targetId"] = changeEvent.TargetId,
+            ["targetName"] = changeEvent.TargetName,
+            ["currentPercent"] = changeEvent.CurrentPercent,
+            ["previousPercent"] = changeEvent.PreviousPercent,
+            ["deltaPercent"] = changeEvent.DeltaPercent,
+            ["isDecrease"] = changeEvent.IsDecrease,
+            ["changeType"] = changeEvent.ChangeType.ToString(),
+            ["timestamp"] = changeEvent.Timestamp
+        };
+
+        await FireEvent("imagedetection.meter.changed", outputs);
+
+        await FireEvent($"imagedetection.meter.changed.{changeEvent.ModuleId}", outputs);
+        await FireEvent($"imagedetection.meter.changed.{changeEvent.ModuleId}.{changeEvent.TargetId}", outputs);
+
+        if (changeEvent.ChangeType == MeterChangeType.DamageTaken)
+        {
+            await FireEvent("imagedetection.meter.damagetaken", outputs);
+            await FireEvent($"imagedetection.meter.damagetaken.{changeEvent.ModuleId}", outputs);
+        }
+        else if (changeEvent.ChangeType == MeterChangeType.Healed)
+        {
+            await FireEvent("imagedetection.meter.healed", outputs);
+            await FireEvent($"imagedetection.meter.healed.{changeEvent.ModuleId}", outputs);
+        }
+    }
+
+    /// <summary>
     /// Notifies that detection has started.
     /// </summary>
     public void NotifyDetectionStarted()

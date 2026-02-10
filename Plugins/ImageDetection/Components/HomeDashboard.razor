@@ -1,0 +1,312 @@
+@using ImageDetection.Models
+@using ImageDetection.Services
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@inject ImageDetectionService DetectionService
+@inject ImageConfigService ConfigService
+@inject ScreenCaptureService CaptureService
+@inject IPluginHost PluginHost
+@implements IDisposable
+
+<div class="p-6 pt-0">
+    <div class="flex items-center gap-4 mb-6 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
+        <div class="flex items-center gap-2">
+            <label class="text-sm text-zinc-400">Monitor:</label>
+            <select class="px-3 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                    value="@SelectedMonitor"
+                    @onchange="OnMonitorChanged">
+                @foreach (var monitor in Monitors)
+                {
+                    <option value="@monitor.Index">
+                        @(monitor.IsPrimary ? "Primary" : $"Monitor {monitor.Index}") (@monitor.Resolution.Width x @monitor.Resolution.Height)
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="text-sm text-zinc-400">Delay:</label>
+            <input type="number" min="10" max="5000" step="10"
+                   class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                   value="@CaptureDelayMs"
+                   @onchange="OnCaptureDelayChanged" />
+            <span class="text-xs text-zinc-500">ms</span>
+        </div>
+        <div class="ml-auto text-sm text-zinc-400">
+            <span class="text-zinc-500">Detections:</span> @DetectionService.Stats.SuccessfulDetections / @DetectionService.Stats.TotalDetections
+        </div>
+    </div>
+
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-zinc-300">Modules</h2>
+        <div class="flex gap-2">
+            <Button Text="Import" Variant="secondary" Size="sm" OnClick="ImportModule" />
+            <Button Text="+ New Module" Variant="primary" Size="sm" OnClick="CreateModule" />
+        </div>
+    </div>
+
+    @if (Modules.Count == 0)
+    {
+        <div class="text-center py-12 text-zinc-500">
+            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p class="text-lg mb-2">No modules yet</p>
+            <p class="text-sm">Create a module to organize your detection images</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            @foreach (var module in Modules.Values)
+            {
+                <div class="group bg-zinc-800 rounded-lg p-4 border border-zinc-700 hover:border-blue-500/50 transition-all cursor-pointer"
+                     @onclick="@(() => SelectModule(module.Id))">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div @onclick:stopPropagation="true">
+                            <Toggle Value="@module.Enabled"
+                                    ValueChanged="@(value => ToggleModule(module.Id, value))" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium truncate">@module.Name</div>
+                            @{
+                                var meterCount = module.Images.Values.Count(i => i.TargetType == DetectionTargetType.Meter);
+                                var templateCount = module.Images.Count - meterCount;
+                            }
+                            <div class="text-xs text-zinc-500">
+                                @if (templateCount > 0 && meterCount > 0)
+                                {
+                                    @($"{templateCount} image(s), {meterCount} meter(s)")
+                                }
+                                else if (meterCount > 0)
+                                {
+                                    @($"{meterCount} meter(s)")
+                                }
+                                else
+                                {
+                                    @($"{templateCount} image(s)")
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="flex-1 px-3 py-1.5 text-sm rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                                @onclick="@(() => SelectModule(module.Id))"
+                                @onclick:stopPropagation="true">
+                            Configure
+                        </button>
+                        <button class="px-3 py-1.5 text-sm rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                                @onclick="@(() => ExportModule(module.Id))"
+                                @onclick:stopPropagation="true">
+                            Export
+                        </button>
+                        <button class="px-3 py-1.5 text-sm rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                                @onclick="@(() => ConfirmDeleteModule(module.Id))"
+                                @onclick:stopPropagation="true">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+@if (ShowNewModuleDialog)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @onclick="@(() => ShowNewModuleDialog = false)">
+        <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-md shadow-2xl" @onclick:stopPropagation="true">
+            <h2 class="text-xl font-bold mb-4">Create New Module</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-zinc-400 mb-1.5">Module Name</label>
+                    <input type="text" class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-600 focus:border-blue-500 transition-colors"
+                           placeholder="My Detection Module"
+                           @bind="NewModuleName" />
+                </div>
+                <div>
+                    <label class="block text-sm text-zinc-400 mb-1.5">Description (optional)</label>
+                    <textarea class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-600 focus:border-blue-500 transition-colors resize-none"
+                              rows="2"
+                              placeholder="What does this module detect?"
+                              @bind="NewModuleDescription"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button class="px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                            @onclick="@(() => ShowNewModuleDialog = false)">
+                        Cancel
+                    </button>
+                    <button class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium transition-colors"
+                            @onclick="ConfirmCreateModule">
+                        Create Module
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteConfirmDialog)
+{
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @onclick="@(() => ShowDeleteConfirmDialog = false)">
+        <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-sm shadow-2xl" @onclick:stopPropagation="true">
+            <h2 class="text-xl font-bold mb-2">Confirm Delete</h2>
+            <p class="text-zinc-400 mb-6">@DeleteConfirmMessage</p>
+            <div class="flex justify-end gap-3">
+                <button class="px-4 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                        @onclick="@(() => ShowDeleteConfirmDialog = false)">
+                    Cancel
+                </button>
+                <button class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium transition-colors"
+                        @onclick="ExecuteDelete">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public EventCallback<string> OnModuleSelected { get; set; }
+
+    private List<MonitorInfo> Monitors = [];
+    private int SelectedMonitor = 1;
+    private int CaptureDelayMs = 100;
+    private Dictionary<string, DetectionModule> Modules = [];
+
+    private bool ShowNewModuleDialog;
+    private string NewModuleName = string.Empty;
+    private string NewModuleDescription = string.Empty;
+
+    private bool ShowDeleteConfirmDialog;
+    private string DeleteConfirmMessage = string.Empty;
+    private Action? DeleteAction;
+
+    protected override void OnInitialized()
+    {
+        LoadData();
+        ConfigService.ConfigurationChanged += OnConfigChanged;
+    }
+
+    public void Dispose()
+    {
+        ConfigService.ConfigurationChanged -= OnConfigChanged;
+    }
+
+    private void LoadData()
+    {
+        Monitors = CaptureService.GetMonitors();
+        SelectedMonitor = ConfigService.CaptureConfig.MonitorIndex;
+        CaptureDelayMs = ConfigService.CaptureConfig.CaptureDelayMs;
+        Modules = new Dictionary<string, DetectionModule>(ConfigService.Modules);
+    }
+
+    private void OnConfigChanged()
+    {
+        InvokeAsync(() =>
+        {
+            LoadData();
+            StateHasChanged();
+        });
+    }
+
+    private Task SelectModule(string moduleId)
+        => OnModuleSelected.InvokeAsync(moduleId);
+
+    private void OnMonitorChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var index)) return;
+
+        SelectedMonitor = index;
+        var config = ConfigService.CaptureConfig;
+        config.MonitorIndex = index;
+        ConfigService.CaptureConfig = config;
+    }
+
+    private void OnCaptureDelayChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var delay) || delay < 10) return;
+
+        CaptureDelayMs = delay;
+        var config = ConfigService.CaptureConfig;
+        config.CaptureDelayMs = delay;
+        ConfigService.CaptureConfig = config;
+    }
+
+    private void CreateModule()
+    {
+        NewModuleName = string.Empty;
+        NewModuleDescription = string.Empty;
+        ShowNewModuleDialog = true;
+    }
+
+    private void ConfirmCreateModule()
+    {
+        if (string.IsNullOrWhiteSpace(NewModuleName)) return;
+
+        ConfigService.CreateModule(NewModuleName, NewModuleDescription);
+        ShowNewModuleDialog = false;
+        LoadData();
+        StateHasChanged();
+    }
+
+    private async Task ImportModule()
+    {
+        var path = await PluginHost.PickFileAsync("Import Module", [".msmodule", ".zip"]);
+        if (string.IsNullOrEmpty(path)) return;
+
+        var module = ConfigService.ImportModule(path);
+        if (module != null)
+        {
+            PluginHost.ShowSuccessToast("Module Imported", $"Imported \"{module.Name}\" with {module.Images.Count} target(s)");
+            LoadData();
+        }
+        else
+        {
+            PluginHost.ShowErrorToast("Import Failed", "Could not import module. Is the file valid?");
+        }
+    }
+
+    private void ToggleModule(string moduleId, bool enabled)
+    {
+        ConfigService.SetModuleEnabled(moduleId, enabled);
+        LoadData();
+        StateHasChanged();
+    }
+
+    private void ExportModule(string moduleId)
+    {
+        var downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        Directory.CreateDirectory(downloadsPath);
+
+        var result = ConfigService.ExportModule(moduleId, downloadsPath);
+        if (result != null)
+        {
+            PluginHost.ShowSuccessToast("Module Exported", $"Saved to {Path.GetFileName(result)} in Downloads");
+        }
+        else
+        {
+            PluginHost.ShowErrorToast("Export Failed", "Could not export module");
+        }
+    }
+
+    private void ConfirmDeleteModule(string moduleId)
+    {
+        var module = Modules.GetValueOrDefault(moduleId);
+        DeleteConfirmMessage = $"Are you sure you want to delete \"{module?.Name ?? moduleId}\"? This will remove all images in this module.";
+        DeleteAction = () =>
+        {
+            ConfigService.DeleteModule(moduleId);
+            LoadData();
+        };
+        ShowDeleteConfirmDialog = true;
+    }
+
+    private void ExecuteDelete()
+    {
+        ShowDeleteConfirmDialog = false;
+        DeleteAction?.Invoke();
+        DeleteAction = null;
+        StateHasChanged();
+    }
+}

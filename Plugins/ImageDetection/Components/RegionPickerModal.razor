@@ -1,0 +1,359 @@
+@using ImageDetection.Models
+@using MultiShock.PluginSdk.Components
+@using MultiShock.PluginSdk.JSInterop
+@inject IDomInterop DomInterop
+@implements IDisposable
+
+@if (IsVisible && _screenshotDataUrl != null)
+{
+    <div class="fixed inset-0 z-[1000] flex items-center justify-center p-5">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @onclick="Cancel"></div>
+
+        <div class="relative bg-zinc-800 border border-zinc-700 rounded-xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="flex justify-between items-center px-5 py-4 border-b border-zinc-700 bg-zinc-800">
+                <div>
+                    <h4 class="m-0 text-lg font-semibold">Select Region</h4>
+                    <span class="block text-xs text-zinc-400 mt-1">
+                        @_actualResolution
+                        @if (!string.IsNullOrEmpty(TargetName))
+                        {
+                            <span> &mdash; @TargetName</span>
+                        }
+                    </span>
+                </div>
+                <div class="flex items-center gap-3">
+                    @if (_hasSelection)
+                    {
+                        <span class="text-xs px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 font-medium">
+                            @(_selX)x@(_selY) &mdash; @(_selW)&times;@(_selH)
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="text-xs px-3 py-1 rounded-full bg-zinc-700/50 text-zinc-400">
+                            Click and drag to select a region
+                        </span>
+                    }
+                    <button class="bg-transparent border-none text-zinc-400 cursor-pointer w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 hover:text-zinc-100 transition-all text-xl"
+                            @onclick="Cancel">&times;</button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto p-5 flex flex-col gap-4">
+                <div class="relative self-center rounded-lg overflow-hidden shadow-lg cursor-crosshair select-none"
+                     style="width: @((int)_displayWidth)px; height: @((int)_displayHeight)px;"
+                     @onmousedown="OnMouseDown"
+                     @onmousemove="OnMouseMove"
+                     @onmouseup="OnMouseUp"
+                     @onmouseleave="OnMouseUp"
+                     @onmousedown:preventDefault
+                     @ref="_containerRef">
+
+                    <img src="@_screenshotDataUrl" alt="Screen capture"
+                         width="@((int)_displayWidth)" height="@((int)_displayHeight)"
+                         class="block pointer-events-none"
+                         style="width: @((int)_displayWidth)px; height: @((int)_displayHeight)px;" />
+
+                    @if (_hasSelection)
+                    {
+                        <div class="absolute left-0 right-0 top-0 bg-black/50 pointer-events-none"
+                             style="height: @(_displaySelY)px;"></div>
+                        <div class="absolute left-0 right-0 bottom-0 bg-black/50 pointer-events-none"
+                             style="height: @(Math.Max(0, (int)_displayHeight - _displaySelY - _displaySelH))px;"></div>
+                        <div class="absolute left-0 bg-black/50 pointer-events-none"
+                             style="top: @(_displaySelY)px; width: @(_displaySelX)px; height: @(_displaySelH)px;"></div>
+                        <div class="absolute bg-black/50 pointer-events-none"
+                             style="top: @(_displaySelY)px; left: @(_displaySelX + _displaySelW)px; right: 0; height: @(_displaySelH)px;"></div>
+
+                        <div class="absolute border-2 border-blue-400 pointer-events-none"
+                             style="left: @(_displaySelX)px; top: @(_displaySelY)px; width: @(_displaySelW)px; height: @(_displaySelH)px;">
+                            <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
+                            <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
+                            <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
+                            <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
+                        </div>
+                    }
+                </div>
+
+                <div class="flex gap-3 justify-center items-end">
+                    <div>
+                        <label class="block text-xs text-zinc-500 mb-1">X</label>
+                        <input type="number" min="0" max="@(_screenshotWidth)"
+                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               value="@_selX"
+                               @onchange="@(e => UpdateManualCoord(x: int.Parse(e.Value?.ToString() ?? "0")))" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-zinc-500 mb-1">Y</label>
+                        <input type="number" min="0" max="@(_screenshotHeight)"
+                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               value="@_selY"
+                               @onchange="@(e => UpdateManualCoord(y: int.Parse(e.Value?.ToString() ?? "0")))" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-zinc-500 mb-1">Width</label>
+                        <input type="number" min="1" max="@(_screenshotWidth)"
+                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               value="@_selW"
+                               @onchange="@(e => UpdateManualCoord(w: int.Parse(e.Value?.ToString() ?? "1")))" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-zinc-500 mb-1">Height</label>
+                        <input type="number" min="1" max="@(_screenshotHeight)"
+                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               value="@_selH"
+                               @onchange="@(e => UpdateManualCoord(h: int.Parse(e.Value?.ToString() ?? "1")))" />
+                    </div>
+                    <button class="px-3 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 transition-colors text-zinc-300"
+                            @onclick="ClearSelection">Clear</button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center px-5 py-4 border-t border-zinc-700 bg-zinc-800 gap-4">
+                <p class="text-sm text-zinc-400 m-0">
+                    Click and drag on the screenshot to select the region.
+                    Coordinates are mapped to actual screen pixels.
+                </p>
+                <div class="flex gap-2">
+                    <Button Text="Cancel" Size="sm" Variant="secondary" OnClick="Cancel" />
+                    <Button Text="Apply" Size="sm" Variant="success" OnClick="Apply" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference _containerRef;
+    private string? _screenshotDataUrl;
+    private string _actualResolution = "";
+
+    private int _screenshotWidth;
+    private int _screenshotHeight;
+
+    private double _displayWidth;
+    private double _displayHeight;
+    private double _scale = 1.0;
+
+    private BoundingClientRect? _containerRect;
+
+    private bool _isDragging;
+    private double _dragStartX;
+    private double _dragStartY;
+
+    private bool _hasSelection;
+    private int _selX;
+    private int _selY;
+    private int _selW;
+    private int _selH;
+
+    private int _displaySelX;
+    private int _displaySelY;
+    private int _displaySelW;
+    private int _displaySelH;
+
+    private const int MaxDisplayWidth = 1200;
+    private const int MaxDisplayHeight = 700;
+
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string? TargetName { get; set; }
+    [Parameter] public ScreenRegion? InitialRegion { get; set; }
+    [Parameter] public EventCallback<ScreenRegion> OnApply { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>
+    /// Sets the screenshot data from an Emgu.CV Mat (called by parent).
+    /// </summary>
+    public void SetScreenshot(Emgu.CV.Mat screenshot)
+    {
+        if (screenshot == null || screenshot.IsEmpty) return;
+
+        _screenshotWidth = screenshot.Width;
+        _screenshotHeight = screenshot.Height;
+        _actualResolution = $"{_screenshotWidth}x{_screenshotHeight}";
+
+        _scale = Math.Min(
+            (double)MaxDisplayWidth / _screenshotWidth,
+            (double)MaxDisplayHeight / _screenshotHeight);
+        _scale = Math.Min(_scale, 1.0);
+
+        _displayWidth = Math.Round(_screenshotWidth * _scale);
+        _displayHeight = Math.Round(_screenshotHeight * _scale);
+
+        try
+        {
+            using var resized = new Emgu.CV.Mat();
+            if (_scale < 1.0)
+            {
+                var newW = (int)_displayWidth;
+                var newH = (int)_displayHeight;
+                Emgu.CV.CvInvoke.Resize(screenshot, resized, new System.Drawing.Size(newW, newH),
+                    interpolation: Emgu.CV.CvEnum.Inter.Linear);
+            }
+            else
+            {
+                screenshot.CopyTo(resized);
+            }
+
+            var bytes = resized.ToImage<Emgu.CV.Structure.Bgra, byte>().ToJpegData(85);
+            _screenshotDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch
+        {
+            _screenshotDataUrl = null;
+        }
+
+        _containerRect = null;
+
+        // Apply initial region if provided
+        if (InitialRegion != null && InitialRegion.Width > 0 && InitialRegion.Height > 0)
+        {
+            _selX = InitialRegion.X;
+            _selY = InitialRegion.Y;
+            _selW = InitialRegion.Width;
+            _selH = InitialRegion.Height;
+            _hasSelection = true;
+            UpdateDisplaySelection();
+        }
+        else
+        {
+            _hasSelection = false;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Converts a ClientX/ClientY mouse position to display-space coordinates
+    /// relative to the container element.
+    /// </summary>
+    private async Task<(double x, double y)> ClientToDisplay(double clientX, double clientY)
+    {
+        _containerRect ??= await DomInterop.GetBoundingClientRectAsync(_containerRef);
+
+        if (_containerRect == null)
+            return (clientX, clientY);
+
+        return (clientX - _containerRect.Left, clientY - _containerRect.Top);
+    }
+
+    private async Task OnMouseDown(MouseEventArgs e)
+    {
+
+        _containerRect = await DomInterop.GetBoundingClientRectAsync(_containerRef);
+
+        var (x, y) = await ClientToDisplay(e.ClientX, e.ClientY);
+
+        _isDragging = true;
+        _dragStartX = x;
+        _dragStartY = y;
+
+        _displaySelX = (int)x;
+        _displaySelY = (int)y;
+        _displaySelW = 0;
+        _displaySelH = 0;
+        _hasSelection = false;
+    }
+
+    private async Task OnMouseMove(MouseEventArgs e)
+    {
+        if (!_isDragging) return;
+
+        var (curX, curY) = await ClientToDisplay(e.ClientX, e.ClientY);
+
+        var x1 = Math.Min(_dragStartX, curX);
+        var y1 = Math.Min(_dragStartY, curY);
+        var x2 = Math.Max(_dragStartX, curX);
+        var y2 = Math.Max(_dragStartY, curY);
+
+        x1 = Math.Clamp(x1, 0, _displayWidth);
+        y1 = Math.Clamp(y1, 0, _displayHeight);
+        x2 = Math.Clamp(x2, 0, _displayWidth);
+        y2 = Math.Clamp(y2, 0, _displayHeight);
+
+        _displaySelX = (int)x1;
+        _displaySelY = (int)y1;
+        _displaySelW = (int)(x2 - x1);
+        _displaySelH = (int)(y2 - y1);
+
+        MapDisplayToReal();
+
+        _hasSelection = _selW > 2 && _selH > 2;
+    }
+
+    private void OnMouseUp(MouseEventArgs e)
+    {
+        if (!_isDragging) return;
+        _isDragging = false;
+
+        if (_selW < 3 || _selH < 3)
+        {
+            _hasSelection = false;
+        }
+    }
+
+    /// <summary>
+    /// Maps display-space selection to real pixel coordinates.
+    /// </summary>
+    private void MapDisplayToReal()
+    {
+        if (_scale <= 0) return;
+
+        _selX = (int)Math.Round(_displaySelX / _scale);
+        _selY = (int)Math.Round(_displaySelY / _scale);
+        _selW = (int)Math.Round(_displaySelW / _scale);
+        _selH = (int)Math.Round(_displaySelH / _scale);
+
+        _selX = Math.Clamp(_selX, 0, _screenshotWidth - 1);
+        _selY = Math.Clamp(_selY, 0, _screenshotHeight - 1);
+        _selW = Math.Clamp(_selW, 1, _screenshotWidth - _selX);
+        _selH = Math.Clamp(_selH, 1, _screenshotHeight - _selY);
+    }
+
+    /// <summary>
+    /// Maps real pixel coordinates to display-space for rendering.
+    /// </summary>
+    private void UpdateDisplaySelection()
+    {
+        _displaySelX = (int)Math.Round(_selX * _scale);
+        _displaySelY = (int)Math.Round(_selY * _scale);
+        _displaySelW = (int)Math.Round(_selW * _scale);
+        _displaySelH = (int)Math.Round(_selH * _scale);
+    }
+
+    private void UpdateManualCoord(int? x = null, int? y = null, int? w = null, int? h = null)
+    {
+        if (x.HasValue) _selX = Math.Clamp(x.Value, 0, _screenshotWidth - 1);
+        if (y.HasValue) _selY = Math.Clamp(y.Value, 0, _screenshotHeight - 1);
+        if (w.HasValue) _selW = Math.Clamp(w.Value, 1, _screenshotWidth - _selX);
+        if (h.HasValue) _selH = Math.Clamp(h.Value, 1, _screenshotHeight - _selY);
+
+        _hasSelection = _selW > 0 && _selH > 0;
+        UpdateDisplaySelection();
+    }
+
+    private void ClearSelection()
+    {
+        _hasSelection = false;
+        _selX = _selY = _selW = _selH = 0;
+        _displaySelX = _displaySelY = _displaySelW = _displaySelH = 0;
+    }
+
+    private async Task Apply()
+    {
+        if (!_hasSelection) return;
+
+        var region = new ScreenRegion(_selX, _selY, _selW, _selH);
+        await OnApply.InvokeAsync(region);
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        _screenshotDataUrl = null;
+    }
+}

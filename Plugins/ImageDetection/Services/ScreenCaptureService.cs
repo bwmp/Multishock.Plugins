@@ -243,7 +243,8 @@ public class ScreenCaptureService
         }
 
         var roi = new System.Drawing.Rectangle(x, y, width, height);
-        return new Mat(screenshot, roi);
+        using var subMat = new Mat(screenshot, roi);
+        return subMat.Clone();
     }
 
     /// <summary>
@@ -416,6 +417,79 @@ public class ScreenCaptureService
         return windows;
     }
 
+    /// <summary>
+    /// Gets the currently focused foreground window info.
+    /// </summary>
+    public WindowInfo? GetForegroundWindowInfo()
+    {
+        try
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return null;
+
+            int length = GetWindowTextLength(hwnd);
+            var builder = new System.Text.StringBuilder(Math.Max(1, length + 1));
+            _ = GetWindowText(hwnd, builder, builder.Capacity);
+            var title = builder.ToString();
+
+            string processName = string.Empty;
+            try
+            {
+                GetWindowThreadProcessId(hwnd, out uint processId);
+                if (processId != 0)
+                {
+                    var process = System.Diagnostics.Process.GetProcessById((int)processId);
+                    processName = process.ProcessName;
+                }
+            }
+            catch
+            {
+                // Ignore process lookup failures.
+            }
+
+            return new WindowInfo
+            {
+                Handle = hwnd,
+                Title = title,
+                ProcessName = processName,
+                IsVisible = IsWindowVisible(hwnd)
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Checks whether the focused foreground window matches the required process/title.
+    /// Process uses exact case-insensitive match.
+    /// Title uses case-insensitive contains match.
+    /// </summary>
+    public bool IsRequiredWindowFocused(string? requiredProcessName, string? requiredTitle)
+    {
+        if (string.IsNullOrWhiteSpace(requiredProcessName) && string.IsNullOrWhiteSpace(requiredTitle))
+            return true;
+
+        var fg = GetForegroundWindowInfo();
+        if (fg == null) return false;
+
+        if (!string.IsNullOrWhiteSpace(requiredProcessName))
+        {
+            if (!string.Equals(fg.ProcessName, requiredProcessName, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(requiredTitle))
+        {
+            if (string.IsNullOrWhiteSpace(fg.Title)) return false;
+            if (!fg.Title.Contains(requiredTitle, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return true;
+    }
+
     #region Native Methods and Structures
 
     private const uint MONITORINFOF_PRIMARY = 0x00000001;
@@ -488,6 +562,9 @@ public class ScreenCaptureService
 
     [DllImport("user32.dll")]
     private static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     // Structures
     [StructLayout(LayoutKind.Sequential)]

@@ -24,14 +24,14 @@
                 <div class="flex items-end gap-3">
                     <div class="flex-1 flex flex-col gap-1.5">
                         <label class="text-xs text-zinc-400 uppercase tracking-wider">Width (pixels)</label>
-                        <TextInput Type="number" Min="1" Max="10000" @bind-Value="_widthString" />
+                        <TextInput @bind-Value="_widthString" />
                     </div>
                     
                     <span class="text-xl text-zinc-400 pb-2">&times;</span>
                     
                     <div class="flex-1 flex flex-col gap-1.5">
                         <label class="text-xs text-zinc-400 uppercase tracking-wider">Height (pixels)</label>
-                        <TextInput Type="number" Min="1" Max="10000" @bind-Value="_heightString" />
+                        <TextInput @bind-Value="_heightString" />
                     </div>
                 </div>
                 
@@ -75,12 +75,24 @@
     private string _widthString 
     { 
         get => Width.ToString(); 
-        set { if (int.TryParse(value, out var w)) Width = w; }
+        set
+        {
+            if (int.TryParse(value, out var w))
+            {
+                Width = Math.Clamp(w, 1, 10000);
+            }
+        }
     }
     private string _heightString 
     { 
         get => Height.ToString(); 
-        set { if (int.TryParse(value, out var h)) Height = h; }
+        set
+        {
+            if (int.TryParse(value, out var h))
+            {
+                Height = Math.Clamp(h, 1, 10000);
+            }
+        }
     }
 
     [Parameter]
@@ -133,6 +145,8 @@
 
     private async Task Confirm()
     {
+        Width = Math.Clamp(Width, 1, 10000);
+        Height = Math.Clamp(Height, 1, 10000);
         await OnConfirm.InvokeAsync(new Resolution(Width, Height));
     }
 

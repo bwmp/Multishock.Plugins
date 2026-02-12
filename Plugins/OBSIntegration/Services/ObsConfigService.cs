@@ -5,7 +5,6 @@ namespace OBSIntegration.Services;
 
 public class ObsConfigService
 {
-    private const string PluginId = "com.multishock.obsintegration";
     private const string ConfigFileName = "obs-config.json";
 
     private readonly IPluginHost _pluginHost;
@@ -24,7 +23,7 @@ public class ObsConfigService
     public ObsConfigService(IPluginHost pluginHost)
     {
         _pluginHost = pluginHost;
-        var dataPath = _pluginHost.GetPluginDataPath(PluginId);
+        var dataPath = _pluginHost.GetPluginDataPath(OBSIntegrationPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
         LoadConfig();
     }

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/ImageDetection-v1.1.0...ImageDetection-v1.2.0) (2026-02-12)
+
+
+### Features
+
+* **ImageDetection:** update to be a lot more platform agnostic (wip) ([49c0209](https://github.com/bwmp/Multishock.Plugins/commit/49c020965021cebef19aaef93e2260291f2e8ba1))
+* Implement global hotkey service for region picker functionality ([68751be](https://github.com/bwmp/Multishock.Plugins/commit/68751bed37c5a6aa0a189df6adc81accd12e9554))
+
 ## [1.1.0](https://github.com/bwmp/Multishock.Plugins/compare/ImageDetection-v1.0.0...ImageDetection-v1.1.0) (2026-02-01)
 
 

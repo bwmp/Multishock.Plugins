@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/bwmp/Multishock.Plugins/compare/OBSIntegration-v1.1.0...OBSIntegration-v1.1.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **OBSIntegration:** : dont hardcode plugin id everywhere ([695a3a8](https://github.com/bwmp/Multishock.Plugins/commit/695a3a8df5d3933374f38d9326b86d2da884af47))
+
 ## [1.1.0](https://github.com/bwmp/Multishock.Plugins/compare/OBSIntegration-v1.0.0...OBSIntegration-v1.1.0) (2026-01-30)
 
 

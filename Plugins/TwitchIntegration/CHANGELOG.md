@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.1.1...TwitchIntegration-v1.1.2) (2026-02-12)
+
+
+### Bug Fixes
+
+* **TwitchIntegration:** dont hardcode plugin id everywhere ([3618802](https://github.com/bwmp/Multishock.Plugins/commit/361880205460493b13d3ac6e12ceef897ec3f472))
+
 ## [1.1.1](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.1.0...TwitchIntegration-v1.1.1) (2026-01-30)
 
 

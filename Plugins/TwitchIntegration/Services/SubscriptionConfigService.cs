@@ -36,7 +36,7 @@ public class SubscriptionConfigService
         _eventSubService = eventSubService;
         _triggerManager = triggerManager;
 
-        var dataPath = _pluginHost.GetPluginDataPath("com.multishock.twitchintegration");
+        var dataPath = _pluginHost.GetPluginDataPath(TwitchIntegrationPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
 
         LoadConfig();

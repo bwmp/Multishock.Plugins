@@ -41,7 +41,7 @@ public class RedeemConfigService : IDisposable
         _eventSubService = eventSubService;
         _authService = authService;
 
-        var dataPath = _pluginHost.GetPluginDataPath("com.multishock.twitchintegration");
+        var dataPath = _pluginHost.GetPluginDataPath(TwitchIntegrationPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
 
         LoadConfig();

@@ -113,7 +113,7 @@
 @code {
     // Use service locator instead of @inject for plugin-specific services
     // This survives hot-reload where the DI container has stale types
-    private const string PluginId = "com.multishock.twitchintegration";
+    private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
     private FollowConfigService FollowConfigService => PluginServiceLocator.GetRequiredService<FollowConfigService>(PluginId);
     
     private string? StatusMessage;

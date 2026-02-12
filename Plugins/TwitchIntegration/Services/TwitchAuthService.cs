@@ -9,7 +9,6 @@ namespace TwitchIntegration.Services;
 
 public class TwitchAuthService : IDisposable
 {
-    private const string PluginId = "com.multishock.twitchintegration";
     private const string AuthSettingsFileName = "twitch-auth.json";
 
     private readonly IPluginHost _pluginHost;
@@ -57,7 +56,7 @@ public class TwitchAuthService : IDisposable
     public TwitchAuthService(IPluginHost pluginHost)
     {
         _pluginHost = pluginHost;
-        var dataPath = _pluginHost.GetPluginDataPath(PluginId);
+        var dataPath = _pluginHost.GetPluginDataPath(TwitchIntegrationPlugin.PluginId);
         _authSettingsPath = Path.Combine(dataPath, AuthSettingsFileName);
         LoadAuthState();
     }

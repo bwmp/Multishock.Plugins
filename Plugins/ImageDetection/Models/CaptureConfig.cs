@@ -21,9 +21,10 @@ public class CaptureConfig
     public string? WindowTitle { get; set; }
 
     /// <summary>
-    /// Window handle (optional, takes precedence over WindowTitle).
+    /// Platform-specific window identifier (optional, takes precedence over WindowTitle).
+    /// On Windows this is typically a string representation of HWND.
     /// </summary>
-    public IntPtr? WindowHandle { get; set; }
+    public string? WindowId { get; set; }
 
     /// <summary>
     /// Delay between captures in milliseconds.
@@ -89,9 +90,9 @@ public class MonitorInfo
 public class WindowInfo
 {
     /// <summary>
-    /// Window handle.
+    /// Platform-specific stable identifier for the window.
     /// </summary>
-    public IntPtr Handle { get; set; }
+    public string Id { get; set; } = string.Empty;
 
     /// <summary>
     /// Window title.

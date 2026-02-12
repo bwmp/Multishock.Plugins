@@ -8,9 +8,9 @@ namespace ImageDetection.Services;
 /// Manages routing of detection events to flow nodes.
 /// Similar pattern to ObsTriggerManager.
 /// </summary>
-public class DetectionTriggerManager
+public class DetectionTriggerManager(ILogger? logger = null)
 {
-    private readonly ILogger? _logger;
+    private readonly ILogger? _logger = logger;
     private readonly Dictionary<string, List<TriggerRegistration>> _registrations = [];
     private readonly object _lock = new();
 
@@ -29,10 +29,6 @@ public class DetectionTriggerManager
     /// </summary>
     public event Action? OnDetectionStopped;
 
-    public DetectionTriggerManager(ILogger? logger = null)
-    {
-        _logger = logger;
-    }
 
     /// <summary>
     /// Registers a flow node to receive detection events.

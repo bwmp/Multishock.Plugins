@@ -1,6 +1,7 @@
 using ImageDetection.Algorithms;
 using ImageDetection.Nodes;
 using ImageDetection.Services;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
@@ -17,7 +18,7 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     private ImageDetectionService? _detectionService;
     private ImageConfigService? _configService;
-    private GlobalHotkeyService? _hotkeyService;
+    private IGlobalHotkeyService? _hotkeyService;
 
     // ========== PLUGIN METADATA ==========
 
@@ -40,13 +41,31 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         });
 
         // Core services - use simple registration for Blazor DI compatibility
-        services.AddSingleton<ScreenCaptureService>();
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            services.AddSingleton<IScreenCaptureService, WindowsScreenCaptureService>();
+        }
+        else
+        {
+            services.AddSingleton<IScreenCaptureService, NoopScreenCaptureService>();
+        }
         services.AddSingleton<CooldownManager>();
         services.AddSingleton<DetectionTriggerManager>();
-        services.AddSingleton<RecentDetectionsService>();
+        services.AddSingleton<RecentDetectionsService>(sp =>
+        {
+            var host = sp.GetRequiredService<IPluginHost>();
+            return new RecentDetectionsService(host);
+        });
 
         // Global hotkey service for region picker
-        services.AddSingleton<GlobalHotkeyService>();
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            services.AddSingleton<IGlobalHotkeyService, WindowsGlobalHotkeyService>();
+        }
+        else
+        {
+            services.AddSingleton<IGlobalHotkeyService, NoopGlobalHotkeyService>();
+        }
 
         // Config service depends on IPluginHost
         services.AddSingleton<ImageConfigService>(sp =>
@@ -58,8 +77,8 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         // Region picker arm service (target-scoped one-shot picker)
         services.AddSingleton<RegionPickerArmService>(sp =>
         {
-            var hotkeyService = sp.GetRequiredService<GlobalHotkeyService>();
-            var captureService = sp.GetRequiredService<ScreenCaptureService>();
+            var hotkeyService = sp.GetRequiredService<IGlobalHotkeyService>();
+            var captureService = sp.GetRequiredService<IScreenCaptureService>();
             var configService = sp.GetRequiredService<ImageConfigService>();
             return new RegionPickerArmService(hotkeyService, captureService, configService);
         });
@@ -71,7 +90,7 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         services.AddSingleton<ImageDetectionService>(sp =>
         {
             var configService = sp.GetRequiredService<ImageConfigService>();
-            var captureService = sp.GetRequiredService<ScreenCaptureService>();
+            var captureService = sp.GetRequiredService<IScreenCaptureService>();
             var cooldownManager = sp.GetRequiredService<CooldownManager>();
             var triggerManager = sp.GetRequiredService<DetectionTriggerManager>();
             var algorithmRegistry = sp.GetRequiredService<AlgorithmRegistry>();
@@ -96,11 +115,15 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     public void Initialize(IServiceProvider sp)
     {
         // Initialize native libraries before any Emgu.CV usage
-        NativeLibraryLoader.Initialize();
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            NativeLibraryLoader.Initialize();
+        }
 
         _configService = sp.GetService<ImageConfigService>();
         _detectionService = sp.GetService<ImageDetectionService>();
-        _hotkeyService = sp.GetService<GlobalHotkeyService>();
+        _hotkeyService = sp.GetService<IGlobalHotkeyService>();
+        var captureService = sp.GetService<IScreenCaptureService>();
 
         // Initialize trigger manager (registers for events)
         _ = sp.GetService<DetectionTriggerManager>();
@@ -109,13 +132,13 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         _ = sp.GetService<RegionPickerArmService>();
 
         // Register global hotkey if configured
-        if (_configService?.PickerHotkey is { Enabled: true } hotkey && _hotkeyService != null)
+        if (_configService?.PickerHotkey is { Enabled: true } hotkey && _hotkeyService is { IsSupported: true })
         {
             _hotkeyService.TryRegister(hotkey, out _);
         }
 
         // Auto-start detection if configured
-        if (_configService?.BackgroundDetectionEnabled == true)
+        if (_configService?.BackgroundDetectionEnabled == true && captureService is { IsSupported: true })
         {
             _detectionService?.Start();
         }

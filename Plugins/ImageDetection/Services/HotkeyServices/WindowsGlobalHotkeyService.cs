@@ -5,65 +5,53 @@ using Microsoft.Extensions.Logging;
 namespace ImageDetection.Services;
 
 /// <summary>
-/// Manages a single global hotkey using Win32 RegisterHotKey/UnregisterHotKey.
-/// Runs a message-only window on a dedicated thread to receive WM_HOTKEY messages.
+/// Windows implementation of <see cref="IGlobalHotkeyService"/> using Win32 RegisterHotKey.
+/// Registers with hWnd=NULL so WM_HOTKEY is posted directly to the thread's message queue,
+/// eliminating the need to create a window.
 /// </summary>
-public class GlobalHotkeyService : IDisposable
+public class WindowsGlobalHotkeyService(ILogger? logger = null) : IGlobalHotkeyService
 {
     private const int WM_HOTKEY = 0x0312;
+    private const int WM_QUIT = 0x0012;
     private const int HOTKEY_ID = 0x4D53; // 'MS' for MultiShock
 
-    private readonly ILogger? _logger;
+    private readonly ILogger? _logger = logger;
     private readonly object _lock = new();
 
     private Thread? _messageThread;
-    private IntPtr _hwnd;
+    private int _threadId;
     private bool _isRegistered;
     private bool _disposed;
     private DateTime _lastTrigger = DateTime.MinValue;
     private HotkeyBinding? _currentBinding;
 
-    /// <summary>
-    /// Minimum interval between hotkey triggers to prevent double-fire.
-    /// </summary>
+    public bool IsSupported => true;
+
+    public string? UnsupportedReason => null;
+
+    /// <inheritdoc />
     public TimeSpan ThrottleInterval { get; set; } = TimeSpan.FromMilliseconds(300);
 
-    /// <summary>
-    /// Whether a hotkey is currently registered and listening.
-    /// </summary>
+    /// <inheritdoc />
     public bool IsRegistered
     {
         get { lock (_lock) { return _isRegistered; } }
     }
 
-    /// <summary>
-    /// The currently registered binding, or null if none.
-    /// </summary>
+    /// <inheritdoc />
     public HotkeyBinding? CurrentBinding
     {
         get { lock (_lock) { return _currentBinding; } }
     }
 
-    /// <summary>
-    /// Fired when the global hotkey is pressed. Invoked on the message thread —
-    /// callers should marshal to their own context if needed.
-    /// </summary>
+    /// <inheritdoc />
     public event Action? HotkeyPressed;
 
-    /// <summary>
-    /// Fired when registration fails (e.g. hotkey already in use by another app).
-    /// </summary>
+    /// <inheritdoc />
     public event Action<string>? RegistrationFailed;
 
-    public GlobalHotkeyService(ILogger? logger = null)
-    {
-        _logger = logger;
-    }
 
-    /// <summary>
-    /// Registers a global hotkey. Unregisters any previous binding first.
-    /// Returns true if registration succeeded.
-    /// </summary>
+    /// <inheritdoc />
     public bool TryRegister(HotkeyBinding binding, out string? error)
     {
         error = null;
@@ -80,7 +68,7 @@ public class GlobalHotkeyService : IDisposable
             return true;
         }
 
-        var vk = binding.GetVirtualKeyCode();
+        var vk = GetVirtualKeyCode(binding.Key);
         if (vk == 0)
         {
             error = $"Unsupported key: {binding.Key}";
@@ -89,7 +77,6 @@ public class GlobalHotkeyService : IDisposable
 
         lock (_lock)
         {
-            UnregisterInternal();
             StopMessageThread();
 
             _currentBinding = binding;
@@ -132,14 +119,11 @@ public class GlobalHotkeyService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Unregisters the current hotkey and stops the message thread.
-    /// </summary>
+    /// <inheritdoc />
     public void Unregister()
     {
         lock (_lock)
         {
-            UnregisterInternal();
             StopMessageThread();
             _isRegistered = false;
             _currentBinding = null;
@@ -147,9 +131,7 @@ public class GlobalHotkeyService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Updates the registration with new settings. If binding is disabled or null, unregisters.
-    /// </summary>
+    /// <inheritdoc />
     public bool UpdateBinding(HotkeyBinding? binding, out string? error)
     {
         if (binding == null || !binding.Enabled)
@@ -166,31 +148,23 @@ public class GlobalHotkeyService : IDisposable
     {
         try
         {
-            // Create a message-only window (HWND_MESSAGE parent)
-            _hwnd = CreateMessageWindow();
+            _threadId = GetCurrentThreadId();
 
-            if (_hwnd == IntPtr.Zero)
-            {
-                tcs.TrySetResult((false, "Failed to create message window"));
-                return;
-            }
+            var modifiers = GetModifierFlags(binding);
+            var vk = GetVirtualKeyCode(binding.Key);
 
-            var modifiers = binding.GetModifierFlags();
-            var vk = binding.GetVirtualKeyCode();
-
-            if (!RegisterHotKey(_hwnd, HOTKEY_ID, modifiers, (uint)vk))
+            // Register with hWnd=NULL — WM_HOTKEY goes directly to the thread's message queue
+            if (!RegisterHotKey(IntPtr.Zero, HOTKEY_ID, modifiers, (uint)vk))
             {
                 var errorCode = Marshal.GetLastWin32Error();
                 var errorMsg = errorCode == 1409
                     ? $"Hotkey {binding.GetDisplayString()} is already in use by another application"
                     : $"RegisterHotKey failed with error code {errorCode}";
-                DestroyWindow(_hwnd);
-                _hwnd = IntPtr.Zero;
-                tcs.TrySetResult((false, errorMsg));
+                _ = tcs.TrySetResult((false, errorMsg));
                 return;
             }
 
-            tcs.TrySetResult((true, null));
+            _ = tcs.TrySetResult((true, null));
 
             while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0))
             {
@@ -210,40 +184,25 @@ public class GlobalHotkeyService : IDisposable
                         }
                     }
                 }
-
-                TranslateMessage(ref msg);
-                DispatchMessage(ref msg);
             }
         }
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Error in hotkey message pump");
-            tcs.TrySetResult((false, ex.Message));
+            _ = tcs.TrySetResult((false, ex.Message));
         }
         finally
         {
-            if (_hwnd != IntPtr.Zero)
-            {
-                UnregisterHotKey(_hwnd, HOTKEY_ID);
-                DestroyWindow(_hwnd);
-                _hwnd = IntPtr.Zero;
-            }
-        }
-    }
-
-    private void UnregisterInternal()
-    {
-        if (_hwnd != IntPtr.Zero)
-        {
-            UnregisterHotKey(_hwnd, HOTKEY_ID);
+            _ = UnregisterHotKey(IntPtr.Zero, HOTKEY_ID);
+            _threadId = 0;
         }
     }
 
     private void StopMessageThread()
     {
-        if (_messageThread != null && _hwnd != IntPtr.Zero)
+        if (_messageThread != null && _threadId != 0)
         {
-            PostMessage(_hwnd, 0x0012 /* WM_QUIT */, IntPtr.Zero, IntPtr.Zero);
+            _ = PostThreadMessage((uint)_threadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
         }
 
         if (_messageThread != null)
@@ -255,31 +214,7 @@ public class GlobalHotkeyService : IDisposable
             _messageThread = null;
         }
 
-        _hwnd = IntPtr.Zero;
-    }
-
-    private static IntPtr CreateMessageWindow()
-    {
-        var wndClass = new WNDCLASS
-        {
-            lpfnWndProc = DefWindowProc,
-            lpszClassName = $"MultiShock_HotkeyWnd_{Environment.CurrentManagedThreadId}"
-        };
-
-        var atom = RegisterClass(ref wndClass);
-        if (atom == 0) return IntPtr.Zero;
-
-        // HWND_MESSAGE = (IntPtr)(-3): message-only window, invisible
-        return CreateWindowEx(
-            0,
-            wndClass.lpszClassName,
-            "",
-            0,
-            0, 0, 0, 0,
-            -3, // HWND_MESSAGE
-            IntPtr.Zero,
-            IntPtr.Zero,
-            IntPtr.Zero);
+        _threadId = 0;
     }
 
     public void Dispose()
@@ -289,7 +224,63 @@ public class GlobalHotkeyService : IDisposable
         Unregister();
     }
 
+    private static uint GetModifierFlags(HotkeyBinding binding)
+    {
+        uint flags = MOD_NOREPEAT;
+        if (binding.Ctrl) flags |= MOD_CONTROL;
+        if (binding.Alt) flags |= MOD_ALT;
+        if (binding.Shift) flags |= MOD_SHIFT;
+        return flags;
+    }
+
+    private static int GetVirtualKeyCode(string? key)
+    {
+        var normalized = (key ?? string.Empty).ToUpperInvariant();
+
+        return normalized switch
+        {
+            "F1" => 0x70,
+            "F2" => 0x71,
+            "F3" => 0x72,
+            "F4" => 0x73,
+            "F5" => 0x74,
+            "F6" => 0x75,
+            "F7" => 0x76,
+            "F8" => 0x77,
+            "F9" => 0x78,
+            "F10" => 0x79,
+            "F11" => 0x7A,
+            "F12" => 0x7B,
+            "PAUSE" or "BREAK" => 0x13,
+            "SCROLLLOCK" => 0x91,
+            "PRINTSCREEN" => 0x2C,
+            "INSERT" => 0x2D,
+            "DELETE" => 0x2E,
+            "HOME" => 0x24,
+            "END" => 0x23,
+            "PAGEUP" => 0x21,
+            "PAGEDOWN" => 0x22,
+            "NUMPAD0" => 0x60,
+            "NUMPAD1" => 0x61,
+            "NUMPAD2" => 0x62,
+            "NUMPAD3" => 0x63,
+            "NUMPAD4" => 0x64,
+            "NUMPAD5" => 0x65,
+            "NUMPAD6" => 0x66,
+            "NUMPAD7" => 0x67,
+            "NUMPAD8" => 0x68,
+            "NUMPAD9" => 0x69,
+            _ when normalized.Length == 1 && char.IsLetterOrDigit(normalized[0]) => normalized[0],
+            _ => 0x77
+        };
+    }
+
     #region Native Methods
+
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint MOD_SHIFT = 0x0004;
+    private const uint MOD_NOREPEAT = 0x4000;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
@@ -301,28 +292,10 @@ public class GlobalHotkeyService : IDisposable
     private static extern bool GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
 
     [DllImport("user32.dll")]
-    private static extern bool TranslateMessage(ref MSG lpMsg);
+    private static extern bool PostThreadMessage(uint idThread, uint Msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr DispatchMessage(ref MSG lpMsg);
-
-    [DllImport("user32.dll")]
-    private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-    private static extern ushort RegisterClass(ref WNDCLASS lpWndClass);
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern IntPtr CreateWindowEx(
-        uint dwExStyle, string lpClassName, string lpWindowName, uint dwStyle,
-        int x, int y, int nWidth, int nHeight,
-        IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+    [DllImport("kernel32.dll")]
+    private static extern int GetCurrentThreadId();
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MSG
@@ -340,24 +313,6 @@ public class GlobalHotkeyService : IDisposable
     {
         public int x;
         public int y;
-    }
-
-    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    private struct WNDCLASS
-    {
-        public uint style;
-        [MarshalAs(UnmanagedType.FunctionPtr)]
-        public WndProcDelegate lpfnWndProc;
-        public int cbClsExtra;
-        public int cbWndExtra;
-        public IntPtr hInstance;
-        public IntPtr hIcon;
-        public IntPtr hCursor;
-        public IntPtr hbrBackground;
-        public string lpszMenuName;
-        public string lpszClassName;
     }
 
     #endregion

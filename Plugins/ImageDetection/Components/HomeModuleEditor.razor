@@ -5,9 +5,9 @@
 @using MultiShock.PluginSdk.Components
 @inject ImageDetectionService DetectionService
 @inject ImageConfigService ConfigService
-@inject ScreenCaptureService CaptureService
+@inject IScreenCaptureService CaptureService
 @inject RegionPickerArmService PickerArmService
-@inject GlobalHotkeyService HotkeyService
+@inject IGlobalHotkeyService HotkeyService
 @inject ValueChangeAnalyzerService ValueAnalyzer
 @inject IPluginHost PluginHost
 @implements IDisposable
@@ -166,7 +166,9 @@
                         @if (!IsHotkeyRegistered)
                         {
                             <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2">
-                                Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow.
+                                @(HotkeyService.IsSupported
+                                    ? "Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow."
+                                    : (HotkeyService.UnsupportedReason ?? "Global hotkeys are not supported on this platform."))
                             </div>
                         }
 
@@ -491,7 +493,9 @@
                             @if (!IsHotkeyRegistered)
                             {
                                 <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2">
-                                    Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow.
+                                    @(HotkeyService.IsSupported
+                                        ? "Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow."
+                                        : (HotkeyService.UnsupportedReason ?? "Global hotkeys are not supported on this platform."))
                                 </div>
                             }
 

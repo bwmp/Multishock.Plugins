@@ -7,17 +7,13 @@ namespace ImageDetection.Services;
 /// Manages cooldown state for detected images.
 /// Supports standard, continuous, and image-reset cooldown types.
 /// </summary>
-public class CooldownManager
+public class CooldownManager(ILogger? logger = null)
 {
-    private readonly ILogger? _logger;
+    private readonly ILogger? _logger = logger;
     private readonly Dictionary<string, CooldownState> _states = [];
     private readonly Dictionary<string, HashSet<string>> _resetTriggers = []; // resetImagePath -> [imagesToReset]
     private readonly object _lock = new();
 
-    public CooldownManager(ILogger? logger = null)
-    {
-        _logger = logger;
-    }
 
     /// <summary>
     /// Checks if an action can be triggered for the given image.

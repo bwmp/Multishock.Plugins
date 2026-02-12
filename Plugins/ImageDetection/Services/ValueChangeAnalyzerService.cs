@@ -7,16 +7,12 @@ namespace ImageDetection.Services;
 /// Stateful analyzer that tracks meter values over time and emits change events
 /// when significant changes are detected. Applies smoothing and debouncing.
 /// </summary>
-public class ValueChangeAnalyzerService
+public class ValueChangeAnalyzerService(ILogger? logger = null)
 {
-    private readonly ILogger? _logger;
-    private readonly Dictionary<string, MeterState> _states = new();
-    private readonly object _lock = new();
+    private readonly ILogger? _logger = logger;
+    private readonly Dictionary<string, MeterState> _states = [];
+    private readonly Lock _lock = new();
 
-    public ValueChangeAnalyzerService(ILogger? logger = null)
-    {
-        _logger = logger;
-    }
 
     /// <summary>
     /// Processes a new meter sample and returns a change event if a significant
@@ -38,7 +34,7 @@ public class ValueChangeAnalyzerService
             state.RecentValues.Enqueue(currentPercent);
             while (state.RecentValues.Count > config.SmoothingFrames)
             {
-                state.RecentValues.Dequeue();
+                _ = state.RecentValues.Dequeue();
             }
 
             var smoothedValue = state.RecentValues.Average();
@@ -114,7 +110,7 @@ public class ValueChangeAnalyzerService
         var key = $"{moduleId}/{targetId}";
         lock (_lock)
         {
-            _states.Remove(key);
+            _ = _states.Remove(key);
         }
     }
 

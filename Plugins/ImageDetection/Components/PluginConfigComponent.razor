@@ -2,7 +2,7 @@
 @using ImageDetection.Services
 @using MultiShock.PluginSdk.Components
 @inject ImageConfigService ConfigService
-@inject GlobalHotkeyService HotkeyService
+@inject IGlobalHotkeyService HotkeyService
 
 <div class="space-y-4">
     <div>
@@ -35,6 +35,13 @@
 
     <div class="border-t border-zinc-700 pt-4 mt-4">
         <h3 class="text-sm font-semibold text-zinc-300 mb-3">Region Picker Hotkey</h3>
+
+        @if (!HotkeyService.IsSupported)
+        {
+            <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2 mb-3">
+                @(HotkeyService.UnsupportedReason ?? "Global hotkeys are not supported on this platform.")
+            </div>
+        }
 
         <div class="space-y-3">
             <Toggle Label="Enable global hotkey for region picker" 
@@ -85,7 +92,7 @@
                     }
                     else if (HotkeyEnabled)
                     {
-                        <span class="text-xs text-yellow-400">Not registered</span>
+                        <span class="text-xs text-yellow-400">@(HotkeyService.IsSupported ? "Not registered" : "Unsupported")</span>
                     }
                 </div>
 

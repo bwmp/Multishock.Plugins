@@ -14,7 +14,7 @@ namespace ImageDetection.Services;
 public class ImageDetectionService : IAsyncDisposable
 {
     private readonly ImageConfigService _configService;
-    private readonly ScreenCaptureService _captureService;
+    private readonly IScreenCaptureService _captureService;
     private readonly CooldownManager _cooldownManager;
     private readonly DetectionTriggerManager _triggerManager;
     private readonly AlgorithmRegistry _algorithmRegistry;
@@ -52,7 +52,7 @@ public class ImageDetectionService : IAsyncDisposable
 
     public ImageDetectionService(
         ImageConfigService configService,
-        ScreenCaptureService captureService,
+        IScreenCaptureService captureService,
         CooldownManager cooldownManager,
         DetectionTriggerManager triggerManager,
         AlgorithmRegistry algorithmRegistry,
@@ -85,6 +85,12 @@ public class ImageDetectionService : IAsyncDisposable
         lock (_lock)
         {
             if (IsRunning) return;
+
+            if (!_captureService.IsSupported)
+            {
+                ErrorOccurred?.Invoke(_captureService.UnsupportedReason ?? "Screen capture is not supported on this platform.");
+                return;
+            }
 
             _detectionCts = new CancellationTokenSource();
             _detectionTask = Task.Run(() => DetectionLoop(_detectionCts.Token));
@@ -536,7 +542,7 @@ public class ImageDetectionService : IAsyncDisposable
 
     /// <summary>
     /// Pushes the user's capture settings (monitor index, source type, etc.)
-    /// into the ScreenCaptureService so CaptureScreen() uses the right monitor.
+    /// into the screen capture service so CaptureScreen() uses the right monitor.
     /// </summary>
     private void SyncCaptureConfig()
     {

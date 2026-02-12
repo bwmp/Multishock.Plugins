@@ -8,8 +8,8 @@ namespace ImageDetection.Services;
 /// </summary>
 public class RegionPickerArmService : IDisposable
 {
-    private readonly GlobalHotkeyService _hotkeyService;
-    private readonly ScreenCaptureService _captureService;
+    private readonly IGlobalHotkeyService _hotkeyService;
+    private readonly IScreenCaptureService _captureService;
     private readonly ImageConfigService _configService;
     private readonly ILogger? _logger;
     private readonly object _lock = new();
@@ -42,8 +42,8 @@ public class RegionPickerArmService : IDisposable
     public event Action<RegionPickerTriggerArgs>? Triggered;
 
     public RegionPickerArmService(
-        GlobalHotkeyService hotkeyService,
-        ScreenCaptureService captureService,
+        IGlobalHotkeyService hotkeyService,
+        IScreenCaptureService captureService,
         ImageConfigService configService,
         ILogger? logger = null)
     {

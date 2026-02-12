@@ -45,8 +45,7 @@ public sealed class TakeScreenshotNode : IFlowProcessNode
     {
         try
         {
-            var captureService = context.Services.GetService(typeof(ScreenCaptureService)) as ScreenCaptureService;
-            if (captureService == null)
+            if (context.Services.GetService(typeof(IScreenCaptureService)) is not IScreenCaptureService captureService)
             {
                 return Task.FromResult(FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
                 {
@@ -55,6 +54,18 @@ public sealed class TakeScreenshotNode : IFlowProcessNode
                     ["height"] = 0,
                     ["success"] = false,
                     ["error"] = "Screen capture service not available",
+                }));
+            }
+
+            if (!captureService.IsSupported)
+            {
+                return Task.FromResult(FlowNodeResult.ActivatePort("done", new Dictionary<string, object?>
+                {
+                    ["screenshot"] = null,
+                    ["width"] = 0,
+                    ["height"] = 0,
+                    ["success"] = false,
+                    ["error"] = captureService.UnsupportedReason ?? "Screen capture is not supported on this platform",
                 }));
             }
 

@@ -7,18 +7,17 @@ using Microsoft.Extensions.Logging;
 namespace ImageDetection.Services;
 
 /// <summary>
-/// Service for capturing screenshots from monitors or windows.
-/// Uses P/Invoke directly to avoid System.Drawing.Common dependency.
+/// Windows implementation of <see cref="IScreenCaptureService"/>.
+/// Uses Win32/GDI P/Invoke directly to avoid System.Drawing.Common dependency.
 /// </summary>
-public class ScreenCaptureService
+public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptureService
 {
-    private readonly ILogger? _logger;
+    private readonly ILogger? _logger = logger;
     private CaptureConfig _config = new();
 
-    public ScreenCaptureService(ILogger? logger = null)
-    {
-        _logger = logger;
-    }
+    public bool IsSupported => true;
+
+    public string? UnsupportedReason => null;
 
     /// <summary>
     /// Current capture configuration.
@@ -37,7 +36,7 @@ public class ScreenCaptureService
         return _config.SourceType switch
         {
             CaptureSourceType.Monitor => CaptureMonitor(_config.MonitorIndex),
-            CaptureSourceType.Window => CaptureWindow(_config.WindowTitle, _config.WindowHandle),
+            CaptureSourceType.Window => CaptureWindow(_config.WindowTitle, _config.WindowId),
             _ => CaptureMonitor(1)
         };
     }
@@ -77,11 +76,11 @@ public class ScreenCaptureService
     /// <summary>
     /// Captures a specific window by title.
     /// </summary>
-    public Mat CaptureWindow(string? windowTitle, IntPtr? windowHandle = null)
+    public Mat CaptureWindow(string? windowTitle, string? windowId = null)
     {
         try
         {
-            IntPtr hwnd = windowHandle ?? IntPtr.Zero;
+            IntPtr hwnd = ParseWindowId(windowId);
 
             if (hwnd == IntPtr.Zero && !string.IsNullOrEmpty(windowTitle))
             {
@@ -113,6 +112,29 @@ public class ScreenCaptureService
             _logger?.LogError(ex, "Failed to capture window: {Title}", windowTitle);
             throw;
         }
+    }
+
+    private static IntPtr ParseWindowId(string? windowId)
+    {
+        if (string.IsNullOrWhiteSpace(windowId)) return IntPtr.Zero;
+
+        var trimmed = windowId.Trim();
+        if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed[2..];
+        }
+
+        if (long.TryParse(trimmed, System.Globalization.NumberStyles.HexNumber, null, out var hexValue))
+        {
+            return new IntPtr(hexValue);
+        }
+
+        if (long.TryParse(trimmed, out var decValue))
+        {
+            return new IntPtr(decValue);
+        }
+
+        return IntPtr.Zero;
     }
 
     /// <summary>
@@ -149,13 +171,13 @@ public class ScreenCaptureService
         finally
         {
             if (hOld != IntPtr.Zero && hdcMem != IntPtr.Zero)
-                SelectObject(hdcMem, hOld);
+                _ = SelectObject(hdcMem, hOld);
             if (hBitmap != IntPtr.Zero)
-                DeleteObject(hBitmap);
+                _ = DeleteObject(hBitmap);
             if (hdcMem != IntPtr.Zero)
-                DeleteDC(hdcMem);
+                _ = DeleteDC(hdcMem);
             if (hdcScreen != IntPtr.Zero)
-                ReleaseDC(IntPtr.Zero, hdcScreen);
+                _ = ReleaseDC(IntPtr.Zero, hdcScreen);
         }
     }
 
@@ -182,7 +204,7 @@ public class ScreenCaptureService
             }
         };
 
-        int stride = ((width * 32 + 31) / 32) * 4;
+        int stride = (width * 32 + 31) / 32 * 4;
         int bufferSize = stride * height;
         byte[] pixelData = new byte[bufferSize];
 
@@ -195,7 +217,7 @@ public class ScreenCaptureService
         }
         finally
         {
-            ReleaseDC(IntPtr.Zero, hdc);
+            _ = ReleaseDC(IntPtr.Zero, hdc);
         }
 
         var mat = new Mat(height, width, DepthType.Cv8U, 4);
@@ -343,8 +365,8 @@ public class ScreenCaptureService
             _logger?.LogError(ex, "Failed to enumerate monitors");
 
             var fallback = GetPrimaryBounds();
-            return new List<MonitorInfo>
-            {
+            return
+            [
                 new MonitorInfo
                 {
                     Index = 1,
@@ -353,7 +375,7 @@ public class ScreenCaptureService
                     Resolution = new Resolution(fallback.Width, fallback.Height),
                     Position = new Models.Point(fallback.Left, fallback.Top)
                 }
-            };
+            ];
         }
     }
 
@@ -389,7 +411,7 @@ public class ScreenCaptureService
             if (length == 0) return true;
 
             var builder = new System.Text.StringBuilder(length + 1);
-            GetWindowText(hwnd, builder, builder.Capacity);
+            _ = GetWindowText(hwnd, builder, builder.Capacity);
             var title = builder.ToString();
 
             if (string.IsNullOrWhiteSpace(title)) return true;
@@ -397,7 +419,7 @@ public class ScreenCaptureService
             string processName = "";
             try
             {
-                GetWindowThreadProcessId(hwnd, out uint processId);
+                _ = GetWindowThreadProcessId(hwnd, out uint processId);
                 var process = System.Diagnostics.Process.GetProcessById((int)processId);
                 processName = process.ProcessName;
             }
@@ -405,7 +427,7 @@ public class ScreenCaptureService
 
             windows.Add(new WindowInfo
             {
-                Handle = hwnd,
+                Id = $"0x{hwnd.ToInt64():X}",
                 Title = title,
                 ProcessName = processName,
                 IsVisible = true
@@ -435,7 +457,7 @@ public class ScreenCaptureService
             string processName = string.Empty;
             try
             {
-                GetWindowThreadProcessId(hwnd, out uint processId);
+                _ = GetWindowThreadProcessId(hwnd, out uint processId);
                 if (processId != 0)
                 {
                     var process = System.Diagnostics.Process.GetProcessById((int)processId);
@@ -449,7 +471,7 @@ public class ScreenCaptureService
 
             return new WindowInfo
             {
-                Handle = hwnd,
+                Id = $"0x{hwnd.ToInt64():X}",
                 Title = title,
                 ProcessName = processName,
                 IsVisible = IsWindowVisible(hwnd)

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using ImageDetection.Models;
+using MultiShock.PluginSdk;
 
 namespace ImageDetection.Services;
 
@@ -45,11 +46,10 @@ public class RecentDetectionsService : IDisposable
     /// </summary>
     public event Action? DetectionsCleared;
 
-    public RecentDetectionsService()
+    public RecentDetectionsService(IPluginHost pluginHost)
     {
         _screenshotsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "PiShock", "MultiShock", "PluginData", "com.multishock.imagedetection", "Screenshots");
+            pluginHost.GetPluginDataPath(ImageDetectionPlugin.PluginId), "Screenshots");
 
         Directory.CreateDirectory(_screenshotsDir);
 
@@ -149,11 +149,11 @@ public class RecentDetectionsService : IDisposable
         {
             var events = _events;
             if (count.HasValue)
-                events = events.Take(count.Value).ToList();
+                events = [.. events.Take(count.Value)];
             else if (MaxDisplayEvents > 0)
-                events = events.Take(MaxDisplayEvents).ToList();
+                events = [.. events.Take(MaxDisplayEvents)];
             
-            return events.ToList();
+            return [.. events];
         }
     }
 
@@ -167,7 +167,7 @@ public class RecentDetectionsService : IDisposable
             var query = _events.Where(e => e.ModuleId == moduleId);
             if (count.HasValue)
                 query = query.Take(count.Value);
-            return query.ToList();
+            return [.. query];
         }
     }
 

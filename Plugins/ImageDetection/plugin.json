@@ -1,0 +1,6 @@
+{
+  "entryPoint": "ImageDetection.dll",
+  "id": "com.multishock.imagedetection",
+  "name": "Image Detection",
+  "description": "Detects images on screen and triggers actions when found."
+}

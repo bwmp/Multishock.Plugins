@@ -29,9 +29,8 @@ $RepoRoot = Join-Path $PluginsRepoRoot "Plugins"
 $BuiltPlugins = @()
 $FailedPlugins = @()
 
-# Find all plugin projects (directories ending in "Plugin" with a .csproj file)
+# Find all plugin projects (directory name matches .csproj file)
 $PluginFolders = Get-ChildItem -Path $RepoRoot -Directory | Where-Object {
-    $_.Name -like "*Plugin" -and
     $_.Name -ne "PluginTemplate" -and
     (Test-Path (Join-Path $_.FullName "$($_.Name).csproj"))
 }
@@ -43,7 +42,6 @@ if ($Plugin) {
         Write-Host "Error: Plugin '$Plugin' not found!" -ForegroundColor Red
         Write-Host "Available plugins:" -ForegroundColor Yellow
         Get-ChildItem -Path $RepoRoot -Directory | Where-Object {
-            $_.Name -like "*Plugin" -and
             $_.Name -ne "PluginTemplate" -and
             (Test-Path (Join-Path $_.FullName "$($_.Name).csproj"))
         } | ForEach-Object {

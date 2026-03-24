@@ -788,6 +788,36 @@
             The handler receives the instance and initial output values.
             </summary>
         </member>
+        <member name="T:MultiShock.PluginSdk.GuidedSetupDefinition">
+            <summary>
+            Describes a guided setup that can be shown by the host app.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.GuidedSetupDefinition.#ctor(System.String,System.String,System.Collections.Generic.IReadOnlyList{MultiShock.PluginSdk.GuidedSetupStep},System.String,System.String,System.Int32)">
+            <summary>
+            Describes a guided setup that can be shown by the host app.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.GuidedSetupDefinition.WithPluginPrefix(System.String)">
+            <summary>
+            Creates a copy of this setup with plugin-relative routes normalized to host routes.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.GuidedSetupStep">
+            <summary>
+            Describes a single highlighted step in a guided setup.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.GuidedSetupStep.#ctor(System.String,System.String,System.String,System.String,MultiShock.PluginSdk.GuidedSetupNextMode,System.String)">
+            <summary>
+            Describes a single highlighted step in a guided setup.
+            </summary>
+        </member>
+        <member name="T:MultiShock.PluginSdk.GuidedSetupRoute">
+            <summary>
+            Helpers for building guided setup routes that match host plugin routing.
+            </summary>
+        </member>
         <member name="T:MultiShock.PluginSdk.IConfigurablePlugin">
             <summary>
             Optional interface for plugins that want to provide custom configuration UI.
@@ -1200,6 +1230,11 @@
             Used when exporting flows to help users find required plugins.
             </summary>
         </member>
+        <member name="T:MultiShock.PluginSdk.IPluginGuidedSetupProvider">
+            <summary>
+            Optional interface for plugins that want to expose guided setup tours.
+            </summary>
+        </member>
         <member name="T:MultiShock.PluginSdk.IPluginHost">
             <summary>
             Interface for host app services that plugins can use.
@@ -1291,6 +1326,19 @@
             <param name="title">The title for the file picker dialog.</param>
             <param name="fileTypes">Optional list of allowed file extensions (e.g., ".bin", ".hex").</param>
             <returns>The selected file path, or null if cancelled.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.StartGuidedSetup">
+            <summary>
+            Starts the host application's built-in guided setup.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.IPluginHost.StartPluginGuidedSetup(System.String,System.String)">
+            <summary>
+            Starts a guided setup exposed by a plugin.
+            </summary>
+            <param name="pluginId">The plugin identifier.</param>
+            <param name="setupId">Optional setup identifier when the plugin exposes more than one guide.</param>
+            <returns>True if a matching setup was found and started.</returns>
         </member>
         <member name="M:MultiShock.PluginSdk.IPluginHost.GetPlugin(System.String)">
             <summary>
@@ -1490,6 +1538,61 @@
             <param name="jsFileName">Filename to load, such as dateTime.js</param>
         </member>
         <member name="M:MultiShock.PluginSdk.JSInterop.BaseJSInteropLoader.DisposeAsync">
+            <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.IColorPickerInterop">
+            <summary>
+            Interface for color picker canvas interactions and close behavior.
+            </summary>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IColorPickerInterop.InitAsync``1(Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.JSInterop.DotNetObjectReference{``0},System.Double,System.Double,System.Double)">
+            <summary>
+            Initializes the color picker canvases, pointer events, and outside-click/Escape handling.
+            </summary>
+            <param name="satCanvas">The saturation/brightness canvas element.</param>
+            <param name="hueCanvas">The hue bar canvas element.</param>
+            <param name="menuElement">The popup menu element (for contains checks).</param>
+            <param name="triggerElement">The trigger element that opens the picker.</param>
+            <param name="dotNetRef">DotNet object reference for callbacks.</param>
+            <param name="initialHue">Initial hue value (0-360).</param>
+            <param name="initialSat">Initial saturation value (0-1).</param>
+            <param name="initialVal">Initial brightness value (0-1).</param>
+            <returns>A token to use when disposing.</returns>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IColorPickerInterop.UpdateHueAsync(System.Int64,System.Double)">
+            <summary>
+            Updates the hue displayed on the saturation/brightness canvas.
+            </summary>
+            <param name="token">The token returned from InitAsync.</param>
+            <param name="hue">New hue value (0-360).</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.IColorPickerInterop.DisposeAsync(System.Int64)">
+            <summary>
+            Disposes of event listeners and state for a color picker instance.
+            </summary>
+            <param name="token">The token returned from InitAsync.</param>
+        </member>
+        <member name="T:MultiShock.PluginSdk.JSInterop.ColorPickerInterop">
+            <summary>
+            Provides color picker canvas interactions via JavaScript interop.
+            Handles canvas rendering, pointer tracking, outside-click detection, and Escape key closing.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.ColorPickerInterop.#ctor(Microsoft.JSInterop.IJSRuntime)">
+            <summary>
+            Provides color picker canvas interactions via JavaScript interop.
+            Handles canvas rendering, pointer tracking, outside-click detection, and Escape key closing.
+            </summary>
+            <param name="js">IJSRuntime from DI</param>
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.ColorPickerInterop.InitAsync``1(Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.AspNetCore.Components.ElementReference,Microsoft.JSInterop.DotNetObjectReference{``0},System.Double,System.Double,System.Double)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.ColorPickerInterop.UpdateHueAsync(System.Int64,System.Double)">
+            <inheritdoc />
+        </member>
+        <member name="M:MultiShock.PluginSdk.JSInterop.ColorPickerInterop.DisposeAsync(System.Int64)">
             <inheritdoc />
         </member>
         <member name="T:MultiShock.PluginSdk.JSInterop.IDateTimeInterop">
@@ -1762,6 +1865,44 @@
         </member>
         <member name="M:MultiShock.PluginSdk.Services.DomCleanupService.CleanupAsync">
             <inheritdoc />
+        </member>
+        <member name="T:MultiShock.PluginSdk.Components.ColorPicker.ColorPickerDisplayMode">
+            <summary>
+            Defines the display mode for the color picker trigger.
+            </summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Components.ColorPicker.ColorPickerDisplayMode.Swatch">
+            <summary>Shows only a colored square swatch.</summary>
+        </member>
+        <member name="F:MultiShock.PluginSdk.Components.ColorPicker.ColorPickerDisplayMode.SwatchWithInput">
+            <summary>Shows a colored square swatch with a hex input field next to it.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.Label">
+            <summary>Optional label displayed above the trigger.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.Description">
+            <summary>Optional description displayed below the trigger.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.Error">
+            <summary>Optional error message displayed below the trigger.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.Class">
+            <summary>Additional CSS classes for the root element.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.Disabled">
+            <summary>Whether the component is disabled.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.Value">
+            <summary>The current color as a hex string (e.g. "#ff0000"). Supports 3, 6, or 8 character hex values.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.ValueChanged">
+            <summary>Callback invoked when the color value changes.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.DisplayMode">
+            <summary>Controls how the trigger is displayed. Defaults to SwatchWithInput.</summary>
+        </member>
+        <member name="P:MultiShock.PluginSdk.Components.ColorPicker.PresetColors">
+            <summary>Custom preset colors. If null, a sensible default palette is used.</summary>
         </member>
         <member name="P:MultiShock.PluginSdk.Components.ShockerSelect.MultiSelect">
             <summary>

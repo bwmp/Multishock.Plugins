@@ -114,12 +114,6 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     public void Initialize(IServiceProvider sp)
     {
-        // Initialize native libraries before any Emgu.CV usage
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            NativeLibraryLoader.Initialize();
-        }
-
         _configService = sp.GetService<ImageConfigService>();
         _detectionService = sp.GetService<ImageDetectionService>();
         _hotkeyService = sp.GetService<IGlobalHotkeyService>();

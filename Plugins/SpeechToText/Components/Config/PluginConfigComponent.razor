@@ -1,0 +1,300 @@
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using SpeechToText.Services
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(RecognitionService.IsListening ? "bg-green-500" : "bg-gray-400")"></div>
+        <span class="text-sm font-medium">
+            @(RecognitionService.IsListening ? "Listening" : "Idle")
+        </span>
+    </div>
+
+    <Toggle Label="Auto-start listening on app startup"
+            Value="AutoStartListening"
+            ValueChanged="ToggleAutoStartListening" />
+
+    <Toggle Label="Use default microphone"
+            Value="UseDefaultMicrophone"
+            ValueChanged="ToggleUseDefaultMicrophone" />
+
+    @if (!UseDefaultMicrophone)
+    {
+        <div class="max-w-md">
+            <Select Label="Microphone Input" TValue="int"
+                    Value="MicrophoneDeviceNumber"
+                    ValueChanged="OnMicrophoneChanged"
+                    Options="MicrophoneOptions"
+                    Description="Select which microphone Whisper uses for capture" />
+        </div>
+    }
+
+    <Toggle Label="Auto-restart listener after unexpected stop"
+            Value="AutoRestartOnFailure"
+            ValueChanged="ToggleAutoRestart" />
+
+    <div class="max-w-sm">
+        <TextInput Label="Recognition Culture"
+                   Placeholder="en-US"
+                   Value="@Culture"
+                   ValueChanged="@(value => Culture = value?.Trim() ?? string.Empty)" />
+    </div>
+
+    <div class="w-56">
+        <NumberInput Label="Minimum Confidence"
+                     Value="MinimumConfidence"
+                     Min="0"
+                     Max="1"
+                     Step="0.01"
+                     ValueChanged="@(value => MinimumConfidence = Math.Clamp(value ?? 0.1, 0.0, 1.0))" />
+    </div>
+
+    <div class="w-56">
+        <NumberInput Label="Restart Delay (ms)"
+                     Value="RestartDelayMs"
+                     Min="250"
+                     Max="30000"
+                     Step="50"
+                     ValueChanged="@(value => RestartDelayMs = Math.Clamp(value ?? 2000, 250, 30000))" />
+    </div>
+
+    <div class="max-w-sm">
+        <TextInput Label="Whisper Model"
+                   Placeholder="TinyEn"
+                   Value="@WhisperModel"
+                   ValueChanged="@(value => WhisperModel = value?.Trim() ?? string.Empty)" />
+    </div>
+
+    <Toggle Label="Auto-download model when missing"
+            Value="DownloadModelIfMissing"
+            ValueChanged="ToggleDownloadModelIfMissing" />
+
+    <div class="max-w-sm">
+        <TextInput Label="Whisper Model Path (optional)"
+                   Placeholder="C:\\Models\\ggml-tiny.en.bin"
+                   Value="@WhisperModelPath"
+                   ValueChanged="@(value => WhisperModelPath = value?.Trim() ?? string.Empty)" />
+    </div>
+
+    <div class="w-56">
+        <NumberInput Label="Segment Duration (ms)"
+                     Value="SegmentDurationMs"
+                     Min="1000"
+                     Max="10000"
+                     Step="250"
+                     ValueChanged="@(value => SegmentDurationMs = Math.Clamp(value ?? 3500, 1000, 10000))" />
+    </div>
+
+    <div class="w-56">
+        <NumberInput Label="Silence Threshold"
+                     Value="SilenceEnergyThreshold"
+                     Min="0.0001"
+                     Max="0.05"
+                     Step="0.0005"
+                     ValueChanged="@(value => SilenceEnergyThreshold = Math.Clamp(value ?? 0.0015, 0.0001, 0.05))" />
+    </div>
+
+    <div class="flex gap-2">
+        <Button Text="Save" Variant="secondary" OnClick="SaveSettings" />
+        @if (RecognitionService.IsListening)
+        {
+            <Button Text="Stop Listening" Variant="danger" OnClick="StopListening" />
+        }
+        else
+        {
+            <Button Text="Start Listening" Variant="primary" OnClick="StartListening" />
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="text-xs @(StatusIsError ? "text-red-400" : "text-gray-400")">@StatusMessage</div>
+    }
+
+    <p class="text-xs text-gray-500">
+        Triggers: <code>speechtotext.sentence</code> and <code>speechtotext.word</code>
+    </p>
+</div>
+
+@code {
+    private static readonly string PluginIdValue = SpeechToTextPlugin.PluginId;
+
+    private SpeechToTextSettingsService SettingsService =>
+        PluginServiceLocator.GetRequiredService<SpeechToTextSettingsService>(PluginIdValue);
+
+    private SpeechRecognitionService RecognitionService =>
+        PluginServiceLocator.GetRequiredService<SpeechRecognitionService>(PluginIdValue);
+
+    private bool AutoStartListening;
+    private bool AutoRestartOnFailure;
+    private bool UseDefaultMicrophone = true;
+    private int MicrophoneDeviceNumber;
+    private string Culture = "en-US";
+    private double MinimumConfidence = 0.1;
+    private double RestartDelayMs = 2000;
+    private string WhisperModel = "TinyEn";
+    private bool DownloadModelIfMissing = true;
+    private string WhisperModelPath = string.Empty;
+    private double SegmentDurationMs = 3500;
+    private double SilenceEnergyThreshold = 0.0015;
+
+    private string? StatusMessage;
+    private bool StatusIsError;
+    private List<Select<int>.SelectOption<int>> MicrophoneOptions = [];
+
+    [Parameter]
+    public string? PluginId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        ReadSettings();
+        RefreshMicrophoneOptions();
+
+        RecognitionService.StatusMessage += OnStatus;
+        RecognitionService.ErrorOccurred += OnError;
+        RecognitionService.ListeningStateChanged += OnListeningChanged;
+    }
+
+    private void ReadSettings()
+    {
+        AutoStartListening = SettingsService.AutoStartListening;
+        AutoRestartOnFailure = SettingsService.AutoRestartOnFailure;
+        UseDefaultMicrophone = SettingsService.UseDefaultMicrophone;
+        MicrophoneDeviceNumber = SettingsService.MicrophoneDeviceNumber;
+        Culture = SettingsService.Culture;
+        MinimumConfidence = SettingsService.MinimumConfidence;
+        RestartDelayMs = SettingsService.RestartDelayMs;
+        WhisperModel = SettingsService.WhisperModel;
+        DownloadModelIfMissing = SettingsService.DownloadModelIfMissing;
+        WhisperModelPath = SettingsService.WhisperModelPath;
+        SegmentDurationMs = SettingsService.SegmentDurationMs;
+        SilenceEnergyThreshold = SettingsService.SilenceEnergyThreshold;
+    }
+
+    private async Task SaveSettings()
+    {
+        SettingsService.AutoStartListening = AutoStartListening;
+        SettingsService.AutoRestartOnFailure = AutoRestartOnFailure;
+        SettingsService.UseDefaultMicrophone = UseDefaultMicrophone;
+        SettingsService.MicrophoneDeviceNumber = MicrophoneDeviceNumber;
+        SettingsService.Culture = Culture;
+        SettingsService.MinimumConfidence = MinimumConfidence;
+        SettingsService.RestartDelayMs = (int)RestartDelayMs;
+        SettingsService.WhisperModel = WhisperModel;
+        SettingsService.DownloadModelIfMissing = DownloadModelIfMissing;
+        SettingsService.WhisperModelPath = WhisperModelPath;
+        SettingsService.SegmentDurationMs = (int)SegmentDurationMs;
+        SettingsService.SilenceEnergyThreshold = SilenceEnergyThreshold;
+
+        StatusIsError = false;
+        StatusMessage = "Settings saved";
+    }
+
+    private async Task StartListening()
+    {
+        await SaveSettings();
+        var started = await RecognitionService.StartListeningAsync();
+
+        if (!started)
+        {
+            StatusIsError = true;
+            StatusMessage = "Unable to start speech recognition";
+        }
+    }
+
+    private async Task StopListening()
+    {
+        await RecognitionService.StopListeningAsync();
+    }
+
+    private Task ToggleAutoStartListening(bool value)
+    {
+        AutoStartListening = value;
+        SettingsService.AutoStartListening = value;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleAutoRestart(bool value)
+    {
+        AutoRestartOnFailure = value;
+        SettingsService.AutoRestartOnFailure = value;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleUseDefaultMicrophone(bool value)
+    {
+        UseDefaultMicrophone = value;
+        SettingsService.UseDefaultMicrophone = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnMicrophoneChanged(int value)
+    {
+        MicrophoneDeviceNumber = value;
+        SettingsService.MicrophoneDeviceNumber = value;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleDownloadModelIfMissing(bool value)
+    {
+        DownloadModelIfMissing = value;
+        SettingsService.DownloadModelIfMissing = value;
+        return Task.CompletedTask;
+    }
+
+    private void OnStatus(string message)
+    {
+        InvokeAsync(() =>
+        {
+            StatusIsError = false;
+            StatusMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private void OnError(string message)
+    {
+        InvokeAsync(() =>
+        {
+            StatusIsError = true;
+            StatusMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private void OnListeningChanged(bool _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RefreshMicrophoneOptions()
+    {
+        var devices = RecognitionService.GetAvailableInputDevices();
+        MicrophoneOptions = devices
+            .Select(d => new Select<int>.SelectOption<int>(d.DeviceNumber, $"{d.Name} (#{d.DeviceNumber + 1})"))
+            .ToList();
+
+        if (MicrophoneOptions.Count == 0)
+        {
+            MicrophoneOptions =
+            [
+                new Select<int>.SelectOption<int>(0, "No microphone devices found")
+            ];
+            MicrophoneDeviceNumber = 0;
+            return;
+        }
+
+        if (MicrophoneOptions.All(x => x.Value != MicrophoneDeviceNumber))
+        {
+            MicrophoneDeviceNumber = MicrophoneOptions[0].Value;
+        }
+    }
+
+    public void Dispose()
+    {
+        RecognitionService.StatusMessage -= OnStatus;
+        RecognitionService.ErrorOccurred -= OnError;
+        RecognitionService.ListeningStateChanged -= OnListeningChanged;
+    }
+}

@@ -42,14 +42,6 @@
                 "ThroneIntegration.csproj"
             ]
         },
-        "Plugins/YouTubeIntegration": {
-            "release-type": "simple",
-            "component": "YouTubeIntegration",
-            "changelog-path": "CHANGELOG.md",
-            "extra-files": [
-                "YouTubeIntegration.csproj"
-            ]
-        },
         "Plugins/SpeechToText": {
             "release-type": "simple",
             "component": "SpeechToText",

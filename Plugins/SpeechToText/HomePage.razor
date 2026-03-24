@@ -1,0 +1,305 @@
+@page "/plugins/com-multishock-speechtotext/speechtotext"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using SpeechToText.Services
+@implements IDisposable
+
+<div class="space-y-4 p-4">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full @(RecognitionService.IsListening ? "bg-green-500" : "bg-gray-400")"></div>
+        <span class="font-semibold">SpeechToText</span>
+        <span class="text-sm text-gray-500">@(RecognitionService.IsListening ? "Listening" : "Not listening")</span>
+        <div class="flex-1"></div>
+        @if (RecognitionService.IsListening)
+        {
+            <Button Text="Stop" Variant="danger" Size="sm" OnClick="StopListening" />
+        }
+        else
+        {
+            <Button Text="Start" Variant="primary" Size="sm" OnClick="StartListening" />
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="text-sm @(StatusIsError ? "text-red-400" : "text-gray-400")">@StatusMessage</div>
+    }
+
+    <div class="rounded border border-gray-800 p-3 space-y-2">
+        <div class="flex items-center justify-between text-sm">
+            <span class="font-medium">Live Microphone Input</span>
+            <span class="text-gray-400">@InputLevelPercent%</span>
+        </div>
+        <div class="h-3 rounded bg-gray-800 overflow-hidden">
+            <div class="h-3 transition-all duration-100 @(InputLevel > 0.12 ? "bg-green-500" : "bg-amber-500")"
+                 style="width: @(InputLevelPercent + "%")"></div>
+        </div>
+        <div class="text-xs text-gray-500">Speak into your selected mic and watch this level react in real time.</div>
+    </div>
+
+    <div class="rounded border border-gray-800 p-3 space-y-3">
+        <div class="font-medium">Quick Settings</div>
+
+        <Toggle Label="Auto-start listening on app startup"
+                Value="AutoStartListening"
+                ValueChanged="ToggleAutoStartListening" />
+
+        <Toggle Label="Use default microphone"
+                Value="UseDefaultMicrophone"
+                ValueChanged="ToggleUseDefaultMicrophone" />
+
+        @if (!UseDefaultMicrophone)
+        {
+            <div class="max-w-md">
+                <Select Label="Microphone Input" TValue="int"
+                        Value="MicrophoneDeviceNumber"
+                        ValueChanged="OnMicrophoneChanged"
+                        Options="MicrophoneOptions" />
+            </div>
+        }
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="w-56">
+                <NumberInput Label="Min Confidence"
+                             Value="MinimumConfidence"
+                             Min="0"
+                             Max="1"
+                             Step="0.01"
+                             ValueChanged="@(value => MinimumConfidence = Math.Clamp(value ?? 0.1, 0.0, 1.0))" />
+            </div>
+            <div class="w-56">
+                <NumberInput Label="Segment (ms)"
+                             Value="SegmentDurationMs"
+                             Min="1000"
+                             Max="10000"
+                             Step="250"
+                             ValueChanged="@(value => SegmentDurationMs = Math.Clamp(value ?? 3500, 1000, 10000))" />
+            </div>
+            <div class="w-56">
+                <NumberInput Label="Silence Threshold"
+                             Value="SilenceEnergyThreshold"
+                             Min="0.0001"
+                             Max="0.05"
+                             Step="0.0005"
+                             ValueChanged="@(value => SilenceEnergyThreshold = Math.Clamp(value ?? 0.0015, 0.0001, 0.05))" />
+            </div>
+        </div>
+
+        <div class="max-w-sm">
+            <TextInput Label="Whisper Model"
+                       Placeholder="TinyEn"
+                       Value="@WhisperModel"
+                       ValueChanged="@(value => WhisperModel = value?.Trim() ?? string.Empty)" />
+        </div>
+
+        <Button Text="Save Quick Settings" Variant="secondary" Size="sm" OnClick="SaveSettings" />
+    </div>
+
+    <div class="rounded border border-gray-800 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+            <div class="font-medium">Recent Recognized Sentences</div>
+            <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
+        </div>
+
+        @if (Sentences.Count == 0)
+        {
+            <div class="text-sm text-gray-500">No speech events captured yet.</div>
+        }
+        else
+        {
+            <div class="space-y-1 max-h-80 overflow-y-auto">
+                @foreach (var sentence in Sentences.TakeLast(100).Reverse())
+                {
+                    <div class="text-sm">
+                        <span class="text-gray-500">[@sentence.TimestampUtc.ToLocalTime().ToString("HH:mm:ss")]</span>
+                        <span class="text-gray-300"> (@sentence.Confidence.ToString("0.00"))</span>
+                        <span> @sentence.Text</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginIdValue = SpeechToTextPlugin.PluginId;
+
+    private SpeechToTextSettingsService SettingsService =>
+        PluginServiceLocator.GetRequiredService<SpeechToTextSettingsService>(PluginIdValue);
+
+    private SpeechRecognitionService RecognitionService =>
+        PluginServiceLocator.GetRequiredService<SpeechRecognitionService>(PluginIdValue);
+
+    private readonly List<SpeechSentenceEvent> Sentences = [];
+
+    private bool AutoStartListening;
+    private bool UseDefaultMicrophone = true;
+    private int MicrophoneDeviceNumber;
+    private double MinimumConfidence = 0.1;
+    private double SegmentDurationMs = 3500;
+    private double SilenceEnergyThreshold = 0.0015;
+    private string WhisperModel = "TinyEn";
+    private List<Select<int>.SelectOption<int>> MicrophoneOptions = [];
+    private double InputLevel;
+    private int InputLevelPercent => (int)Math.Round(Math.Clamp(InputLevel, 0.0, 1.0) * 100);
+
+    private string? StatusMessage;
+    private bool StatusIsError;
+
+    protected override void OnInitialized()
+    {
+        ReadSettings();
+        RefreshMicrophoneOptions();
+
+        RecognitionService.SentenceRecognized += OnSentenceRecognized;
+        RecognitionService.StatusMessage += OnStatus;
+        RecognitionService.ErrorOccurred += OnError;
+        RecognitionService.ListeningStateChanged += OnListeningChanged;
+        RecognitionService.InputLevelChanged += OnInputLevelChanged;
+
+        InputLevel = RecognitionService.CurrentInputLevel;
+    }
+
+    private async Task StartListening()
+    {
+        await SaveSettings();
+        await RecognitionService.StartListeningAsync();
+    }
+
+    private async Task StopListening()
+    {
+        await RecognitionService.StopListeningAsync();
+    }
+
+    private void ReadSettings()
+    {
+        AutoStartListening = SettingsService.AutoStartListening;
+        UseDefaultMicrophone = SettingsService.UseDefaultMicrophone;
+        MicrophoneDeviceNumber = SettingsService.MicrophoneDeviceNumber;
+        MinimumConfidence = SettingsService.MinimumConfidence;
+        SegmentDurationMs = SettingsService.SegmentDurationMs;
+        SilenceEnergyThreshold = SettingsService.SilenceEnergyThreshold;
+        WhisperModel = SettingsService.WhisperModel;
+    }
+
+    private Task ToggleAutoStartListening(bool value)
+    {
+        AutoStartListening = value;
+        SettingsService.AutoStartListening = value;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleUseDefaultMicrophone(bool value)
+    {
+        UseDefaultMicrophone = value;
+        SettingsService.UseDefaultMicrophone = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnMicrophoneChanged(int value)
+    {
+        MicrophoneDeviceNumber = value;
+        SettingsService.MicrophoneDeviceNumber = value;
+        return Task.CompletedTask;
+    }
+
+    private Task SaveSettings()
+    {
+        SettingsService.AutoStartListening = AutoStartListening;
+        SettingsService.UseDefaultMicrophone = UseDefaultMicrophone;
+        SettingsService.MicrophoneDeviceNumber = MicrophoneDeviceNumber;
+        SettingsService.MinimumConfidence = MinimumConfidence;
+        SettingsService.SegmentDurationMs = (int)SegmentDurationMs;
+        SettingsService.SilenceEnergyThreshold = SilenceEnergyThreshold;
+        SettingsService.WhisperModel = WhisperModel;
+
+        StatusIsError = false;
+        StatusMessage = "Quick settings saved";
+        return Task.CompletedTask;
+    }
+
+    private void RefreshMicrophoneOptions()
+    {
+        var devices = RecognitionService.GetAvailableInputDevices();
+        MicrophoneOptions = devices
+            .Select(d => new Select<int>.SelectOption<int>(d.DeviceNumber, $"{d.Name} (#{d.DeviceNumber + 1})"))
+            .ToList();
+
+        if (MicrophoneOptions.Count == 0)
+        {
+            MicrophoneOptions =
+            [
+                new Select<int>.SelectOption<int>(0, "No microphone devices found")
+            ];
+            MicrophoneDeviceNumber = 0;
+            return;
+        }
+
+        if (MicrophoneOptions.All(x => x.Value != MicrophoneDeviceNumber))
+        {
+            MicrophoneDeviceNumber = MicrophoneOptions[0].Value;
+        }
+    }
+
+    private void OnSentenceRecognized(SpeechSentenceEvent sentence)
+    {
+        InvokeAsync(() =>
+        {
+            Sentences.Add(sentence);
+            if (Sentences.Count > 300)
+            {
+                Sentences.RemoveRange(0, Sentences.Count - 300);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void OnStatus(string message)
+    {
+        InvokeAsync(() =>
+        {
+            StatusIsError = false;
+            StatusMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private void OnError(string message)
+    {
+        InvokeAsync(() =>
+        {
+            StatusIsError = true;
+            StatusMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private void OnListeningChanged(bool _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnInputLevelChanged(double level)
+    {
+        InvokeAsync(() =>
+        {
+            InputLevel = level;
+            StateHasChanged();
+        });
+    }
+
+    private void ClearLog()
+    {
+        Sentences.Clear();
+    }
+
+    public void Dispose()
+    {
+        RecognitionService.SentenceRecognized -= OnSentenceRecognized;
+        RecognitionService.StatusMessage -= OnStatus;
+        RecognitionService.ErrorOccurred -= OnError;
+        RecognitionService.ListeningStateChanged -= OnListeningChanged;
+        RecognitionService.InputLevelChanged -= OnInputLevelChanged;
+    }
+}

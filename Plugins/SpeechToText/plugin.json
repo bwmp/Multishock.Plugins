@@ -1,0 +1,6 @@
+{
+  "entryPoint": "SpeechToText.dll",
+  "id": "com.multishock.speechtotext",
+  "name": "SpeechToText",
+  "description": "Continuous speech recognition with sentence and word triggers."
+}

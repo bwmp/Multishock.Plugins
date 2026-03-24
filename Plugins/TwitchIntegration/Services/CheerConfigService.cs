@@ -80,6 +80,17 @@ public class CheerConfigService
         }
     }
 
+    public void ReplaceConfig(CheerConfig config)
+    {
+        _config = config ?? CreateDefaultConfig();
+        lock (_roundRobinLock)
+        {
+            _roundRobinIndices.Clear();
+        }
+
+        SaveConfig();
+    }
+
     private CheerConfig CreateDefaultConfig()
     {
         return new CheerConfig

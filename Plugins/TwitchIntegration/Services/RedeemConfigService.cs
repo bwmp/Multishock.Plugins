@@ -64,6 +64,17 @@ public class RedeemConfigService : IDisposable
         SaveConfig();
     }
 
+    public void ReplaceConfig(RedeemConfigRoot config)
+    {
+        _config = config ?? CreateDefaultConfig();
+        lock (_roundRobinLock)
+        {
+            _roundRobinIndices.Clear();
+        }
+
+        SaveConfig();
+    }
+
     public void UpdateRedeem(RedeemConfig redeem)
     {
         var existing = _config.Redeems.FirstOrDefault(r => r.Id == redeem.Id);

@@ -1,0 +1,305 @@
+@page "/plugins/com-multishock-twitchintegration/hype-train-config"
+@implements IDisposable
+
+<div class="p-4 mx-auto space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Hype Train Configuration</h1>
+            <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">Configure reactions while a hype train is active and when it ends.</p>
+        </div>
+        <Toggle Label="@(HypeTrainConfigService.Config.Enabled ? "Enabled" : "Disabled")"
+            Value="HypeTrainConfigService.Config.Enabled" ValueChanged="ToggleEnabled" />
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-2">
+        <div class="twitch-card @(!HypeTrainConfigService.Config.During.Enabled ? "opacity-70" : "")">
+            <div class="twitch-card-header flex items-center justify-between">
+                <span>During Train</span>
+                <Toggle Label="@(HypeTrainConfigService.Config.During.Enabled ? "On" : "Off")"
+                    Value="HypeTrainConfigService.Config.During.Enabled" ValueChanged="ToggleDuringEnabled" />
+            </div>
+            <div class="twitch-card-body space-y-4">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="grow">
+                        <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                        <ShockerSelect Label="" MultiSelect="true" SelectedIds="HypeTrainConfigService.Config.During.SelectedShockerIds"
+                            SelectedIdsChanged="UpdateDuringShockers" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Mode" Value="@HypeTrainConfigService.Config.During.Mode.ToString()"
+                            ValueChanged="@((string value) => UpdateDuringMode(ParseSelectionMode(value)))" Options="@SelectionModeOptions" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Command" Value="@HypeTrainConfigService.Config.During.CommandType"
+                            ValueChanged="@((string value) => UpdateDuringCommandType(value ?? "Shock"))" Options="@CommandTypeOptions" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Scaling" Value="@HypeTrainConfigService.Config.During.ScalingMode.ToString()"
+                            ValueChanged="@((string value) => UpdateDuringScaling(ParseScalingMode(value)))" Options="@ScalingModeOptions" />
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Base Intensity</span>
+                        <Slider Min="1" Max="100" Value="HypeTrainConfigService.Config.During.Intensity"
+                            ValueChanged="@((value) => UpdateDuringIntensity((int)value))" Class="flex-1" ShowValue="false" />
+                        <NumberInput Value="@((double)HypeTrainConfigService.Config.During.Intensity)" Min="1" Max="100"
+                            ValueChanged="@((value) => UpdateDuringIntensity((int)Math.Clamp(value ?? 50, 1, 100)))" Class="w-16" />
+                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Base Duration</span>
+                        <Slider Min="0.1" Max="15" Step="0.1" Value="HypeTrainConfigService.Config.During.Duration"
+                            ValueChanged="UpdateDuringDuration" Class="flex-1" ShowValue="false" />
+                        <NumberInput Value="HypeTrainConfigService.Config.During.Duration" Min="0.1" Max="15" Step="0.1"
+                            ValueChanged="@((value) => UpdateDuringDuration(Math.Clamp(value ?? 1.0, 0.1, 15.0)))" Class="w-16" />
+                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                    </div>
+                </div>
+
+                @if (HypeTrainConfigService.Config.During.ScalingMode == HypeTrainScalingMode.Incremental)
+                {
+                    <div class="space-y-2 pt-3" style="border-top: 1px solid var(--app-border, #343a40);">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">+ Intensity</span>
+                            <NumberInput Value="@((double)HypeTrainConfigService.Config.During.IncrementIntensity)" Min="0" Max="100"
+                                ValueChanged="@((value) => UpdateDuringIncrementIntensity((int)Math.Clamp(value ?? 0, 0, 100)))" Class="w-16" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">per level</span>
+                            <span class="text-xs font-medium ml-4" style="color: var(--app-muted, #adb5bd);">Max</span>
+                            <NumberInput Value="@((double)HypeTrainConfigService.Config.During.MaxIntensity)" Min="1" Max="100"
+                                ValueChanged="@((value) => UpdateDuringMaxIntensity((int)Math.Clamp(value ?? 100, 1, 100)))" Class="w-16" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">+ Duration</span>
+                            <NumberInput Value="HypeTrainConfigService.Config.During.IncrementDuration" Min="0" Max="15" Step="0.1"
+                                ValueChanged="@((value) => UpdateDuringIncrementDuration(Math.Clamp(value ?? 0.0, 0.0, 15.0)))" Class="w-16" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">per level</span>
+                            <span class="text-xs font-medium ml-4" style="color: var(--app-muted, #adb5bd);">Max</span>
+                            <NumberInput Value="HypeTrainConfigService.Config.During.MaxDuration" Min="0.1" Max="15" Step="0.1"
+                                ValueChanged="@((value) => UpdateDuringMaxDuration(Math.Clamp(value ?? 15.0, 0.1, 15.0)))" Class="w-16" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="twitch-card @(!HypeTrainConfigService.Config.End.Enabled ? "opacity-70" : "")">
+            <div class="twitch-card-header flex items-center justify-between">
+                <span>Train End</span>
+                <Toggle Label="@(HypeTrainConfigService.Config.End.Enabled ? "On" : "Off")"
+                    Value="HypeTrainConfigService.Config.End.Enabled" ValueChanged="ToggleEndEnabled" />
+            </div>
+            <div class="twitch-card-body space-y-4">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="grow">
+                        <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                        <ShockerSelect Label="" MultiSelect="true" SelectedIds="HypeTrainConfigService.Config.End.SelectedShockerIds"
+                            SelectedIdsChanged="UpdateEndShockers" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Mode" Value="@HypeTrainConfigService.Config.End.Mode.ToString()"
+                            ValueChanged="@((string value) => UpdateEndMode(ParseSelectionMode(value)))" Options="@SelectionModeOptions" />
+                    </div>
+                    <div class="w-40">
+                        <Select Label="Command" Value="@HypeTrainConfigService.Config.End.CommandType"
+                            ValueChanged="@((string value) => UpdateEndCommandType(value ?? "Shock"))" Options="@CommandTypeOptions" />
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Intensity</span>
+                        <Slider Min="1" Max="100" Value="HypeTrainConfigService.Config.End.Intensity"
+                            ValueChanged="@((value) => UpdateEndIntensity((int)value))" Class="flex-1" ShowValue="false" />
+                        <NumberInput Value="@((double)HypeTrainConfigService.Config.End.Intensity)" Min="1" Max="100"
+                            ValueChanged="@((value) => UpdateEndIntensity((int)Math.Clamp(value ?? 50, 1, 100)))" Class="w-16" />
+                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Duration</span>
+                        <Slider Min="0.1" Max="15" Step="0.1" Value="HypeTrainConfigService.Config.End.Duration"
+                            ValueChanged="UpdateEndDuration" Class="flex-1" ShowValue="false" />
+                        <NumberInput Value="HypeTrainConfigService.Config.End.Duration" Min="0.1" Max="15" Step="0.1"
+                            ValueChanged="@((value) => UpdateEndDuration(Math.Clamp(value ?? 1.0, 0.1, 15.0)))" Class="w-16" />
+                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
+    private HypeTrainConfigService HypeTrainConfigService => PluginServiceLocator.GetRequiredService<HypeTrainConfigService>(PluginId);
+
+    private readonly Select<string>.SelectOption<string>[] SelectionModeOptions =
+    [
+        new("All", "All"),
+        new("Random", "Random"),
+        new("RoundRobin", "Round Robin")
+    ];
+
+    private readonly Select<string>.SelectOption<string>[] CommandTypeOptions =
+    [
+        new("Shock", "Shock"),
+        new("Vibrate", "Vibrate"),
+        new("Beep", "Beep")
+    ];
+
+    private readonly Select<string>.SelectOption<string>[] ScalingModeOptions =
+    [
+        new("Fixed", "Fixed"),
+        new("Incremental", "Incremental")
+    ];
+
+    protected override void OnInitialized()
+    {
+        HypeTrainConfigService.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleEnabled(bool enabled) => HypeTrainConfigService.SetEnabled(enabled);
+
+    private void ToggleDuringEnabled(bool enabled)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.Enabled = enabled;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void ToggleEndEnabled(bool enabled)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.Enabled = enabled;
+        HypeTrainConfigService.UpdateEnd(action);
+    }
+
+    private Task UpdateDuringShockers(List<string> ids)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.SelectedShockerIds = ids;
+        HypeTrainConfigService.UpdateDuring(action);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task UpdateEndShockers(List<string> ids)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.SelectedShockerIds = ids;
+        HypeTrainConfigService.UpdateEnd(action);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateDuringMode(SelectionMode mode)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.Mode = mode;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateEndMode(SelectionMode mode)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.Mode = mode;
+        HypeTrainConfigService.UpdateEnd(action);
+    }
+
+    private void UpdateDuringCommandType(string commandType)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.CommandType = commandType;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateEndCommandType(string commandType)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.CommandType = commandType;
+        HypeTrainConfigService.UpdateEnd(action);
+    }
+
+    private void UpdateDuringScaling(HypeTrainScalingMode mode)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.ScalingMode = mode;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateDuringIntensity(int value)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.Intensity = value;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateEndIntensity(int value)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.Intensity = value;
+        HypeTrainConfigService.UpdateEnd(action);
+    }
+
+    private void UpdateDuringDuration(double value)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.Duration = value;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateEndDuration(double value)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.Duration = value;
+        HypeTrainConfigService.UpdateEnd(action);
+    }
+
+    private void UpdateDuringIncrementIntensity(int value)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.IncrementIntensity = value;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateDuringIncrementDuration(double value)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.IncrementDuration = value;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateDuringMaxIntensity(int value)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.MaxIntensity = value;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private void UpdateDuringMaxDuration(double value)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.MaxDuration = value;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
+    private static SelectionMode ParseSelectionMode(object? value)
+    {
+        if (value == null) return SelectionMode.All;
+        return Enum.TryParse<SelectionMode>(value.ToString(), out var mode) ? mode : SelectionMode.All;
+    }
+
+    private static HypeTrainScalingMode ParseScalingMode(object? value)
+    {
+        if (value == null) return HypeTrainScalingMode.Fixed;
+        return Enum.TryParse<HypeTrainScalingMode>(value.ToString(), out var mode) ? mode : HypeTrainScalingMode.Fixed;
+    }
+
+    public void Dispose()
+    {
+        HypeTrainConfigService.ConfigChanged -= OnConfigChanged;
+    }
+}

@@ -7,11 +7,11 @@
 <div class="p-4 mx-auto">
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Bits/Cheers Configurationnnn</h1>
+            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Bits/Cheers Configuration</h1>
             <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">Configure actions triggered by Twitch
                 cheers</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3" data-guided-setup="twitch-cheers-toolbar">
             <Toggle Label="@(ConfigService.Config.Enabled ? "Enabled" : "Disabled")"
                 Value="ConfigService.Config.Enabled" ValueChanged="@((value) => ToggleMasterEnabled(value))" />
             <Button Text="Add Section" Variant="primary" OnClick="@(() => AddNewSection())">
@@ -22,7 +22,30 @@
         </div>
     </div>
 
-    <div class="space-y-3">
+    <div class="twitch-card mb-4">
+        <div class="twitch-card-header">
+            <span>Setup Path</span>
+        </div>
+        <div class="twitch-card-body">
+            <div class="flex flex-wrap gap-2">
+                <a href="/plugins/com-multishock-twitchintegration/twitchintegration"
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                    style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                    <LucideIcon Name="plug" Size="16" />
+                    <span>Back to Connection</span>
+                </a>
+                <a href="/plugins/com-multishock-twitchintegration/sub-config"
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                    style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);"
+                    data-guided-setup="twitch-cheers-open-subs">
+                    <LucideIcon Name="user-plus" Size="16" />
+                    <span>Continue to Subs / Gifted Subs</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-3" data-guided-setup="twitch-cheers-sections">
         @foreach (var sec in ConfigService.Config.Sections)
         {
             <div class="twitch-card @(!sec.Enabled ? "opacity-50" : "")">
@@ -76,7 +99,7 @@
 
                 @if (ExpandedSections.Contains(sec.Id))
                 {
-                    <div class="twitch-card-body space-y-4">
+                    <div class="twitch-card-body space-y-4" data-guided-setup="twitch-cheers-editor">
                         <div class="flex flex-wrap items-end gap-2">
                             <div class="grow">
                                 <TextInput Label="Name" Value="@sec.Name"
@@ -118,7 +141,7 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-3"
+                        <div class="flex items-center justify-between pt-3" data-guided-setup="twitch-cheers-brackets"
                             style="border-top: 1px solid var(--app-border, #343a40);">
                             <div>
                                 <label class="text-sm font-medium" style="color: var(--app-text, #e9ecef);">Bit Brackets</label>

@@ -7,7 +7,7 @@ public abstract class TwitchEventNodeBase : IFlowTriggerNode
 {
     public abstract string TypeId { get; }
     public abstract string DisplayName { get; }
-    public string Category => FlowNodeCategory.Trigger;
+    public string Category => "Twitch";
     public abstract string? Description { get; }
     public string Icon => "twitch";
     public string? Color => "#9146FF";

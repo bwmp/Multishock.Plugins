@@ -74,6 +74,18 @@ public class FollowConfigService : IDisposable
         SaveConfig();
     }
 
+    public void ReplaceConfig(FollowConfig config)
+    {
+        _config = config ?? CreateDefaultConfig();
+        _knownFollowerIds.Clear();
+        foreach (var id in (_config.KnownFollowerIds ?? []).Distinct())
+        {
+            _knownFollowerIds.Add(id);
+        }
+
+        SaveConfig();
+    }
+
     public void SetFetchFollowersOnStartup(bool enabled)
     {
         _config.FetchFollowersOnStartup = enabled;

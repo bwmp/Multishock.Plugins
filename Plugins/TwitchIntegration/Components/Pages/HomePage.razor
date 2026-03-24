@@ -2,6 +2,7 @@
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
 @inject IDeviceActions Actions
+@inject IPluginHost Host
 @implements IDisposable
 
 <div class="p-4">
@@ -73,7 +74,7 @@
     </div>
 
     <div class="space-y-4">
-        <div class="twitch-card">
+        <div class="twitch-card" data-guided-setup="twitch-home-connection">
             <div class="twitch-card-header">
                 <span>Connection</span>
                 @if (IsAuthenticating)
@@ -87,42 +88,46 @@
                     <div class="flex flex-col items-center gap-4 py-4">
                         @if (!string.IsNullOrWhiteSpace(SavedToken))
                         {
-                            <Button Disabled="@(TwitchService.IsConnecting)" OnClick="ConnectWithSavedToken"
-                                Variant="none"
-                                Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
-                                <LucideIcon Name="twitch" Class="w-5 h-5" />
-                                @if (TwitchService.IsConnecting)
-                                {
-                                    <span>Connecting...</span>
-                                }
-                                else
-                                {
-                                    <span>Connect</span>
-                                }
-                            </Button>
+                            <div data-guided-setup="twitch-home-login-button">
+                                <Button Disabled="@(TwitchService.IsConnecting)" OnClick="ConnectWithSavedToken"
+                                    Variant="none"
+                                    Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
+                                    <LucideIcon Name="twitch" Class="w-5 h-5" />
+                                    @if (TwitchService.IsConnecting)
+                                    {
+                                        <span>Connecting...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Connect</span>
+                                    }
+                                </Button>
+                            </div>
                         }
                         else
                         {
-                            <Button Disabled="@(IsAuthenticating || TwitchService.IsConnecting)" OnClick="LoginWithTwitch"
-                                Variant="none"
-                                Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
-                                <LucideIcon Name="twitch" Class="w-5 h-5" />
-                                @if (IsAuthenticating)
-                                {
-                                    <span>Waiting for login...</span>
-                                }
-                                else if (TwitchService.IsConnecting)
-                                {
-                                    <span>Connecting...</span>
-                                }
-                                else
-                                {
-                                    <span>Login with Twitch</span>
-                                }
-                            </Button>
+                            <div data-guided-setup="twitch-home-login-button">
+                                <Button Disabled="@(IsAuthenticating || TwitchService.IsConnecting)" OnClick="LoginWithTwitch"
+                                    Variant="none"
+                                    Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
+                                    <LucideIcon Name="twitch" Class="w-5 h-5" />
+                                    @if (IsAuthenticating)
+                                    {
+                                        <span>Waiting for login...</span>
+                                    }
+                                    else if (TwitchService.IsConnecting)
+                                    {
+                                        <span>Connecting...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Login with Twitch</span>
+                                    }
+                                </Button>
+                            </div>
                         }
 
-                        <div class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-2" data-guided-setup="twitch-home-auto-connect">
                             <Toggle Label="Auto-connect on app startup" Value="AutoConnectEnabled"
                                 ValueChanged="@((enabled) => ToggleAutoConnect(enabled))" />
 
@@ -175,7 +180,7 @@
                             </div>
                         </div>
 
-                        <div class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-2" data-guided-setup="twitch-home-auto-connect">
                             <Toggle Label="Auto-connect on app startup" Value="AutoConnectEnabled"
                                 ValueChanged="@((enabled) => ToggleAutoConnect(enabled))" />
 
@@ -196,6 +201,75 @@
                         }
                     </div>
                 </details>
+            </div>
+        </div>
+
+        <div class="twitch-card">
+            <div class="twitch-card-header">
+                <span>Setup Path</span>
+            </div>
+            <div class="twitch-card-body space-y-3">
+                <p class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                    Use these shortcuts when you are walking through first-time setup for cheers and subscriptions.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <Button Text="Start Guided Setup" Variant="primary"
+                        OnClick="@(() => Host.StartPluginGuidedSetup(TwitchIntegrationPlugin.PluginId))" />
+                    <a href="/plugins/com-multishock-twitchintegration/cheer-config"
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);"
+                        data-guided-setup="twitch-home-open-cheers">
+                        <LucideIcon Name="coins" Size="16" />
+                        <span>Open Bits/Cheers</span>
+                    </a>
+                    <a href="/plugins/com-multishock-twitchintegration/sub-config"
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                        <LucideIcon Name="user-plus" Size="16" />
+                        <span>Open Subs / Gifted Subs</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="twitch-card">
+            <div class="twitch-card-header">
+                <span>Legacy Import</span>
+            </div>
+            <div class="twitch-card-body space-y-3">
+                <p class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                    Import Twitch cheer, redeem, sub, hype train, and follow settings from the legacy MultiShock
+                    `config.json` format.
+                </p>
+                <div class="flex flex-wrap items-end gap-2">
+                    <div class="grow min-w-[20rem]">
+                        <TextInput Label="Legacy config path" Value="@LegacyConfigPath"
+                            ValueChanged="@((value) => LegacyConfigPath = value ?? string.Empty)" />
+                    </div>
+                    <Button Text="Import" Variant="primary" Disabled="@IsImportingLegacyConfig"
+                        OnClick="ImportLegacyConfigAsync">
+                        @if (IsImportingLegacyConfig)
+                        {
+                            <span>Importing...</span>
+                        }
+                        else
+                        {
+                            <span>Import</span>
+                        }
+                    </Button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(LegacyImportMessage))
+                {
+                    <div class="text-sm px-4 py-3 rounded"
+                        style="background: @(LegacyImportSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(LegacyImportSuccess ? "#4a9eff" : "#f87171");">
+                        <div>@LegacyImportMessage</div>
+                        @if (!string.IsNullOrWhiteSpace(LegacyImportDetails))
+                        {
+                            <pre class="mt-2 text-xs whitespace-pre-wrap" style="color: inherit;">@LegacyImportDetails</pre>
+                        }
+                    </div>
+                }
             </div>
         </div>
 
@@ -271,6 +345,7 @@
     private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
     private TwitchEventSubService TwitchService => PluginServiceLocator.GetRequiredService<TwitchEventSubService>(PluginId);
     private TwitchAuthService AuthService => PluginServiceLocator.GetRequiredService<TwitchAuthService>(PluginId);
+    private LegacyTwitchImportService LegacyImportService => PluginServiceLocator.GetRequiredService<LegacyTwitchImportService>(PluginId);
     
     private string OAuthToken = "";
     private string? SavedToken;
@@ -279,7 +354,12 @@
     private bool IsAuthenticating;
     private bool AutoConnectEnabled;
     private bool UseLocalCliEnabled;
+    private bool IsImportingLegacyConfig;
+    private bool LegacyImportSuccess;
     private List<LogEntry> EventLog = new();
+    private string LegacyConfigPath = string.Empty;
+    private string? LegacyImportMessage;
+    private string? LegacyImportDetails;
 
     private record LogEntry(DateTime Time, string Message, bool IsError = false);
 
@@ -309,6 +389,36 @@
         }
         AutoConnectEnabled = AuthService.AutoConnect;
         UseLocalCliEnabled = AuthService.UseLocalCli;
+        LegacyConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MultiShock", "config.json");
+    }
+
+    private async Task ImportLegacyConfigAsync()
+    {
+        IsImportingLegacyConfig = true;
+        LegacyImportMessage = null;
+        LegacyImportDetails = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var result = await LegacyImportService.ImportAsync(LegacyConfigPath);
+            LegacyImportSuccess = result.Success;
+            LegacyImportMessage = result.Message;
+            LegacyImportDetails = result.Details;
+            AddLog(result.Success ? "Legacy Twitch config imported" : $"Legacy import failed: {result.Message}", !result.Success);
+        }
+        catch (Exception ex)
+        {
+            LegacyImportSuccess = false;
+            LegacyImportMessage = $"Legacy import failed: {ex.Message}";
+            LegacyImportDetails = null;
+            AddLog(LegacyImportMessage, true);
+        }
+        finally
+        {
+            IsImportingLegacyConfig = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task LoginWithTwitch()

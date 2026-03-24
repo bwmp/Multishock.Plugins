@@ -17,7 +17,29 @@
         </div>
     </div>
 
-    <div class="space-y-3">
+    <div class="twitch-card mb-4">
+        <div class="twitch-card-header">
+            <span>Setup Path</span>
+        </div>
+        <div class="twitch-card-body">
+            <div class="flex flex-wrap gap-2">
+                <a href="/plugins/com-multishock-twitchintegration/cheer-config"
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                    style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                    <LucideIcon Name="coins" Size="16" />
+                    <span>Back to Bits/Cheers</span>
+                </a>
+                <a href="/plugins/com-multishock-twitchintegration/twitchintegration"
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                    style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                    <LucideIcon Name="plug" Size="16" />
+                    <span>Back to Connection</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-3" data-guided-setup="twitch-subs-sections">
         @foreach (var sec in SubConfigService.Config.Sections.OrderBy(s => s.Tier))
         {
             <div class="twitch-card @(!sec.Enabled ? "opacity-50" : "")">
@@ -41,7 +63,7 @@
                 @if (ExpandedSections.Contains(sec.Id))
                 {
                     <div class="twitch-card-body space-y-4">
-                        <div class="flex flex-wrap items-end gap-2">
+                        <div class="flex flex-wrap items-end gap-2" data-guided-setup="twitch-subs-mode">
                             <div class="w-40">
                                 <Select Label="Mode" Value="@sec.Mode.ToString()"
                                     ValueChanged="@((string value) => UpdateSectionMode(sec, ParseSubscriptionMode(value)))"
@@ -55,7 +77,7 @@
                         </div>
                         @if (sec.Mode == SubscriptionMode.Brackets)
                         {
-                            <div class="pt-3" style="border-top: 1px solid var(--app-border, #343a40);">
+                            <div class="pt-3" style="border-top: 1px solid var(--app-border, #343a40);" data-guided-setup="twitch-subs-brackets">
                                 <div class="flex flex-wrap items-end gap-3 mb-3">
                                     <div class="grow">
                                         <Select Label="Command Type" Value="@sec.BracketCommandType"
@@ -107,7 +129,7 @@
 
                         @if (sec.Mode == SubscriptionMode.Incremental)
                         {
-                            <div class="pt-3" style="border-top: 1px solid var(--app-border, #343a40);">
+                            <div class="pt-3" style="border-top: 1px solid var(--app-border, #343a40);" data-guided-setup="twitch-subs-incremental">
                                 <div class="flex items-center justify-between mb-2">
                                     <div>
                                         <label class="text-sm font-medium" style="color: var(--app-text, #e9ecef);">Incremental
@@ -225,7 +247,7 @@
                     </div>
                 }
 
-                <div class="twitch-card">
+                <div class="twitch-card" data-guided-setup="twitch-subs-help">
                     <div class="twitch-card-header cursor-pointer" @onclick="@(() => ShowHelpCard = !ShowHelpCard)">
                         <div class="flex items-center gap-2">
                             <svg class="w-4 h-4" style="color: var(--app-primary, #4a9eff);" fill="none"

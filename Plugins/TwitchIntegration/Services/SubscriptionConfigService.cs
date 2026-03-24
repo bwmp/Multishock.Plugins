@@ -83,6 +83,17 @@ public class SubscriptionConfigService
         }
     }
 
+    public void ReplaceConfig(SubscriptionConfig config)
+    {
+        _config = config ?? CreateDefaultConfig();
+        lock (_roundRobinLock)
+        {
+            _roundRobinIndices.Clear();
+        }
+
+        SaveConfig();
+    }
+
     private SubscriptionConfig CreateDefaultConfig()
     {
         return new SubscriptionConfig

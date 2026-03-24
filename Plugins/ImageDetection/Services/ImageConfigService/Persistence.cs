@@ -70,6 +70,8 @@ public partial class ImageConfigService
                         image.FilePath = MakeRelativePath(moduleId, image.FilePath);
                     if (!string.IsNullOrEmpty(image.Meter.RegionPreviewPath))
                         image.Meter.RegionPreviewPath = MakeRelativePath(moduleId, image.Meter.RegionPreviewPath);
+                    if (!string.IsNullOrEmpty(image.Ocr.RegionPreviewPath))
+                        image.Ocr.RegionPreviewPath = MakeRelativePath(moduleId, image.Ocr.RegionPreviewPath);
                 }
 
                 var moduleJson = JsonSerializer.Serialize(portable, JsonOptions);

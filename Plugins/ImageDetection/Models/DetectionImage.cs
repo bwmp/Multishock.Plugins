@@ -62,7 +62,7 @@ public class DetectionImage
     public bool AutoResize { get; set; } = true;
 
     /// <summary>
-    /// The type of detection target (Template or Meter).
+    /// The type of detection target (Template, Meter, or Ocr).
     /// Defaults to Template for backward compatibility.
     /// </summary>
     public DetectionTargetType TargetType { get; set; } = DetectionTargetType.Template;
@@ -71,6 +71,11 @@ public class DetectionImage
     /// Meter/healthbar detection configuration. Only used when TargetType is Meter.
     /// </summary>
     public MeterDetectionConfig Meter { get; set; } = new();
+
+    /// <summary>
+    /// OCR text/number detection configuration. Only used when TargetType is Ocr.
+    /// </summary>
+    public OcrDetectionConfig Ocr { get; set; } = new();
 
     /// <summary>
     /// Optional notes/description for this image.

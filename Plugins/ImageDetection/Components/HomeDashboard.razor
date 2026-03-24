@@ -252,7 +252,7 @@
 
     private async Task ImportModule()
     {
-        var path = await PluginHost.PickFileAsync("Import Module", [".msmodule", ".zip"]);
+        var path = await PluginHost.PickFileAsync("Import Module or Legacy Config", [".msmodule", ".zip", ".json"]);
         if (string.IsNullOrEmpty(path)) return;
 
         var module = ConfigService.ImportModule(path);
@@ -263,7 +263,7 @@
         }
         else
         {
-            PluginHost.ShowErrorToast("Import Failed", "Could not import module. Is the file valid?");
+            PluginHost.ShowErrorToast("Import Failed", "Could not import the selected module. Choose a .msmodule/.zip file, module.json, or a legacy config.json.");
         }
     }
 

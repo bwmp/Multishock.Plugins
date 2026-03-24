@@ -85,6 +85,8 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
         // Value change analyzer for meter/healthbar tracking
         services.AddSingleton<ValueChangeAnalyzerService>();
+        services.AddSingleton<OcrChangeAnalyzerService>();
+        services.AddSingleton<OcrTextRecognizerService>();
 
         // Main detection service
         services.AddSingleton<ImageDetectionService>(sp =>
@@ -98,6 +100,8 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
             var deviceActions = sp.GetService<IDeviceActions>();
             var pluginHost = sp.GetService<IPluginHost>();
             var valueAnalyzer = sp.GetRequiredService<ValueChangeAnalyzerService>();
+            var ocrAnalyzer = sp.GetRequiredService<OcrChangeAnalyzerService>();
+            var ocrRecognizer = sp.GetRequiredService<OcrTextRecognizerService>();
 
             return new ImageDetectionService(
                 configService,
@@ -108,7 +112,9 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
                 recentDetections,
                 deviceActions,
                 pluginHost,
-                valueAnalyzer);
+                valueAnalyzer,
+                ocrAnalyzer,
+                ocrRecognizer);
         });
     }
 
@@ -202,6 +208,7 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         yield return new ImageDetectedTriggerNode();
         yield return new MeterChangedTriggerNode();
         yield return new DamageTakenTriggerNode();
+        yield return new OcrDetectedTriggerNode();
 
         // Process nodes
         yield return new TakeScreenshotNode();

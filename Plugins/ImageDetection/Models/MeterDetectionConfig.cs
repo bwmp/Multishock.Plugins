@@ -13,7 +13,12 @@ public enum DetectionTargetType
     /// <summary>
     /// Meter/healthbar detection. Uses region + fill analysis, no template image needed.
     /// </summary>
-    Meter = 1
+    Meter = 1,
+
+    /// <summary>
+    /// OCR text/number detection. Uses region + OCR extraction, no template image needed.
+    /// </summary>
+    Ocr = 2
 }
 
 /// <summary>

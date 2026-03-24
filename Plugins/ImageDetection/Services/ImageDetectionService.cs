@@ -20,6 +20,8 @@ public class ImageDetectionService : IAsyncDisposable
     private readonly AlgorithmRegistry _algorithmRegistry;
     private readonly RecentDetectionsService _recentDetections;
     private readonly ValueChangeAnalyzerService? _valueAnalyzer;
+    private readonly OcrChangeAnalyzerService? _ocrAnalyzer;
+    private readonly OcrTextRecognizerService? _ocrRecognizer;
     private readonly IDeviceActions? _deviceActions;
     private readonly IPluginHost? _pluginHost;
 
@@ -59,7 +61,9 @@ public class ImageDetectionService : IAsyncDisposable
         RecentDetectionsService recentDetections,
         IDeviceActions? deviceActions = null,
         IPluginHost? pluginHost = null,
-        ValueChangeAnalyzerService? valueAnalyzer = null)
+        ValueChangeAnalyzerService? valueAnalyzer = null,
+        OcrChangeAnalyzerService? ocrAnalyzer = null,
+        OcrTextRecognizerService? ocrRecognizer = null)
     {
         _configService = configService;
         _captureService = captureService;
@@ -68,6 +72,8 @@ public class ImageDetectionService : IAsyncDisposable
         _algorithmRegistry = algorithmRegistry;
         _recentDetections = recentDetections;
         _valueAnalyzer = valueAnalyzer;
+        _ocrAnalyzer = ocrAnalyzer;
+        _ocrRecognizer = ocrRecognizer;
         _deviceActions = deviceActions;
         _pluginHost = pluginHost;
 
@@ -165,9 +171,9 @@ public class ImageDetectionService : IAsyncDisposable
             {
                 if (ct.IsCancellationRequested) break;
 
-                // Meter targets are processed by the background loop (they need state tracking).
+                // Stateful targets (meter/OCR) are processed by the background loop.
                 // One-shot detection only applies to template targets.
-                if (imageConfig.TargetType == DetectionTargetType.Meter)
+                if (imageConfig.TargetType != DetectionTargetType.Template)
                     continue;
 
                 var result = await DetectImageAsync(screenshot, moduleId, imageConfig, ct);
@@ -264,6 +270,10 @@ public class ImageDetectionService : IAsyncDisposable
                     if (imageConfig.TargetType == DetectionTargetType.Meter)
                     {
                         await ProcessMeter(screenshot, moduleId, imageConfig, ct);
+                    }
+                    else if (imageConfig.TargetType == DetectionTargetType.Ocr)
+                    {
+                        await ProcessOcr(screenshot, moduleId, imageConfig, ct);
                     }
                     else
                     {
@@ -446,6 +456,110 @@ public class ImageDetectionService : IAsyncDisposable
         {
             ErrorOccurred?.Invoke($"Meter processing failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Processes an OCR target: extract text/number from region and emit OCR events.
+    /// </summary>
+    private async Task ProcessOcr(
+        Mat screenshot,
+        string moduleId,
+        DetectionImage imageConfig,
+        CancellationToken ct)
+    {
+        if (_ocrAnalyzer == null || _ocrRecognizer == null) return;
+        if (!imageConfig.Ocr.Enabled) return;
+
+        if (imageConfig.Ocr.RequireFocusedWindow)
+        {
+            var isFocused = _captureService.IsRequiredWindowFocused(
+                imageConfig.Ocr.RequiredFocusWindowProcess,
+                imageConfig.Ocr.RequiredFocusWindowTitle);
+            if (!isFocused) return;
+        }
+
+        if (imageConfig.Region.Type != RegionType.Custom || imageConfig.Region.CustomRegion == null)
+        {
+            return;
+        }
+
+        if (!_ocrRecognizer.IsAvailable)
+        {
+            return;
+        }
+
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var region = imageConfig.Region.CustomRegion;
+            int x = Math.Max(0, Math.Min(region.X, screenshot.Width - 1));
+            int y = Math.Max(0, Math.Min(region.Y, screenshot.Height - 1));
+            int width = Math.Min(region.Width, screenshot.Width - x);
+            int height = Math.Min(region.Height, screenshot.Height - y);
+
+            if (width <= 2 || height <= 2) return;
+
+            using var subMat = new Mat(screenshot, new System.Drawing.Rectangle(x, y, width, height));
+            using var roi = subMat.Clone();
+
+            var rawText = await _ocrRecognizer.ReadTextAsync(roi, imageConfig.Ocr, ct);
+            if (string.IsNullOrWhiteSpace(rawText))
+            {
+                return;
+            }
+
+            Stats.TotalDetections++;
+
+            var reading = _ocrAnalyzer.ParseReading(imageConfig.Ocr, rawText);
+            var detectionEvent = _ocrAnalyzer.Process(moduleId, imageConfig, reading, DateTime.UtcNow);
+            if (detectionEvent == null)
+            {
+                return;
+            }
+
+            Stats.SuccessfulDetections++;
+
+            await _triggerManager.FireOcrDetectedEvent(detectionEvent);
+
+            if (imageConfig.Action.Enabled && _deviceActions != null)
+            {
+                var actionConfig = BuildOcrActionConfig(imageConfig, detectionEvent);
+                PerformAction(actionConfig);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown
+        }
+        catch (Exception ex)
+        {
+            ErrorOccurred?.Invoke($"OCR processing failed: {ex.Message}");
+        }
+    }
+
+    private static ActionConfig BuildOcrActionConfig(DetectionImage imageConfig, OcrDetectionEvent detectionEvent)
+    {
+        var intensity = imageConfig.Action.Intensity;
+
+        if (imageConfig.Ocr.ScaleActionWithNumberDelta && detectionEvent.DeltaNumber.HasValue)
+        {
+            var maxDelta = Math.Max(0.1, imageConfig.Ocr.MaxDeltaForMaxIntensity);
+            var ratio = Math.Clamp(Math.Abs(detectionEvent.DeltaNumber.Value) / maxDelta, 0.0, 1.0);
+            intensity = (int)Math.Clamp(Math.Round(imageConfig.Action.Intensity * ratio), 1, imageConfig.Action.Intensity);
+        }
+
+        return new ActionConfig
+        {
+            Enabled = true,
+            Type = imageConfig.Action.Type,
+            Intensity = intensity,
+            DurationSeconds = imageConfig.Action.DurationSeconds,
+            Mode = imageConfig.Action.Mode,
+            RandomCountMin = imageConfig.Action.RandomCountMin,
+            RandomCountMax = imageConfig.Action.RandomCountMax,
+            ShockerIds = imageConfig.Action.ShockerIds
+        };
     }
 
     private static readonly Random _random = new();

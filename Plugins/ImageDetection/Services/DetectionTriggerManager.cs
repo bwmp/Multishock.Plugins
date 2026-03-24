@@ -161,6 +161,38 @@ public class DetectionTriggerManager(ILogger? logger = null)
     }
 
     /// <summary>
+    /// Event fired when OCR text/number changes are detected.
+    /// </summary>
+    public event Action<OcrDetectionEvent>? OnOcrDetected;
+
+    /// <summary>
+    /// Fires an OCR detection event to registered flow nodes.
+    /// </summary>
+    public async Task FireOcrDetectedEvent(OcrDetectionEvent ocrEvent)
+    {
+        OnOcrDetected?.Invoke(ocrEvent);
+
+        var outputs = new Dictionary<string, object?>
+        {
+            ["moduleId"] = ocrEvent.ModuleId,
+            ["targetId"] = ocrEvent.TargetId,
+            ["targetName"] = ocrEvent.TargetName,
+            ["rawText"] = ocrEvent.RawText,
+            ["normalizedText"] = ocrEvent.NormalizedText,
+            ["matchedKeyword"] = ocrEvent.MatchedKeyword,
+            ["currentNumber"] = ocrEvent.CurrentNumber,
+            ["previousNumber"] = ocrEvent.PreviousNumber,
+            ["deltaNumber"] = ocrEvent.DeltaNumber,
+            ["changeType"] = ocrEvent.ChangeType.ToString(),
+            ["timestamp"] = ocrEvent.Timestamp
+        };
+
+        await FireEvent("imagedetection.ocr.detected", outputs);
+        await FireEvent($"imagedetection.ocr.detected.{ocrEvent.ModuleId}", outputs);
+        await FireEvent($"imagedetection.ocr.detected.{ocrEvent.ModuleId}.{ocrEvent.TargetId}", outputs);
+    }
+
+    /// <summary>
     /// Notifies that detection has started.
     /// </summary>
     public void NotifyDetectionStarted()

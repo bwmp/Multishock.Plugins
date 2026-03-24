@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.1.1...TwitchIntegration-v1.2.0) (2026-03-24)
+
+
+### Features
+
+* **TwitchIntegration:** add ability to import from old multishock config ([7db5ebf](https://github.com/bwmp/Multishock.Plugins/commit/7db5ebf55949fb394680ee4098d66208d1c76d6e))
+* **TwitchIntegration:** add guided setup ([7db5ebf](https://github.com/bwmp/Multishock.Plugins/commit/7db5ebf55949fb394680ee4098d66208d1c76d6e))
+* **TwitchIntegration:** add hype train configs ([7db5ebf](https://github.com/bwmp/Multishock.Plugins/commit/7db5ebf55949fb394680ee4098d66208d1c76d6e))
+
+
+### Bug Fixes
+
+* **TwitchIntegration:** dont hardcode plugin id everywhere ([3618802](https://github.com/bwmp/Multishock.Plugins/commit/361880205460493b13d3ac6e12ceef897ec3f472))
+
 ## [1.1.1](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.1.0...TwitchIntegration-v1.1.1) (2026-01-30)
 
 

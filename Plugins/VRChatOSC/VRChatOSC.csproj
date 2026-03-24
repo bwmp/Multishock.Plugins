@@ -4,12 +4,15 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         
-        <AssemblyName>{{PLUGIN_FOLDER}}</AssemblyName>
-        <RootNamespace>{{PLUGIN_FOLDER}}</RootNamespace>
+        <AssemblyName>VRChatOSC</AssemblyName>
+        <RootNamespace>VRChatOSC</RootNamespace>
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
         <PluginVersion>1.0.0</PluginVersion> <!-- x-release-please-version -->
+
+        <!-- Match ImageDetection dependency behavior: copy NuGet assemblies to output -->
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
     <!-- Release optimizations -->
@@ -22,16 +25,17 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.12.1" />
+        <PackageReference Include="MeaMod.DNS" Version="1.0.70" />
+        <PackageReference Include="VolcanicArts.FastOSC" Version="2.0.0" />
     </ItemGroup>
 
     <!-- Debug: Use project reference for full IntelliSense -->
-    <!-- <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
         <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" />
-    </ItemGroup> -->
+    </ItemGroup>
 
     <!-- Release: Use DLL reference for standalone builds -->
-    <!-- <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
         <Reference Include="PiShock.MultiShock.PluginSdk">
             <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
             <Private>true</Private>
@@ -39,7 +43,7 @@
         <None Include="..\..\Dependencies\PiShock.MultiShock.PluginSdk.xml">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
-    </ItemGroup> -->
+    </ItemGroup>
 
     <!-- Version with conditional build stamp -->
     <PropertyGroup Condition="'$(Configuration)'=='Debug'">
@@ -62,7 +66,7 @@
             <VersionOutput Condition="'$(Configuration)'=='Release'">$(PluginVersion)</VersionOutput>
         </PropertyGroup>
         <ItemGroup>
-            <StampLines Include="namespace {{PLUGIN_FOLDER}}%3B" />
+            <StampLines Include="namespace VRChatOSC%3B" />
             <StampLines Include=" " />
             <StampLines Include="public static class BuildStamp" />
             <StampLines Include="{" />
@@ -75,12 +79,39 @@
             <Compile Include="Generated\BuildStamp.g.cs" />
         </ItemGroup>
     </Target>
-    <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">
+    <Target Name="PackPluginPackage" AfterTargets="Build">
         <PropertyGroup>
-        <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+            <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+            <PluginStagingDir>$(IntermediateOutputPath)msplugin-staging</PluginStagingDir>
+            <PluginPackagePath>$(LocalPluginDir)\$(AssemblyName).msplugin</PluginPackagePath>
         </PropertyGroup>
+
+        <RemoveDir Directories="$(PluginStagingDir)" />
+        <MakeDir Directories="$(PluginStagingDir)" />
         <MakeDir Directories="$(LocalPluginDir)" />
-        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(LocalPluginDir)" />
-        <Message Importance="High" Text="Copied plugin to $(LocalPluginDir)\$(TargetFileName)" />
+
+        <Copy SourceFiles="$(MSBuildProjectDirectory)\plugin.json" DestinationFolder="$(PluginStagingDir)" />
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginStagingDir)" />
+        <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginStagingDir)" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+        <Copy SourceFiles="$(TargetDir)$(TargetName).deps.json" DestinationFolder="$(PluginStagingDir)" Condition="Exists('$(TargetDir)$(TargetName).deps.json')" />
+
+        <ItemGroup>
+            <ManagedDeps Include="$(TargetDir)*.dll"
+                         Exclude="$(TargetPath);$(TargetDir)MultiShock.PluginSdk.dll;$(TargetDir)PiShock.MultiShock.PluginSdk.dll;$(TargetDir)Microsoft.*.dll;$(TargetDir)System.*.dll" />
+        </ItemGroup>
+
+        <Copy SourceFiles="@(ManagedDeps)" DestinationFolder="$(PluginStagingDir)" Condition="'@(ManagedDeps)' != ''" />
+
+        <Delete Files="$(PluginPackagePath)" Condition="Exists('$(PluginPackagePath)')" />
+        <ZipDirectory SourceDirectory="$(PluginStagingDir)" DestinationFile="$(PluginPackagePath)" Overwrite="true" />
+
+        <Delete Files="$(LocalPluginDir)\$(AssemblyName).dll" Condition="Exists('$(LocalPluginDir)\$(AssemblyName).dll')" />
+        <Delete Files="$(LocalPluginDir)\$(AssemblyName).deps.json" Condition="Exists('$(LocalPluginDir)\$(AssemblyName).deps.json')" />
+        <ItemGroup>
+            <DeployedManagedDeps Include="@(ManagedDeps->'$(LocalPluginDir)\%(Filename)%(Extension)')" />
+        </ItemGroup>
+        <Delete Files="@(DeployedManagedDeps)" Condition="'@(DeployedManagedDeps)' != ''" />
+
+        <Message Importance="High" Text="Created plugin package: $(PluginPackagePath)" />
     </Target>
 </Project>

@@ -41,6 +41,30 @@
             "extra-files": [
                 "ThroneIntegration.csproj"
             ]
+        },
+        "Plugins/YouTubeIntegration": {
+            "release-type": "simple",
+            "component": "YouTubeIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "YouTubeIntegration.csproj"
+            ]
+        },
+        "Plugins/SpeechToText": {
+            "release-type": "simple",
+            "component": "SpeechToText",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "SpeechToText.csproj"
+            ]
+        },
+        "Plugins/VRChatOSC": {
+            "release-type": "simple",
+            "component": "VRChatOSC",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "VRChatOSC.csproj"
+            ]
         }
     },
     "changelog-sections": [

@@ -1,0 +1,200 @@
+@page "/plugins/com-multishock-vrchatosc/vrchatosc"
+@using System.Text.Json
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using VRChatOSC.Services
+@implements IDisposable
+
+<div class="space-y-4 p-4">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full @(ConnectionManager.IsConnected ? "bg-green-500" : "bg-gray-400")"></div>
+        <span class="font-semibold">VRChat OSC</span>
+        <span class="text-sm text-gray-500">
+            @(ConnectionManager.IsConnected ? "Connected" : (ConnectionManager.IsConnecting ? "Connecting..." : "Disconnected"))
+        </span>
+        <div class="flex-1"></div>
+        @if (ConnectionManager.IsRunning)
+        {
+            <Button Text="Stop" Variant="danger" Size="sm" OnClick="Stop" />
+        }
+        else
+        {
+            <Button Text="Start" Variant="primary" Size="sm" OnClick="Start" />
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="text-sm @(StatusIsError ? "text-red-400" : "text-gray-400")">@StatusMessage</div>
+    }
+
+    <div class="rounded border border-gray-800 p-3 space-y-1 text-sm">
+        <div><strong>Active Send Target:</strong> @ConnectionManager.ActiveRemoteHost:@ConnectionManager.ActiveRemotePort</div>
+        <div>
+            <strong>OSCQuery:</strong>
+            @if (ConnectionManager.IsOscQueryActive)
+            {
+                <span>Advertising TCP @ConnectionManager.LocalOscQueryPort and UDP @ConnectionManager.LocalReceivePort</span>
+            }
+            else
+            {
+                <span>Not running</span>
+            }
+        </div>
+        @if (ConnectionManager.DiscoveredVrChatAddress != null && ConnectionManager.DiscoveredVrChatOscPort.HasValue)
+        {
+            <div><strong>Discovered VRChat OSC:</strong> @ConnectionManager.DiscoveredVrChatAddress:@ConnectionManager.DiscoveredVrChatOscPort</div>
+        }
+        @if (ConnectionManager.DiscoveredVrChatAddress != null && ConnectionManager.DiscoveredVrChatQueryPort.HasValue)
+        {
+            <div><strong>Discovered VRChat OSCQuery:</strong> @ConnectionManager.DiscoveredVrChatAddress:@ConnectionManager.DiscoveredVrChatQueryPort</div>
+        }
+    </div>
+
+    <div class="rounded border border-gray-800 p-3 space-y-3">
+        <div class="font-medium">Send Test OSC Message</div>
+
+        <TextInput Label="Address"
+                   Placeholder="/avatar/parameters/MyBool"
+                   Value="@SendAddress"
+                   ValueChanged="@(value => SendAddress = value?.Trim() ?? string.Empty)" />
+
+        <TextInput Label="Arguments"
+                   Placeholder="true or [true, 1]"
+                   Value="@SendArguments"
+                   ValueChanged="@(value => SendArguments = value ?? string.Empty)" />
+
+        <Button Text="Send" Variant="secondary" Disabled="@(!ConnectionManager.IsConnected)" OnClick="SendTest" />
+    </div>
+
+    <div class="rounded border border-gray-800 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+            <div class="font-medium">Incoming OSC Messages</div>
+            <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
+        </div>
+
+        @if (ReceivedMessages.Count == 0)
+        {
+            <div class="text-sm text-gray-500">No OSC packets received yet.</div>
+        }
+        else
+        {
+            <div class="space-y-1 max-h-80 overflow-y-auto">
+                @foreach (var message in ReceivedMessages.TakeLast(150).Reverse())
+                {
+                    <div class="text-sm">
+                        <span class="text-gray-500">[@message.TimestampUtc.ToLocalTime().ToString("HH:mm:ss")]</span>
+                        <span class="text-blue-300"> @message.Address</span>
+                        <span> @JsonSerializer.Serialize(message.Arguments)</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginIdValue = VRChatOSCPlugin.PluginId;
+
+    private VRChatOscConnectionManager ConnectionManager =>
+        PluginServiceLocator.GetRequiredService<VRChatOscConnectionManager>(PluginIdValue);
+
+    private readonly List<OscReceivedMessage> ReceivedMessages = [];
+
+    private string SendAddress = "/avatar/parameters/MultiShock";
+    private string SendArguments = "true";
+
+    private string? StatusMessage;
+    private bool StatusIsError;
+
+    protected override void OnInitialized()
+    {
+        ConnectionManager.MessageReceived += OnMessageReceivedAsync;
+        ConnectionManager.StatusMessage += OnStatus;
+        ConnectionManager.ErrorOccurred += OnError;
+        ConnectionManager.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private async Task Start()
+    {
+        await ConnectionManager.StartAsync();
+    }
+
+    private async Task Stop()
+    {
+        await ConnectionManager.StopAsync();
+    }
+
+    private async Task SendTest()
+    {
+        if (!OscArgumentParser.TryParse(SendArguments, out var arguments, out var parseError))
+        {
+            StatusIsError = true;
+            StatusMessage = parseError;
+            return;
+        }
+
+        if (arguments.Length == 0)
+        {
+            StatusIsError = true;
+            StatusMessage = "At least one argument is required";
+            return;
+        }
+
+        var result = await ConnectionManager.SendMessageAsync(SendAddress, arguments);
+        StatusIsError = !result.Success;
+        StatusMessage = result.Success ? $"Sent to {SendAddress}" : result.Error;
+    }
+
+    private Task OnMessageReceivedAsync(OscReceivedMessage message)
+    {
+        return InvokeAsync(() =>
+        {
+            ReceivedMessages.Add(message);
+            if (ReceivedMessages.Count > 500)
+            {
+                ReceivedMessages.RemoveRange(0, ReceivedMessages.Count - 500);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void OnStatus(string message)
+    {
+        InvokeAsync(() =>
+        {
+            StatusIsError = false;
+            StatusMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private void OnError(string message)
+    {
+        InvokeAsync(() =>
+        {
+            StatusIsError = true;
+            StatusMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private void OnConnectionChanged(bool _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ClearLog()
+    {
+        ReceivedMessages.Clear();
+    }
+
+    public void Dispose()
+    {
+        ConnectionManager.MessageReceived -= OnMessageReceivedAsync;
+        ConnectionManager.StatusMessage -= OnStatus;
+        ConnectionManager.ErrorOccurred -= OnError;
+        ConnectionManager.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

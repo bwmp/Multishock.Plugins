@@ -1,0 +1,6 @@
+{
+  "entryPoint": "VRChatOSC.dll",
+  "id": "com.multishock.vrchatosc",
+  "name": "VRChatOSC",
+  "description": "OSC send/receive integration for VRChat using FastOSC."
+}

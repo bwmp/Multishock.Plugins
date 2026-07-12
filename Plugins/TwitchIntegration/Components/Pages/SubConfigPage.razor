@@ -84,6 +84,15 @@
                                             ValueChanged="@((string value) => UpdateBracketCommandType(sec, value ?? "Vibrate"))"
                                             Options="@CommandTypeOptions" />
                                     </div>
+                                    @if (sec.BracketCommandType == "Shock")
+                                    {
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1"
+                                                style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                                            <Toggle Value="sec.WarningVibrate"
+                                                ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
+                                        </div>
+                                    }
                                     <div class="w-40">
                                         <Select Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")"
                                             ValueChanged="@((string value) => UpdateSectionFixedAmount(sec, value == "exact"))"
@@ -227,6 +236,15 @@
                                                 ValueChanged="@((string value) => UpdateIncrementalCommandType(sec, value ?? "Vibrate"))"
                                                 Options="@CommandTypeOptions" Class="flex-1" />
                                         </div>
+                                        @if (sec.Incremental.CommandType == "Shock")
+                                        {
+                                            <div class="mt-1">
+                                                <label class="block text-xs font-medium mb-1"
+                                                    style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                                                <Toggle Value="sec.Incremental.WarningVibrate"
+                                                    ValueChanged="@(v => UpdateIncrementalWarningVibrate(sec, v))" />
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                             </div>
@@ -489,6 +507,18 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
     private void UpdateBracketCommandType(SubscriptionTierSection sec, string commandType)
     {
         sec.BracketCommandType = commandType;
+        SubConfigService.UpdateSection(sec);
+    }
+
+    private void UpdateSectionWarningVibrate(SubscriptionTierSection sec, bool enabled)
+    {
+        sec.WarningVibrate = enabled;
+        SubConfigService.UpdateSection(sec);
+    }
+
+    private void UpdateIncrementalWarningVibrate(SubscriptionTierSection sec, bool enabled)
+    {
+        sec.Incremental.WarningVibrate = enabled;
         SubConfigService.UpdateSection(sec);
     }
 

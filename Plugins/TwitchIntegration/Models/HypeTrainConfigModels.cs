@@ -18,6 +18,8 @@ public class HypeTrainActionConfig
 
     public string CommandType { get; set; } = "Shock";
 
+    public bool WarningVibrate { get; set; } = false;
+
     public HypeTrainScalingMode ScalingMode { get; set; } = HypeTrainScalingMode.Fixed;
 
     public int Intensity { get; set; } = 50;

@@ -114,6 +114,15 @@
                                     ValueChanged="@((string value) => UpdateSectionCommandType(sec, value ?? "Vibrate"))"
                                     Options="@CommandTypeOptions" />
                             </div>
+                            @if (sec.CommandType == "Shock")
+                            {
+                                <div>
+                                    <label class="block text-xs font-medium mb-1"
+                                        style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                                    <Toggle Value="sec.WarningVibrate"
+                                        ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
+                                </div>
+                            }
                             <div class="grow">
                                 <Select Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")"
                                     ValueChanged="@((string value) => UpdateSectionFixedAmount(sec, value == "exact"))"
@@ -328,6 +337,12 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
     private void UpdateSectionCommandType(CheerSection sec, string commandType)
     {
         sec.CommandType = commandType;
+        ConfigService.UpdateSection(sec);
+    }
+
+    private void UpdateSectionWarningVibrate(CheerSection sec, bool enabled)
+    {
+        sec.WarningVibrate = enabled;
         ConfigService.UpdateSection(sec);
     }
 

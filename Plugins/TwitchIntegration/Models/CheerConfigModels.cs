@@ -34,6 +34,8 @@ public class CheerSection
 
     public string CommandType { get; set; } = "Vibrate";
 
+    public bool WarningVibrate { get; set; } = false;
+
     public bool FixedAmount { get; set; } = false;
 
     public List<CheerBracket> Brackets { get; set; } = new();

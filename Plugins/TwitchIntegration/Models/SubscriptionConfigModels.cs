@@ -30,6 +30,8 @@ public class SubscriptionTierSection
 
     public string BracketCommandType { get; set; } = "Vibrate";
 
+    public bool WarningVibrate { get; set; } = false;
+
     public bool FixedAmount { get; set; } = false;
 
     public List<SubscriptionBracket> Brackets { get; set; } = new();
@@ -65,6 +67,8 @@ public class SubscriptionIncrementalAction
     public double IncrementDuration { get; set; } = 0.5;
 
     public string CommandType { get; set; } = "Vibrate";
+
+    public bool WarningVibrate { get; set; } = false;
 
     public SelectionMode Mode { get; set; } = SelectionMode.All;
 }

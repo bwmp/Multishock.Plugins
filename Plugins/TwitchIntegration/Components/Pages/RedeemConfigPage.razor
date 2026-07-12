@@ -324,6 +324,15 @@
                                 ValueChanged="@((string value) => UpdateCommandType(redeem, value ?? "Shock"))"
                                 Options="@CommandTypeOptions" />
                         </div>
+                        @if (redeem.CommandType == "Shock")
+                        {
+                            <div>
+                                <label class="block text-xs font-medium mb-1"
+                                    style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                                <Toggle Value="redeem.WarningVibrate"
+                                    ValueChanged="@(v => UpdateWarningVibrate(redeem, v))" />
+                            </div>
+                        }
                     </div>
 
                     <div class="space-y-2">
@@ -415,6 +424,12 @@
     private void UpdateCommandType(RedeemConfig redeem, string commandType)
     {
         RedeemConfigService.UpdateRedeemCommandType(redeem.Id, commandType);
+    }
+
+    private void UpdateWarningVibrate(RedeemConfig redeem, bool enabled)
+    {
+        redeem.WarningVibrate = enabled;
+        RedeemConfigService.UpdateRedeem(redeem);
     }
 
     private async Task FetchRewards()

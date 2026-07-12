@@ -517,10 +517,10 @@ public class RedeemConfigService : IDisposable
         var intensity = Math.Clamp(redeemConfig.Intensity, 1, 100);
         var duration = Math.Clamp(redeemConfig.Duration, 0.1, 15.0);
 
-        ExecuteAction(redeemConfig, intensity, duration);
+        _ = ExecuteActionAsync(redeemConfig, intensity, duration);
     }
 
-    private void ExecuteAction(RedeemConfig redeemConfig, int intensity, double duration)
+    private async Task ExecuteActionAsync(RedeemConfig redeemConfig, int intensity, double duration)
     {
         var commandType = redeemConfig.CommandType switch
         {
@@ -543,6 +543,19 @@ public class RedeemConfigService : IDisposable
 
         var deviceIds = parsedIds.Select(p => p.deviceId).Distinct();
         var shockerIdInts = parsedIds.Select(p => p.shockerId);
+
+        if (redeemConfig.WarningVibrate && commandType == CommandType.Shock)
+        {
+            _deviceActions.PerformAction(
+                intensity: intensity,
+                durationSeconds: 1.0,
+                command: CommandType.Vibrate,
+                deviceIds: deviceIds,
+                shockerIds: shockerIdInts
+            );
+
+            await Task.Delay(1000);
+        }
 
         _deviceActions.PerformAction(
             intensity: intensity,

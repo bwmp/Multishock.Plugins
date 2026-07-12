@@ -84,22 +84,22 @@ public class HypeTrainConfigService : IDisposable
     private void HandleHypeTrainBegin(HypeTrainBeginEvent hypeEvent)
     {
         if (!_config.Enabled) return;
-        ExecuteAction(_config.During, hypeEvent.Level);
+        _ = ExecuteActionAsync(_config.During, hypeEvent.Level);
     }
 
     private void HandleHypeTrainProgress(HypeTrainProgressEvent hypeEvent)
     {
         if (!_config.Enabled) return;
-        ExecuteAction(_config.During, hypeEvent.Level);
+        _ = ExecuteActionAsync(_config.During, hypeEvent.Level);
     }
 
     private void HandleHypeTrainEnd(HypeTrainEndEvent hypeEvent)
     {
         if (!_config.Enabled) return;
-        ExecuteAction(_config.End, hypeEvent.Level);
+        _ = ExecuteActionAsync(_config.End, hypeEvent.Level);
     }
 
-    private void ExecuteAction(HypeTrainActionConfig action, int level)
+    private async Task ExecuteActionAsync(HypeTrainActionConfig action, int level)
     {
         if (!action.Enabled) return;
         if (!action.SelectedShockerIds.Any()) return;
@@ -138,12 +138,28 @@ public class HypeTrainConfigService : IDisposable
 
         if (!parsedIds.Any()) return;
 
+        var deviceIds = parsedIds.Select(p => p.deviceId).Distinct();
+        var shockerIdInts = parsedIds.Select(p => p.shockerId);
+
+        if (action.WarningVibrate && commandType == CommandType.Shock)
+        {
+            _deviceActions.PerformAction(
+                intensity: intensity,
+                durationSeconds: 1.0,
+                command: CommandType.Vibrate,
+                deviceIds: deviceIds,
+                shockerIds: shockerIdInts
+            );
+
+            await Task.Delay(1000);
+        }
+
         _deviceActions.PerformAction(
             intensity: intensity,
             durationSeconds: duration,
             command: commandType,
-            deviceIds: parsedIds.Select(p => p.deviceId).Distinct(),
-            shockerIds: parsedIds.Select(p => p.shockerId)
+            deviceIds: deviceIds,
+            shockerIds: shockerIdInts
         );
     }
 

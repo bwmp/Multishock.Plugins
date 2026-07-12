@@ -40,6 +40,8 @@ public class RedeemConfig
 
     public string CommandType { get; set; } = "Shock";
 
+    public bool WarningVibrate { get; set; } = false;
+
     public List<string> SelectedShockerIds { get; set; } = new();
 }
 

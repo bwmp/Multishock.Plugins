@@ -1,15 +1,96 @@
-<# 
+﻿<#
     MultiShock Release All Plugins Script
-    Creates release builds and archives for all plugins
-    
-    Usage: .\release-plugins.ps1 [-Plugin "PluginName"]
+    Builds each plugin, generates/validates a Manifest v2 plugin.json, packages it as a
+    .msplugin (zip) archive, and computes a SHA-256 checksum for the plugin index.
+
+    Usage: .\release-plugins.ps1 [-Plugin "PluginName"] [-SdkVersion "1.12.1"] [-MinAppVersion "4.0.0"]
 #>
 
 param(
-    [string]$Plugin = ""
+    [string]$Plugin = "",
+    [string]$SdkVersion = "",
+    [string]$MinAppVersion = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+# Reads a property value out of a .csproj (first match wins).
+function Get-CsprojProperty {
+    param([string]$CsprojPath, [string]$Name)
+    $content = Get-Content $CsprojPath -Raw
+    $match = [regex]::Match($content, "<$Name>(.*?)</$Name>")
+    if ($match.Success) { return $match.Groups[1].Value.Trim() }
+    return $null
+}
+
+# Builds a Manifest v2 object from csproj metadata + the plugin's IPlugin id.
+function New-PluginManifestV2 {
+    param(
+        [string]$PluginName,
+        [string]$Version,
+        [string]$CsprojPath,
+        [string]$PluginId,
+        [string]$SdkVersion,
+        [string]$MinAppVersion
+    )
+
+    $description = Get-CsprojProperty $CsprojPath "Description"
+    $authors = Get-CsprojProperty $CsprojPath "Authors"
+    $sourceUrl = Get-CsprojProperty $CsprojPath "PackageProjectUrl"
+
+    $manifest = [ordered]@{
+        manifestVersion = 2
+        id              = $PluginId
+        name            = $PluginName
+        version         = $Version
+        entryPoint      = "$PluginName.dll"
+    }
+    if ($description) { $manifest.description = $description }
+    if ($authors)     { $manifest.authors = @($authors -split ';' | ForEach-Object { $_.Trim() }) }
+    if ($sourceUrl)   { $manifest.sourceUrl = $sourceUrl }
+    if ($MinAppVersion) { $manifest.minAppVersion = $MinAppVersion }
+    if ($SdkVersion)  { $manifest.sdkVersion = $SdkVersion }
+    $manifest.platforms = @("win-x64")
+
+    return $manifest
+}
+
+# Minimal Manifest v2 validation mirroring PluginSdk/Core/PluginManifest.Validate().
+function Test-PluginManifestV2 {
+    param($Manifest)
+    $errors = @()
+    $semver = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z\-.]+)?(?:\+[0-9A-Za-z\-.]+)?$'
+
+    if (-not $Manifest.id)   { $errors += "missing id" }
+    if (-not $Manifest.name) { $errors += "missing name" }
+    if (-not $Manifest.entryPoint) { $errors += "missing entryPoint" }
+    if (-not $Manifest.version) { $errors += "missing version" }
+    elseif ($Manifest.version -notmatch $semver) { $errors += "version '$($Manifest.version)' is not semver" }
+    if ($Manifest.minAppVersion -and ($Manifest.minAppVersion -notmatch $semver)) { $errors += "minAppVersion not semver" }
+    if ($Manifest.sdkVersion -and ($Manifest.sdkVersion -notmatch $semver)) { $errors += "sdkVersion not semver" }
+
+    return $errors
+}
+
+# Reads the plugin id from the plugin's Plugin.cs (public ... PluginId = "...").
+function Get-PluginId {
+    param([string]$PluginFolder, [string]$PluginName)
+    $pluginCs = Get-ChildItem -Path $PluginFolder -Filter "Plugin.cs" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pluginCs) {
+        $content = Get-Content $pluginCs.FullName -Raw
+        $m = [regex]::Match($content, 'PluginId\s*=\s*"([^"]+)"')
+        if ($m.Success) { return $m.Groups[1].Value }
+    }
+    # Fall back to an existing plugin.json id, then a derived id.
+    $existing = Join-Path $PluginFolder "plugin.json"
+    if (Test-Path $existing) {
+        try {
+            $j = Get-Content $existing -Raw | ConvertFrom-Json
+            if ($j.id) { return $j.id }
+        } catch { }
+    }
+    return "com.multishock." + $PluginName.ToLowerInvariant()
+}
 
 Write-Host ""
 Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
@@ -27,9 +108,9 @@ $ReleaseOutputDir = Join-Path $PluginsRepoRoot "releases"
 # Create release output directory
 New-Item -ItemType Directory -Force -Path $ReleaseOutputDir | Out-Null
 
-# Find all plugin projects
+# Find all plugin projects: any folder with a matching .csproj (plugins are not
+# required to carry a "*Plugin" name suffix - e.g. TwitchIntegration, VRChatOSC)
 $PluginFolders = Get-ChildItem -Path $RepoRoot -Directory | Where-Object {
-    $_.Name -like "*Plugin" -and
     $_.Name -ne "PluginTemplate" -and
     (Test-Path (Join-Path $_.FullName "$($_.Name).csproj"))
 }
@@ -74,43 +155,71 @@ foreach ($folder in $PluginFolders) {
         }
         
         Write-Host "  Version: $version" -ForegroundColor Gray
-        
+
         # Build
         Write-Host "  → Building..." -ForegroundColor Yellow
         dotnet build $csprojPath -c Release --nologo -v q
-        
+
         if ($LASTEXITCODE -ne 0) { throw "Build failed" }
-        
+
         # Copy files
         $buildOutput = Join-Path $folder.FullName "bin\Release\net10.0"
         $tempDir = Join-Path $folder.FullName "bin\Publish"
-        
+
         if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
         New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-        
-        Get-ChildItem -Path $buildOutput -Filter "$pluginName.*" | Where-Object {
-            $_.Extension -in @(".dll", ".pdb")
+
+        # Include the plugin's own assemblies plus any dependency/native files, so the
+        # .msplugin package is self-contained (excluding the SDK, which the host provides).
+        Get-ChildItem -Path $buildOutput -Recurse -File | Where-Object {
+            $_.Name -ne "MultiShock.PluginSdk.dll" -and
+            $_.Extension -in @(".dll", ".pdb", ".json") -or $_.Directory.Name -eq "native" -or $_.Directory.Parent.Name -eq "runtimes"
         } | ForEach-Object {
-            Copy-Item $_.FullName -Destination $tempDir
+            $relative = $_.FullName.Substring($buildOutput.Length).TrimStart('\', '/')
+            $dest = Join-Path $tempDir $relative
+            New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
+            Copy-Item $_.FullName -Destination $dest
         }
-        
-        # Create archive
-        $zipName = "$pluginName-$version.zip"
-        $zipPath = Join-Path $ReleaseOutputDir $zipName
-        
-        if (Test-Path $zipPath) { Remove-Item $zipPath }
-        Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
-        
-        $size = [math]::Round((Get-Item $zipPath).Length / 1KB, 2)
-        Write-Host "  ✓ Created: $zipName ($size KB)" -ForegroundColor Green
-        
+
+        # Generate + validate Manifest v2, overwriting any legacy plugin.json in the package.
+        $pluginId = Get-PluginId -PluginFolder $folder.FullName -PluginName $pluginName
+        $effectiveSdk = if ($SdkVersion) { $SdkVersion } else { Get-CsprojProperty $csprojPath "PluginSdkVersion" }
+        $manifest = New-PluginManifestV2 -PluginName $pluginName -Version $version -CsprojPath $csprojPath `
+            -PluginId $pluginId -SdkVersion $effectiveSdk -MinAppVersion $MinAppVersion
+
+        $manifestErrors = Test-PluginManifestV2 -Manifest $manifest
+        if ($manifestErrors.Count -gt 0) {
+            throw "Manifest validation failed: $($manifestErrors -join '; ')"
+        }
+
+        $manifestPath = Join-Path $tempDir "plugin.json"
+        $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path $manifestPath -Encoding utf8
+        Write-Host "  → Manifest v2 written (id: $pluginId)" -ForegroundColor Yellow
+
+        # Create the .msplugin package (zip)
+        $packageName = "$pluginName-$version.msplugin"
+        $packagePath = Join-Path $ReleaseOutputDir $packageName
+
+        if (Test-Path $packagePath) { Remove-Item $packagePath }
+        Compress-Archive -Path "$tempDir\*" -DestinationPath $packagePath -CompressionLevel Optimal
+
+        # Compute SHA-256 checksum for the plugin index / updater verification
+        $hash = (Get-FileHash -Path $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $checksumPath = "$packagePath.sha256"
+        "$hash  $packageName" | Set-Content -Path $checksumPath -Encoding ascii
+
+        $size = [math]::Round((Get-Item $packagePath).Length / 1KB, 2)
+        Write-Host "  ✓ Created: $packageName ($size KB)" -ForegroundColor Green
+        Write-Host "  ✓ SHA-256: $hash" -ForegroundColor Green
+
         $ReleasedPlugins += @{
             Name = $pluginName
             Version = $version
-            ZipPath = $zipPath
+            PackagePath = $packagePath
+            Sha256 = $hash
             Size = $size
         }
-        
+
         # Cleanup temp dir
         Remove-Item -Recurse -Force $tempDir
     }
@@ -134,6 +243,7 @@ if ($ReleasedPlugins.Count -gt 0) {
     Write-Host "  Released plugins:" -ForegroundColor White
     $ReleasedPlugins | ForEach-Object {
         Write-Host "    ✓ $($_.Name) v$($_.Version) ($($_.Size) KB)" -ForegroundColor Green
+        Write-Host "        sha256: $($_.Sha256)" -ForegroundColor DarkGray
     }
 }
 

@@ -126,7 +126,7 @@ public class CheerConfigService
         var bracket = FindMatchingBracket(matchedSection, cheerEvent.Bits);
         if (bracket == null) return;
 
-        ExecuteAction(matchedSection, bracket);
+        _ = ExecuteActionAsync(matchedSection, bracket);
 
         // Fire bracket activation trigger
         _ = _triggerManager.FireCheerBracketEvent(
@@ -187,7 +187,7 @@ public class CheerConfigService
         }
     }
 
-    private void ExecuteAction(CheerSection sec, CheerBracket bracket)
+    private async Task ExecuteActionAsync(CheerSection sec, CheerBracket bracket)
     {
         if (!sec.SelectedShockerIds.Any()) return;
 
@@ -215,6 +215,19 @@ public class CheerConfigService
 
         var deviceIds = parsedIds.Select(p => p.deviceId).Distinct();
         var shockerIdInts = parsedIds.Select(p => p.shockerId);
+
+        if (sec.WarningVibrate && commandType == CommandType.Shock)
+        {
+            _deviceActions.PerformAction(
+                intensity: bracket.Intensity,
+                durationSeconds: 1.0,
+                command: CommandType.Vibrate,
+                deviceIds: deviceIds,
+                shockerIds: shockerIdInts
+            );
+
+            await Task.Delay(1000);
+        }
 
         _deviceActions.PerformAction(
             intensity: bracket.Intensity,
@@ -361,6 +374,7 @@ public class CheerConfigService
             Keyword = original.Keyword,
             Enabled = original.Enabled,
             CommandType = original.CommandType,
+            WarningVibrate = original.WarningVibrate,
             FixedAmount = original.FixedAmount,
             SelectedShockerIds = new List<string>(original.SelectedShockerIds),
             Brackets = original.Brackets.Select(b => new CheerBracket

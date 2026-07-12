@@ -14,6 +14,8 @@ public class FollowConfig
 
     public string CommandType { get; set; } = "Shock";
 
+    public bool WarningVibrate { get; set; } = false;
+
     public List<string> SelectedShockerIds { get; set; } = new();
 
     public List<string> KnownFollowerIds { get; set; } = new();

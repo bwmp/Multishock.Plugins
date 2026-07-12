@@ -41,6 +41,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         services.AddSingleton<RedeemConfigService>();
         services.AddSingleton<HypeTrainConfigService>();
         services.AddSingleton<LegacyTwitchImportService>();
+        services.AddSingleton<EventLogService>();
     }
 
     public void Initialize(IServiceProvider sp)

@@ -116,6 +116,12 @@ public class FollowConfigService : IDisposable
         SaveConfig();
     }
 
+    public void UpdateWarningVibrate(bool enabled)
+    {
+        _config.WarningVibrate = enabled;
+        SaveConfig();
+    }
+
     public void UpdateSelectedShockers(List<string> ids)
     {
         _config.SelectedShockerIds = ids;
@@ -256,10 +262,10 @@ public class FollowConfigService : IDisposable
         var intensity = Math.Clamp(_config.Intensity, 1, 100);
         var duration = Math.Clamp(_config.Duration, 0.1, 15.0);
 
-        ExecuteAction(intensity, duration, _config.CommandType, _config.Mode);
+        _ = ExecuteActionAsync(intensity, duration, _config.CommandType, _config.Mode, _config.WarningVibrate);
     }
 
-    private void ExecuteAction(int intensity, double duration, string commandTypeString, SelectionMode mode)
+    private async Task ExecuteActionAsync(int intensity, double duration, string commandTypeString, SelectionMode mode, bool warningVibrate)
     {
         var commandType = commandTypeString switch
         {
@@ -282,6 +288,19 @@ public class FollowConfigService : IDisposable
 
         var deviceIds = parsedIds.Select(p => p.deviceId).Distinct();
         var shockerIdInts = parsedIds.Select(p => p.shockerId);
+
+        if (warningVibrate && commandType == CommandType.Shock)
+        {
+            _deviceActions.PerformAction(
+                intensity: intensity,
+                durationSeconds: 1.0,
+                command: CommandType.Vibrate,
+                deviceIds: deviceIds,
+                shockerIds: shockerIdInts
+            );
+
+            await Task.Delay(1000);
+        }
 
         _deviceActions.PerformAction(
             intensity: intensity,

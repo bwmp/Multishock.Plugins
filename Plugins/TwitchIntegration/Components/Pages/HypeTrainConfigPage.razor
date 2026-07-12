@@ -33,6 +33,15 @@
                         <Select Label="Command" Value="@HypeTrainConfigService.Config.During.CommandType"
                             ValueChanged="@((string value) => UpdateDuringCommandType(value ?? "Shock"))" Options="@CommandTypeOptions" />
                     </div>
+                    @if (HypeTrainConfigService.Config.During.CommandType == "Shock")
+                    {
+                        <div>
+                            <label class="block text-xs font-medium mb-1"
+                                style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                            <Toggle Value="HypeTrainConfigService.Config.During.WarningVibrate"
+                                ValueChanged="@(v => UpdateDuringWarningVibrate(v))" />
+                        </div>
+                    }
                     <div class="w-40">
                         <Select Label="Scaling" Value="@HypeTrainConfigService.Config.During.ScalingMode.ToString()"
                             ValueChanged="@((string value) => UpdateDuringScaling(ParseScalingMode(value)))" Options="@ScalingModeOptions" />
@@ -107,6 +116,15 @@
                         <Select Label="Command" Value="@HypeTrainConfigService.Config.End.CommandType"
                             ValueChanged="@((string value) => UpdateEndCommandType(value ?? "Shock"))" Options="@CommandTypeOptions" />
                     </div>
+                    @if (HypeTrainConfigService.Config.End.CommandType == "Shock")
+                    {
+                        <div>
+                            <label class="block text-xs font-medium mb-1"
+                                style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                            <Toggle Value="HypeTrainConfigService.Config.End.WarningVibrate"
+                                ValueChanged="@(v => UpdateEndWarningVibrate(v))" />
+                        </div>
+                    }
                 </div>
 
                 <div class="space-y-2">
@@ -216,10 +234,24 @@
         HypeTrainConfigService.UpdateDuring(action);
     }
 
+    private void UpdateDuringWarningVibrate(bool enabled)
+    {
+        var action = HypeTrainConfigService.Config.During;
+        action.WarningVibrate = enabled;
+        HypeTrainConfigService.UpdateDuring(action);
+    }
+
     private void UpdateEndCommandType(string commandType)
     {
         var action = HypeTrainConfigService.Config.End;
         action.CommandType = commandType;
+        HypeTrainConfigService.UpdateEnd(action);
+    }
+
+    private void UpdateEndWarningVibrate(bool enabled)
+    {
+        var action = HypeTrainConfigService.Config.End;
+        action.WarningVibrate = enabled;
         HypeTrainConfigService.UpdateEnd(action);
     }
 

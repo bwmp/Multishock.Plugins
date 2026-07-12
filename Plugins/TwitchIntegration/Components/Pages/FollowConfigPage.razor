@@ -83,6 +83,15 @@
                             ValueChanged="@((string value) => UpdateCommandType(value ?? "Shock"))"
                             Options="@CommandTypeOptions" />
                     </div>
+                    @if (FollowConfigService.Config.CommandType == "Shock")
+                    {
+                        <div>
+                            <label class="block text-xs font-medium mb-1"
+                                style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                            <Toggle Value="FollowConfigService.Config.WarningVibrate"
+                                ValueChanged="@(v => UpdateWarningVibrate(v))" />
+                        </div>
+                    }
                 </div>
 
                 <div class="space-y-2">
@@ -150,6 +159,8 @@ new Select<string>.SelectOption<string>("Beep", "Beep"),
     private void UpdateMode(SelectionMode mode) => FollowConfigService.UpdateMode(mode);
 
     private void UpdateCommandType(string command) => FollowConfigService.UpdateCommandType(command);
+
+    private void UpdateWarningVibrate(bool enabled) => FollowConfigService.UpdateWarningVibrate(enabled);
 
     private void UpdateIntensity(int value) => FollowConfigService.UpdateIntensity(value);
 

@@ -238,7 +238,7 @@ public class SubscriptionConfigService
         var intensity = Math.Clamp(rawIntensity, 1, Math.Clamp(cfg.MaxIntensity, 1, 100));
         var duration = Math.Clamp(rawDuration, 0.1, Math.Clamp(cfg.MaxDuration, 0.1, 15.0));
 
-        ExecuteDeviceAction(section, intensity, duration, cfg.CommandType, cfg.Mode);
+        _ = ExecuteDeviceActionAsync(section, intensity, duration, cfg.CommandType, cfg.Mode, cfg.WarningVibrate);
     }
 
     private void ExecuteBracketAction(SubscriptionTierSection section, int count)
@@ -251,7 +251,7 @@ public class SubscriptionConfigService
         var intensity = Math.Clamp(bracket.Intensity, 1, 100);
         var duration = Math.Clamp(bracket.Duration, 0.1, 15.0);
 
-        ExecuteDeviceAction(section, intensity, duration, section.BracketCommandType, bracket.Mode);
+        _ = ExecuteDeviceActionAsync(section, intensity, duration, section.BracketCommandType, bracket.Mode, section.WarningVibrate);
     }
 
     private SubscriptionBracket? FindMatchingBracket(SubscriptionTierSection section, int count)
@@ -272,7 +272,7 @@ public class SubscriptionConfigService
         }
     }
 
-    private void ExecuteDeviceAction(SubscriptionTierSection section, int intensity, double duration, string commandTypeString, SelectionMode mode)
+    private async Task ExecuteDeviceActionAsync(SubscriptionTierSection section, int intensity, double duration, string commandTypeString, SelectionMode mode, bool warningVibrate)
     {
         var commandType = commandTypeString switch
         {
@@ -295,6 +295,19 @@ public class SubscriptionConfigService
 
         var deviceIds = parsedIds.Select(p => p.deviceId).Distinct();
         var shockerIdInts = parsedIds.Select(p => p.shockerId);
+
+        if (warningVibrate && commandType == CommandType.Shock)
+        {
+            _deviceActions.PerformAction(
+                intensity: intensity,
+                durationSeconds: 1.0,
+                command: CommandType.Vibrate,
+                deviceIds: deviceIds,
+                shockerIds: shockerIdInts
+            );
+
+            await Task.Delay(1000);
+        }
 
         _deviceActions.PerformAction(
             intensity: intensity,

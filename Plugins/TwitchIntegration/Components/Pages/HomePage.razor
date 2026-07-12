@@ -288,7 +288,7 @@
             </div>
         }
 
-        @if (TwitchService.IsConnected || EventLog.Count > 0)
+        @if (TwitchService.IsConnected || EventLogService.Count > 0)
         {
             <div class="twitch-card">
                 <div class="twitch-card-header">
@@ -297,14 +297,14 @@
                 </div>
                 <div class="twitch-card-body">
                     <div class="space-y-1 max-h-64 overflow-y-auto">
-                        @if (EventLog.Count == 0)
+                        @if (EventLogService.Count == 0)
                         {
                             <p class="text-sm" style="color: var(--app-muted, #adb5bd);">No events yet. Waiting for Twitch
                                 events...</p>
                         }
                         else
                         {
-                            @foreach (var log in EventLog.TakeLast(50).Reverse())
+                            @foreach (var log in EventLogService.Entries.TakeLast(50).Reverse())
                             {
                                 <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
                                     style="background: rgba(255, 255, 255, 0.02);">
@@ -356,12 +356,11 @@
     private bool UseLocalCliEnabled;
     private bool IsImportingLegacyConfig;
     private bool LegacyImportSuccess;
-    private List<LogEntry> EventLog = new();
     private string LegacyConfigPath = string.Empty;
     private string? LegacyImportMessage;
     private string? LegacyImportDetails;
 
-    private record LogEntry(DateTime Time, string Message, bool IsError = false);
+    private EventLogService EventLogService => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
 
     private static readonly (string Name, string Description)[] FlowTriggers =
     [
@@ -379,7 +378,7 @@
     {
         TwitchService.ConnectionStateChanged += OnConnectionStateChanged;
         TwitchService.ErrorOccurred += OnError;
-        TwitchService.OnStatusMessage += OnStatusMessage;
+        EventLogService.LogChanged += OnLogChanged;
         AuthService.StatusChanged += OnAuthStatusChanged;
 
         SavedToken = AuthService.StoredToken;
@@ -405,14 +404,14 @@
             LegacyImportSuccess = result.Success;
             LegacyImportMessage = result.Message;
             LegacyImportDetails = result.Details;
-            AddLog(result.Success ? "Legacy Twitch config imported" : $"Legacy import failed: {result.Message}", !result.Success);
+            EventLogService.AddLog(result.Success ? "Legacy Twitch config imported" : $"Legacy import failed: {result.Message}", !result.Success);
         }
         catch (Exception ex)
         {
             LegacyImportSuccess = false;
             LegacyImportMessage = $"Legacy import failed: {ex.Message}";
             LegacyImportDetails = null;
-            AddLog(LegacyImportMessage, true);
+            EventLogService.AddLog(LegacyImportMessage, true);
         }
         finally
         {
@@ -430,12 +429,12 @@
 
         try
         {
-            AddLog("Starting Twitch login...");
+            EventLogService.AddLog("Starting Twitch login...");
             var token = await AuthService.AuthenticateAsync();
 
             if (!string.IsNullOrEmpty(token))
             {
-                AddLog("Login successful, connecting to EventSub...");
+                EventLogService.AddLog("Login successful, connecting to EventSub...");
                 OAuthToken = token;
                 SavedToken = token;
                 AuthService.SaveAuthToken(token);
@@ -443,13 +442,13 @@
             }
             else
             {
-                AddLog("Login was cancelled or failed", isError: true);
+                EventLogService.AddLog("Login was cancelled or failed", isError: true);
             }
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Login failed: {ex.Message}";
-            AddLog($"Login error: {ex.Message}", isError: true);
+            EventLogService.AddLog($"Login error: {ex.Message}", isError: true);
         }
         finally
         {
@@ -464,7 +463,7 @@
         AuthService.CancelAuthentication();
         IsAuthenticating = false;
         AuthStatus = null;
-        AddLog("Login cancelled");
+        EventLogService.AddLog("Login cancelled");
         StateHasChanged();
     }
 
@@ -473,7 +472,7 @@
         InvokeAsync(() =>
         {
             AuthStatus = status;
-            AddLog(status);
+            EventLogService.AddLog(status);
             StateHasChanged();
         });
     }
@@ -481,18 +480,18 @@
     private async Task Connect()
     {
         ErrorMessage = null;
-        AddLog("Connecting to Twitch...");
+        EventLogService.AddLog("Connecting to Twitch...");
 
         var token = OAuthToken.Trim();
         var success = await TwitchService.ConnectAsync(token);
         if (!success)
         {
-            AddLog("Connection failed", isError: true);
+            EventLogService.AddLog("Connection failed", isError: true);
             
             // Check if it's a scope issue
             if (ErrorMessage?.Contains("scope", StringComparison.OrdinalIgnoreCase) == true)
             {
-                AddLog("Detected missing scopes, clearing token and re-authenticating...");
+                EventLogService.AddLog("Detected missing scopes, clearing token and re-authenticating...");
                 await LogoutAsync();
                 await Task.Delay(500); // Brief delay to ensure UI updates
                 await LoginWithTwitch();
@@ -508,7 +507,7 @@
     private async Task Disconnect()
     {
         await TwitchService.DisconnectAsync();
-        AddLog("Disconnected");
+        EventLogService.AddLog("Disconnected");
     }
 
     private async Task ConnectWithSavedToken()
@@ -516,17 +515,17 @@
         if (string.IsNullOrWhiteSpace(SavedToken)) return;
 
         ErrorMessage = null;
-        AddLog("Connecting with saved token...");
+        EventLogService.AddLog("Connecting with saved token...");
 
         var success = await TwitchService.ConnectAsync(SavedToken);
         if (!success)
         {
-            AddLog("Connection failed", isError: true);
+            EventLogService.AddLog("Connection failed", isError: true);
             
             // Check if it's a scope issue
             if (ErrorMessage?.Contains("scope", StringComparison.OrdinalIgnoreCase) == true)
             {
-                AddLog("Detected missing scopes, clearing token and re-authenticating...");
+                EventLogService.AddLog("Detected missing scopes, clearing token and re-authenticating...");
                 await LogoutAsync();
                 await Task.Delay(500); // Brief delay to ensure UI updates
                 await LoginWithTwitch();
@@ -538,7 +537,6 @@
     {
         InvokeAsync(() =>
         {
-            AddLog(connected ? "Connected to Twitch!" : "Disconnected from Twitch");
             StateHasChanged();
         });
     }
@@ -548,25 +546,20 @@
         InvokeAsync(() =>
         {
             ErrorMessage = error;
-            AddLog($"Error: {error}", isError: true);
             StateHasChanged();
         });
     }
 
-    private void OnStatusMessage(string message)
+    private void OnLogChanged()
     {
-        InvokeAsync(() =>
-        {
-            AddLog(message);
-            StateHasChanged();
-        });
+        InvokeAsync(StateHasChanged);
     }
 
     private void ToggleAutoConnect(bool enabled)
     {
         AutoConnectEnabled = enabled;
         AuthService.AutoConnect = enabled;
-        AddLog(enabled ? "Auto-connect enabled" : "Auto-connect disabled");
+        EventLogService.AddLog(enabled ? "Auto-connect enabled" : "Auto-connect disabled");
     }
 
     private void ToggleLocalCli(bool enabled)
@@ -574,11 +567,11 @@
         UseLocalCliEnabled = enabled;
         AuthService.UseLocalCli = enabled;
         var target = enabled ? "local CLI" : "production";
-        AddLog($"WebSocket target set to {target}");
+        EventLogService.AddLog($"WebSocket target set to {target}");
         
         if (TwitchService.IsConnected)
         {
-            AddLog("Note: Reconnect for the change to take effect");
+            EventLogService.AddLog("Note: Reconnect for the change to take effect");
         }
     }
 
@@ -589,17 +582,8 @@
         OAuthToken = "";
         SavedToken = null;
         AutoConnectEnabled = false;
-        AddLog("Logged out and cleared saved token");
+        EventLogService.AddLog("Logged out and cleared saved token");
         StateHasChanged();
-    }
-
-    private void AddLog(string message, bool isError = false)
-    {
-        EventLog.Add(new LogEntry(DateTime.Now, message, isError));
-        if (EventLog.Count > 100)
-        {
-            EventLog.RemoveAt(0);
-        }
     }
 
     private void ClearToken()
@@ -607,13 +591,13 @@
         AuthService.ClearAuth();
         OAuthToken = "";
         SavedToken = null;
-        AddLog("Token cleared from config");
+        EventLogService.AddLog("Token cleared from config");
         StateHasChanged();
     }
 
     private void ClearLog()
     {
-        EventLog.Clear();
+        EventLogService.Clear();
     }
 
     public void Dispose()
@@ -621,6 +605,6 @@
         AuthService.StatusChanged -= OnAuthStatusChanged;
         TwitchService.ConnectionStateChanged -= OnConnectionStateChanged;
         TwitchService.ErrorOccurred -= OnError;
-        TwitchService.OnStatusMessage -= OnStatusMessage;
+        EventLogService.LogChanged -= OnLogChanged;
     }
 }

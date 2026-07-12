@@ -57,6 +57,14 @@
             "extra-files": [
                 "VRChatOSC.csproj"
             ]
+        },
+        "Plugins/RandomNodes": {
+            "release-type": "simple",
+            "component": "RandomNodes",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "RandomNodes.csproj"
+            ]
         }
     },
     "changelog-sections": [

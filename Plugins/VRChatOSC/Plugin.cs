@@ -125,5 +125,6 @@ public class VRChatOSCPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvide
     {
         yield return new OscMessageReceivedTriggerNode();
         yield return new SendOscMessageActionNode();
+        yield return new SendChatboxMessageActionNode();
     }
 }

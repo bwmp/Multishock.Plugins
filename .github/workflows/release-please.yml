@@ -64,13 +64,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Configure NuGet Authentication
-        run: dotnet nuget update source pishock --username "$env:NUGET_USERNAME" --password "$env:NUGET_PASSWORD" --store-password-in-clear-text
-        shell: pwsh
-        env:
-          NUGET_USERNAME: ${{ secrets.NUGET_USERNAME }}
-          NUGET_PASSWORD: ${{ secrets.NUGET_PASSWORD }}
-
       - name: Get plugin info
         id: plugin-info
         shell: pwsh

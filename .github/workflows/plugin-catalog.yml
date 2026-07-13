@@ -28,13 +28,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Configure NuGet authentication
-        shell: pwsh
-        env:
-          NUGET_USERNAME: ${{ secrets.NUGET_USERNAME }}
-          NUGET_PASSWORD: ${{ secrets.NUGET_PASSWORD }}
-        run: dotnet nuget update source pishock --username "$env:NUGET_USERNAME" --password "$env:NUGET_PASSWORD" --store-password-in-clear-text
-
       - name: Build packages and catalog
         shell: pwsh
         run: ./scripts/release-plugins.ps1

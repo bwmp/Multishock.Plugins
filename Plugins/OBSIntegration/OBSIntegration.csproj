@@ -9,7 +9,7 @@
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
-        <PluginVersion>1.1.1</PluginVersion> <!-- x-release-please-version -->
+        <PluginVersion>1.2.0</PluginVersion> <!-- x-release-please-version -->
     </PropertyGroup>
 
     <!-- Release optimizations -->

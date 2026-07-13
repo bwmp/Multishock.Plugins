@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/VRChatOSC-v1.1.0...VRChatOSC-v1.2.0) (2026-07-13)
+
+
+### Features
+
+* Implement SendChatboxMessageActionNode for sending messages to VRChat chatbox ([535a8e6](https://github.com/bwmp/Multishock.Plugins/commit/535a8e60dc00986fb792a918183413bd1f3d8ca2))
+
 ## [1.1.0](https://github.com/bwmp/Multishock.Plugins/compare/VRChatOSC-v1.0.0...VRChatOSC-v1.1.0) (2026-03-24)
 
 

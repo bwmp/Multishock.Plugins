@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 2,
+  "id": "com.multishock.throneintegration",
+  "name": "Throne Integration",
+  "version": "1.2.0",
+  "entryPoint": "ThroneIntegration.dll",
+  "description": "A simple multishock integration to add flow trigger nodes that activate when a throne gift is purchased",
+  "sdkVersion": "1.12.1",
+  "platforms": ["win-x64"]
+}

@@ -73,9 +73,19 @@ Each plugin gets its own release tag: `plugin-name-plugin-v1.0.0`
 
 ## Installing Plugins
 
-1. Download the plugin zip from [Releases](releases)
-2. Extract to MultiShock's `Plugins` folder
+The recommended installation method is **Settings → Plugins → Plugin Repository** in MultiShock.
+It checks this repository's published release metadata, verifies package checksums, and also
+notifies you when installed plugins have updates.
+
+For manual installation:
+
+1. Download a `.msplugin` asset from the `plugin-catalog` release
+2. Copy it into MultiShock's `Plugins` folder
 3. Restart MultiShock
+
+Every push that changes a plugin publishes self-contained `.msplugin` packages and a
+`plugin-index.json` to the stable `plugin-catalog` GitHub release. The catalog includes
+plugin IDs, versions, compatibility metadata, download URLs, file sizes, and SHA-256 hashes.
 
 ## Development
 

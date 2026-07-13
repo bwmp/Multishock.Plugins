@@ -20,6 +20,12 @@ public interface IScreenCaptureService
     string? UnsupportedReason { get; }
 
     /// <summary>
+    /// Non-null warning when the process DPI configuration will cause captures
+    /// to be scaled/misaligned on displays with non-100% scaling.
+    /// </summary>
+    string? DpiWarning { get; }
+
+    /// <summary>
     /// Current capture configuration.
     /// </summary>
     CaptureConfig Config { get; set; }

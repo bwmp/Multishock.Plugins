@@ -35,6 +35,35 @@ public class CaptureConfig
     /// Whether to include the cursor in captures.
     /// </summary>
     public bool IncludeCursor { get; set; } = false;
+
+    /// <summary>
+    /// Which capture implementation to use.
+    /// </summary>
+    public CaptureBackendType Backend { get; set; } = CaptureBackendType.Auto;
+}
+
+/// <summary>
+/// Capture backend selection.
+/// </summary>
+public enum CaptureBackendType
+{
+    /// <summary>
+    /// Use Windows Graphics Capture when available, fall back to GDI on failure.
+    /// </summary>
+    Auto = 0,
+
+    /// <summary>
+    /// Windows Graphics Capture (WinRT). Captures hardware-accelerated and
+    /// fullscreen game content that GDI cannot. On Windows 10 the OS draws a
+    /// yellow border around the captured screen while a session is active.
+    /// </summary>
+    WindowsGraphicsCapture = 1,
+
+    /// <summary>
+    /// Legacy GDI BitBlt capture. No capture border, but returns black frames
+    /// for many hardware-accelerated/fullscreen games.
+    /// </summary>
+    LegacyGdi = 2
 }
 
 /// <summary>

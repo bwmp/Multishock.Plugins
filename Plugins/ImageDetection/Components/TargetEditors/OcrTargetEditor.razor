@@ -1,0 +1,300 @@
+@inject ImageDetectionService DetectionService
+@inject ImageConfigService ConfigService
+@inject OcrChangeAnalyzerService OcrAnalyzer
+
+@* OCR target editor: setup warning, live reading, region selection, and OCR
+   parsing settings. Action settings live in ActionSettingsCard. *@
+
+@{
+    var regionConfigured = Image.Region.CustomRegion != null
+        && (Image.Region.CustomRegion.X != 0 || Image.Region.CustomRegion.Y != 0
+            || !string.IsNullOrEmpty(Image.Ocr.RegionPreviewPath));
+}
+
+@if (!regionConfigured)
+{
+    <div class="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-yellow-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <p class="text-sm font-medium text-yellow-300">Setup required: Select your OCR region</p>
+                <p class="text-xs text-yellow-400/80 mt-1">
+                    Use the region picker below to select where text/numbers appear on screen.
+                    OCR works best with a tight box around the text.
+                </p>
+            </div>
+        </div>
+    </div>
+}
+
+@if (DetectionService.IsRunning && !string.IsNullOrEmpty(ModuleId))
+{
+    var ocrReading = GetOcrLastReading();
+    var smoothedNumber = GetOcrCurrentValue();
+    var numberToShow = smoothedNumber ?? ocrReading?.NumberValue;
+    <div class="p-3 rounded-lg bg-black/20 border border-app-border space-y-2">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-app-muted font-medium uppercase tracking-wide">Live OCR</span>
+            @if (numberToShow.HasValue)
+            {
+                <span class="text-sm font-mono font-bold text-amber-400">@numberToShow.Value.ToString("F2")</span>
+            }
+            else
+            {
+                <span class="text-xs text-app-muted">No number detected</span>
+            }
+        </div>
+
+        <div class="text-xs text-app-muted">
+            <span class="text-zinc-300">Text:</span>
+            @if (!string.IsNullOrWhiteSpace(ocrReading?.RawText))
+            {
+                <span class="text-zinc-100 ml-1">@ocrReading?.RawText</span>
+            }
+            else
+            {
+                <span class="ml-1">Waiting for OCR...</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(ocrReading?.MatchedKeyword))
+        {
+            <div class="text-xs text-app-muted">
+                <span class="text-zinc-300">Keyword:</span>
+                <span class="text-green-300 ml-1">@ocrReading?.MatchedKeyword</span>
+            </div>
+        }
+    </div>
+}
+
+<Card Title="Step 1: Select Text/Number Region" Description="Define where OCR should read from on your screen">
+    <div class="space-y-4">
+        @if (!string.IsNullOrEmpty(Image.Ocr.RegionPreviewPath) && File.Exists(Image.Ocr.RegionPreviewPath))
+        {
+            <div class="p-3 rounded-lg bg-black/20 border border-app-border">
+                <span class="text-xs text-app-muted font-medium uppercase tracking-wide mb-2 block">Region Preview</span>
+                <div class="rounded border border-app-border overflow-hidden bg-black/30">
+                    <img src="@EditorUi.GetImageDataUri(Image.Ocr.RegionPreviewPath)"
+                         alt="OCR region preview"
+                         class="max-w-full max-h-24 mx-auto object-contain" />
+                </div>
+            </div>
+        }
+
+        <p class="text-xs text-app-muted">
+            Capture the exact text area (kill feed, damage number, HP text). Keep the box tight for best OCR accuracy.
+        </p>
+
+        <RegionPickerControls ModuleId="@ModuleId" TargetId="@Image.Id" OnCaptureRequested="OnPickRegion" />
+
+        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
+            <summary class="cursor-pointer text-sm text-zinc-400">Manual coordinates</summary>
+            <div class="mt-3">
+                <ManualRegionInputs ModuleId="@ModuleId" Image="Image" />
+            </div>
+        </details>
+    </div>
+</Card>
+
+<Card Title="Step 2: OCR Settings" Description="Configure keyword and number parsing">
+    <div class="space-y-3">
+        <Select Label="Mode" TValue="OcrDetectionMode"
+                Value="Image.Ocr.Mode"
+                ValueChanged="OnOcrModeSelect"
+                Options="OcrModeOptions" />
+
+        @if (Image.Ocr.Mode == OcrDetectionMode.Keyword || Image.Ocr.Mode == OcrDetectionMode.KeywordOrNumber)
+        {
+            <div>
+                <label class="block text-sm text-app-muted mb-1">Keywords (comma separated)</label>
+                <TextInput Value="@GetOcrKeywords()" ValueChanged="OnOcrKeywordsChanged" />
+            </div>
+            <Checkbox Label="Ignore case" Value="Image.Ocr.IgnoreCase" ValueChanged="OnOcrIgnoreCaseChanged" />
+        }
+
+        @if (Image.Ocr.Mode == OcrDetectionMode.Number || Image.Ocr.Mode == OcrDetectionMode.KeywordOrNumber)
+        {
+            <div>
+                <label class="block text-sm text-app-muted mb-1">Number Regex</label>
+                <TextInput Value="@Image.Ocr.NumberRegex"
+                           ValueChanged="OnOcrNumberRegexChanged" />
+            </div>
+            <NumberInput Label="Min Number Delta"
+                         Value="Image.Ocr.MinNumberDelta"
+                         ValueChanged="OnOcrMinNumberDeltaChanged"
+                         Min="0.1" Max="100000" Step="0.1" />
+            <Checkbox Label="Scale action with number delta"
+                      Value="Image.Ocr.ScaleActionWithNumberDelta"
+                      ValueChanged="OnOcrScaleWithDeltaChanged" />
+
+            @if (Image.Ocr.ScaleActionWithNumberDelta)
+            {
+                <NumberInput Label="Delta for Max Intensity"
+                             Value="Image.Ocr.MaxDeltaForMaxIntensity"
+                             ValueChanged="OnOcrMaxDeltaForIntensityChanged"
+                             Min="0.1" Max="100000" Step="0.1" />
+            }
+        }
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <NumberInput Label="Smoothing Frames"
+                         Value="(double)Image.Ocr.SmoothingFrames"
+                         ValueChanged="OnOcrSmoothingChanged"
+                         Min="1" Max="10" Step="1" />
+
+            <NumberInput Label="Event Cooldown (ms)"
+                         Value="(double)Image.Ocr.EventCooldownMs"
+                         ValueChanged="OnOcrCooldownChanged"
+                         Min="50" Max="5000" Step="50" />
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <NumberInput Label="Preprocess Scale"
+                         Value="Image.Ocr.PreprocessScale"
+                         ValueChanged="OnOcrScaleChanged"
+                         Min="1" Max="4" Step="0.1" />
+
+            <div>
+                <label class="block text-sm text-app-muted mb-1">Character Whitelist</label>
+                <TextInput Value="@(Image.Ocr.CharacterWhitelist ?? string.Empty)"
+                           ValueChanged="OnOcrCharacterWhitelistChanged" />
+            </div>
+        </div>
+
+        <Checkbox Label="Use thresholding" Value="Image.Ocr.UseThresholding" ValueChanged="OnOcrThresholdingChanged" />
+        <Checkbox Label="Invert colors" Value="Image.Ocr.InvertColors" ValueChanged="OnOcrInvertColorsChanged" />
+    </div>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public DetectionImage Image { get; set; } = default!;
+
+    /// <summary>Asks the host editor to capture a screenshot and open the region picker.</summary>
+    [Parameter] public EventCallback OnPickRegion { get; set; }
+
+    private static readonly IEnumerable<Select<OcrDetectionMode>.SelectOption<OcrDetectionMode>> OcrModeOptions =
+    [
+        new(OcrDetectionMode.Keyword, "Keywords"),
+        new(OcrDetectionMode.Number, "Numbers"),
+        new(OcrDetectionMode.KeywordOrNumber, "Keywords or Numbers"),
+    ];
+
+    private void Save() => ConfigService.UpdateImage(ModuleId, Image);
+
+    private double? GetOcrCurrentValue()
+    {
+        try
+        {
+            return OcrAnalyzer.GetCurrentValue(ModuleId, Image.Id);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private (string RawText, string NormalizedText, string? MatchedKeyword, double? NumberValue)? GetOcrLastReading()
+    {
+        try
+        {
+            return OcrAnalyzer.GetLastReading(ModuleId, Image.Id);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void OnOcrModeSelect(OcrDetectionMode mode)
+    {
+        Image.Ocr.Mode = mode;
+        Save();
+    }
+
+    private string GetOcrKeywords()
+        => Image.Ocr.Keywords.Count == 0 ? string.Empty : string.Join(", ", Image.Ocr.Keywords);
+
+    private void OnOcrKeywordsChanged(string value)
+    {
+        Image.Ocr.Keywords = value
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Save();
+    }
+
+    private void OnOcrIgnoreCaseChanged(bool value)
+    {
+        Image.Ocr.IgnoreCase = value;
+        Save();
+    }
+
+    private void OnOcrNumberRegexChanged(string value)
+    {
+        Image.Ocr.NumberRegex = string.IsNullOrWhiteSpace(value) ? @"-?\d+(?:\.\d+)?" : value;
+        Save();
+    }
+
+    private void OnOcrMinNumberDeltaChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Ocr.MinNumberDelta = Math.Clamp(value.Value, 0.1, 100000);
+        Save();
+    }
+
+    private void OnOcrScaleWithDeltaChanged(bool value)
+    {
+        Image.Ocr.ScaleActionWithNumberDelta = value;
+        Save();
+    }
+
+    private void OnOcrMaxDeltaForIntensityChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Ocr.MaxDeltaForMaxIntensity = Math.Clamp(value.Value, 0.1, 100000);
+        Save();
+    }
+
+    private void OnOcrSmoothingChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Ocr.SmoothingFrames = (int)Math.Clamp(value.Value, 1, 10);
+        Save();
+    }
+
+    private void OnOcrCooldownChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Ocr.EventCooldownMs = (int)Math.Clamp(value.Value, 50, 5000);
+        Save();
+    }
+
+    private void OnOcrScaleChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Ocr.PreprocessScale = Math.Clamp(value.Value, 1.0, 4.0);
+        Save();
+    }
+
+    private void OnOcrCharacterWhitelistChanged(string value)
+    {
+        Image.Ocr.CharacterWhitelist = string.IsNullOrWhiteSpace(value) ? null : value;
+        Save();
+    }
+
+    private void OnOcrThresholdingChanged(bool value)
+    {
+        Image.Ocr.UseThresholding = value;
+        Save();
+    }
+
+    private void OnOcrInvertColorsChanged(bool value)
+    {
+        Image.Ocr.InvertColors = value;
+        Save();
+    }
+}

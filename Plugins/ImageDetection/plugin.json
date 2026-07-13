@@ -1,6 +1,10 @@
 {
-  "entryPoint": "ImageDetection.dll",
+  "manifestVersion": 2,
   "id": "com.multishock.imagedetection",
   "name": "Image Detection",
-  "description": "Detects images on screen and triggers actions when found."
+  "version": "1.2.0",
+  "entryPoint": "ImageDetection.dll",
+  "description": "Detects images on screen and triggers actions when found.",
+  "sdkVersion": "1.12.1",
+  "platforms": ["win-x64"]
 }

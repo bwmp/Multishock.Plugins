@@ -1,6 +1,10 @@
 {
-  "entryPoint": "SpeechToText.dll",
+  "manifestVersion": 2,
   "id": "com.multishock.speechtotext",
   "name": "SpeechToText",
-  "description": "Continuous speech recognition with sentence and word triggers."
+  "version": "1.1.0",
+  "entryPoint": "SpeechToText.dll",
+  "description": "Continuous speech recognition with sentence and word triggers.",
+  "sdkVersion": "1.12.1",
+  "platforms": ["win-x64"]
 }

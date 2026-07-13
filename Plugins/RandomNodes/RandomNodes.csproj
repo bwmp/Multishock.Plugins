@@ -1,15 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         
-        <AssemblyName>ThroneIntegration</AssemblyName>
-        <RootNamespace>ThroneIntegration</RootNamespace>
+        <AssemblyName>RandomNodes</AssemblyName>
+        <RootNamespace>RandomNodes</RootNamespace>
         
         <RazorLangVersion>Latest</RazorLangVersion>
+        <!-- Keep output compatible with existing plugin release scripts while targeting Windows APIs. -->
+        <OutputPath>bin\$(Configuration)\net10.0\</OutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
-        <PluginVersion>1.2.0</PluginVersion> <!-- x-release-please-version -->
+        <PluginVersion>1.0.0</PluginVersion> <!-- x-release-please-version -->
     </PropertyGroup>
 
     <!-- Release optimizations -->
@@ -20,11 +23,8 @@
 
     <!-- Dependencies -->
     <ItemGroup>
-        <PackageReference Include="Costura.Fody" Version="5.8.0-alpha0098" PrivateAssets="all" />
-        <PackageReference Include="Fody" Version="6.9.1" PrivateAssets="all" />
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-        <PackageReference Include="ThroneAPI.Client" Version="1.0.1" />
         <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" />
     </ItemGroup>
 
@@ -49,22 +49,22 @@
             <VersionOutput Condition="'$(Configuration)'=='Release'">$(PluginVersion)</VersionOutput>
         </PropertyGroup>
         <ItemGroup>
-        <StampLines Include="namespace ThroneIntegration%3B" />
-        <StampLines Include=" " />
-        <StampLines Include="public static class BuildStamp" />
-        <StampLines Include="{" />
-        <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
-        <StampLines Include="    public const string Version = &quot;$(VersionOutput)&quot;%3B" />
-        <StampLines Include="}" />
+            <StampLines Include="namespace RandomNodes%3B" />
+            <StampLines Include=" " />
+            <StampLines Include="public static class BuildStamp" />
+            <StampLines Include="{" />
+            <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+            <StampLines Include="    public const string Version = &quot;$(VersionOutput)&quot;%3B" />
+            <StampLines Include="}" />
         </ItemGroup>
         <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />
         <ItemGroup>
-        <Compile Include="Generated\BuildStamp.g.cs" />
+            <Compile Include="Generated\BuildStamp.g.cs" />
         </ItemGroup>
     </Target>
     <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">
         <PropertyGroup>
-            <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+        <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
         </PropertyGroup>
         <MakeDir Directories="$(LocalPluginDir)" />
         <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(LocalPluginDir)" />

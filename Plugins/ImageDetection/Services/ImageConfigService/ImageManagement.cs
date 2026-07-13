@@ -147,6 +147,37 @@ public partial class ImageConfigService
     }
 
     /// <summary>
+    /// Stamps a reference resolution onto custom regions saved before regions
+    /// became resolution-aware. Legacy regions are defined in the pixel space
+    /// of whatever the user is currently capturing, so stamping the current
+    /// capture size preserves their behavior exactly while making future
+    /// resolution changes scale correctly. Persists once if anything changed.
+    /// </summary>
+    public void StampLegacyRegionReferences(Resolution reference)
+    {
+        if (reference.Width <= 0 || reference.Height <= 0) return;
+
+        lock (_lock)
+        {
+            var changed = false;
+
+            foreach (var module in _state.Modules.Values)
+            {
+                foreach (var image in module.Images.Values)
+                {
+                    if (image.Region.CustomRegion != null && image.Region.ReferenceResolution == null)
+                    {
+                        image.Region.ReferenceResolution = new Resolution(reference.Width, reference.Height);
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed) SaveConfig();
+        }
+    }
+
+    /// <summary>
     /// Sets an image's enabled state.
     /// </summary>
     public void SetImageEnabled(string moduleId, string imageId, bool enabled)

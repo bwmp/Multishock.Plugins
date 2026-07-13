@@ -76,7 +76,7 @@ public static class MeterFillAlgorithm
             CvInvoke.InRange(hsv, lower, upper, mask);
         }
 
-        return MeasureFillFromMask(mask, config.Direction);
+        return MeasureFillFromMask(mask, config.Direction, config.FillSensitivity);
     }
 
     /// <summary>
@@ -95,14 +95,14 @@ public static class MeterFillAlgorithm
         using var binary = new Mat();
         CvInvoke.Threshold(gray, binary, 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
 
-        return MeasureFillFromMask(binary, config.Direction);
+        return MeasureFillFromMask(binary, config.Direction, config.FillSensitivity);
     }
 
     /// <summary>
     /// Given a binary mask where white = filled pixels, measures how far along
     /// the fill axis the bar is filled by computing a column/row projection.
     /// </summary>
-    private static double MeasureFillFromMask(Mat mask, MeterFillDirection direction)
+    private static double MeasureFillFromMask(Mat mask, MeterFillDirection direction, double fillSensitivity)
     {
         bool isHorizontal = direction is MeterFillDirection.LeftToRight or MeterFillDirection.RightToLeft;
         int axisLength = isHorizontal ? mask.Width : mask.Height;
@@ -137,9 +137,9 @@ public static class MeterFillAlgorithm
             }
         }
 
-        // A column/row is "filled" if >50% of its cross-axis pixels are on
-        // (average > 127 on 0-255 scale).
-        const double fillThreshold = 127.0 * 0.5;
+        // A column/row is "filled" if more than FillSensitivity of its
+        // cross-axis pixels are on (mask average > 255 * sensitivity).
+        double fillThreshold = 255.0 * Math.Clamp(fillSensitivity, 0.05, 0.95);
 
         int filledCount = 0;
         for (int i = 0; i < axisLength; i++)

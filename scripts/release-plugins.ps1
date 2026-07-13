@@ -9,7 +9,8 @@
 param(
     [string]$Plugin = "",
     [string]$SdkVersion = "",
-    [string]$MinAppVersion = ""
+    [string]$MinAppVersion = "",
+    [string]$CatalogBaseUrl = "https://github.com/bwmp/Multishock.Plugins/releases/download/plugin-catalog"
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,23 +35,41 @@ function New-PluginManifestV2 {
         [string]$MinAppVersion
     )
 
+    $existing = $null
+    $existingPath = Join-Path (Split-Path $CsprojPath -Parent) "plugin.json"
+    if (Test-Path $existingPath) {
+        try { $existing = Get-Content $existingPath -Raw | ConvertFrom-Json } catch { }
+    }
+
     $description = Get-CsprojProperty $CsprojPath "Description"
+    if (-not $description) { $description = $existing.description }
     $authors = Get-CsprojProperty $CsprojPath "Authors"
+    if (-not $authors) { $authors = $existing.authors }
     $sourceUrl = Get-CsprojProperty $CsprojPath "PackageProjectUrl"
+    if (-not $sourceUrl) { $sourceUrl = $existing.sourceUrl }
 
     $manifest = [ordered]@{
         manifestVersion = 2
         id              = $PluginId
-        name            = $PluginName
+        name            = if ($existing.name) { $existing.name } else { $PluginName }
         version         = $Version
         entryPoint      = "$PluginName.dll"
     }
     if ($description) { $manifest.description = $description }
-    if ($authors)     { $manifest.authors = @($authors -split ';' | ForEach-Object { $_.Trim() }) }
+    if ($authors) {
+        $manifest.authors = if ($authors -is [string]) {
+            @($authors -split ';' | ForEach-Object { $_.Trim() })
+        } else {
+            @($authors)
+        }
+    }
     if ($sourceUrl)   { $manifest.sourceUrl = $sourceUrl }
     if ($MinAppVersion) { $manifest.minAppVersion = $MinAppVersion }
+    elseif ($existing.minAppVersion) { $manifest.minAppVersion = $existing.minAppVersion }
     if ($SdkVersion)  { $manifest.sdkVersion = $SdkVersion }
-    $manifest.platforms = @("win-x64")
+    elseif ($existing.sdkVersion) { $manifest.sdkVersion = $existing.sdkVersion }
+    $manifest.tags = @($existing.tags)
+    $manifest.platforms = if ($existing.platforms) { @($existing.platforms) } else { @("win-x64") }
 
     return $manifest
 }
@@ -214,10 +233,18 @@ foreach ($folder in $PluginFolders) {
 
         $ReleasedPlugins += @{
             Name = $pluginName
+            Id = $pluginId
             Version = $version
+            Description = $manifest.description
+            Authors = @($manifest.authors)
+            Tags = @($manifest.tags)
+            MinAppVersion = $manifest.minAppVersion
+            SdkVersion = $manifest.sdkVersion
+            Platforms = @($manifest.platforms)
+            PackageName = $packageName
             PackagePath = $packagePath
             Sha256 = $hash
-            Size = $size
+            Size = (Get-Item $packagePath).Length
         }
 
         # Cleanup temp dir
@@ -240,9 +267,37 @@ Write-Host "  Output directory: $ReleaseOutputDir" -ForegroundColor Gray
 Write-Host ""
 
 if ($ReleasedPlugins.Count -gt 0) {
+    # The app consumes this index directly from the stable plugin-catalog release.
+    # Generate it from the exact packages/checksums produced above so metadata cannot drift.
+    $catalog = [ordered]@{
+        schemaVersion = 1
+        generatedAt = [DateTimeOffset]::UtcNow.ToString("o")
+        plugins = @($ReleasedPlugins | Sort-Object Name | ForEach-Object {
+            [ordered]@{
+                id = $_.Id
+                name = $_.Name
+                version = $_.Version
+                description = if ($_.Description) { $_.Description } else { "" }
+                authors = @($_.Authors)
+                tags = @($_.Tags)
+                downloadUrl = "$($CatalogBaseUrl.TrimEnd('/'))/$($_.PackageName)"
+                sha256 = $_.Sha256
+                size = $_.Size
+                minAppVersion = $_.MinAppVersion
+                sdkVersion = $_.SdkVersion
+                platforms = @($_.Platforms)
+            }
+        })
+    }
+    $catalogPath = Join-Path $ReleaseOutputDir "plugin-index.json"
+    $catalog | ConvertTo-Json -Depth 8 | Set-Content -Path $catalogPath -Encoding utf8
+    Write-Host "  ✓ Catalog: $catalogPath" -ForegroundColor Green
+    Write-Host ""
+
     Write-Host "  Released plugins:" -ForegroundColor White
     $ReleasedPlugins | ForEach-Object {
-        Write-Host "    ✓ $($_.Name) v$($_.Version) ($($_.Size) KB)" -ForegroundColor Green
+        $sizeKb = [math]::Round($_.Size / 1KB, 2)
+        Write-Host "    ✓ $($_.Name) v$($_.Version) ($sizeKb KB)" -ForegroundColor Green
         Write-Host "        sha256: $($_.Sha256)" -ForegroundColor DarkGray
     }
 }
@@ -256,3 +311,9 @@ if ($FailedPlugins.Count -gt 0) {
 }
 
 Write-Host ""
+
+if ($FailedPlugins.Count -gt 0) {
+    # CI must never publish a partial catalog: missing entries would make installed
+    # plugins appear to vanish from the repository until the next successful run.
+    exit 1
+}

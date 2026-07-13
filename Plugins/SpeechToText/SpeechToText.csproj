@@ -27,22 +27,7 @@
         <PackageReference Include="NAudio" Version="2.2.1" />
         <PackageReference Include="Whisper.net" Version="1.9.0" />
         <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
-    </ItemGroup>
-
-    <!-- Debug: Use project reference for full IntelliSense -->
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" />
-    </ItemGroup>
-
-    <!-- Release: Use DLL reference for standalone builds -->
-    <ItemGroup Condition="'$(Configuration)' == 'Release'">
-        <Reference Include="PiShock.MultiShock.PluginSdk">
-            <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
-            <Private>true</Private>
-        </Reference>
-        <None Include="..\..\Dependencies\PiShock.MultiShock.PluginSdk.xml">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" />
     </ItemGroup>
 
     <!-- Version with conditional build stamp -->

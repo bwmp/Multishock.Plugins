@@ -148,6 +148,14 @@ public class MeterDetectionConfig
     public string? RequiredFocusWindowTitle { get; set; }
 
     /// <summary>
+    /// Fraction (0.05-0.95) of a column/row's cross-axis pixels that must be lit
+    /// for that column/row to count as filled. Lower = more lenient (tolerates
+    /// borders/anti-aliasing inside the region), higher = stricter (rejects
+    /// glow/bloom around the bar). 0.25 matches the plugin's historical behavior.
+    /// </summary>
+    public double FillSensitivity { get; set; } = 0.25;
+
+    /// <summary>
     /// Whether to use a color hint for bar detection.
     /// </summary>
     public bool UseColorHint { get; set; } = false;

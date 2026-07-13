@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
     <PropertyGroup>
-        <TargetFramework>net10.0-windows</TargetFramework>
+        <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+        <!-- Plugin still runs on Windows 10 1809+; WGC availability is checked at runtime. -->
+        <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -26,26 +28,10 @@
     <ItemGroup>
         <PackageReference Include="Emgu.CV" Version="4.12.0.5764" />
         <PackageReference Include="Emgu.CV.runtime.windows" Version="4.12.0.5764" />
-        <PackageReference Include="Microsoft.Windows.SDK.NET" Version="10.0.18362.6-preview" />
+        <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.8.0" /> -->
-    </ItemGroup>
-
-    <!-- Debug: Use project reference for full IntelliSense -->
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" />
-    </ItemGroup>
-
-    <!-- Release: Use DLL reference for standalone builds -->
-    <ItemGroup Condition="'$(Configuration)' == 'Release'">
-        <Reference Include="PiShock.MultiShock.PluginSdk">
-            <HintPath>..\..\Dependencies\PiShock.MultiShock.PluginSdk.dll</HintPath>
-            <Private>true</Private>
-        </Reference>
-        <None Include="..\..\Dependencies\PiShock.MultiShock.PluginSdk.xml">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" />
     </ItemGroup>
 
     <!-- Version with build stamp -->

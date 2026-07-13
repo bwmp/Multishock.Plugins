@@ -1,0 +1,35 @@
+@inject ImageConfigService ConfigService
+@inject IScreenCaptureService CaptureService
+
+@* Manual X/Y/W/H inputs for a target's custom region, shared by the meter,
+   OCR, and template region editors. *@
+
+<div class="grid grid-cols-2 gap-3">
+    <NumberInput Label="X Position" Value="(double)(Image.Region.CustomRegion?.X ?? 0)"
+                 ValueChanged="@(v => Update(x: (int)(v ?? 0)))" Min="0" />
+    <NumberInput Label="Y Position" Value="(double)(Image.Region.CustomRegion?.Y ?? 0)"
+                 ValueChanged="@(v => Update(y: (int)(v ?? 0)))" Min="0" />
+    <NumberInput Label="Width" Value="(double)(Image.Region.CustomRegion?.Width ?? 100)"
+                 ValueChanged="@(v => Update(width: (int)(v ?? 100)))" Min="1" />
+    <NumberInput Label="Height" Value="(double)(Image.Region.CustomRegion?.Height ?? 100)"
+                 ValueChanged="@(v => Update(height: (int)(v ?? 100)))" Min="1" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public DetectionImage Image { get; set; } = default!;
+
+    private void Update(int? x = null, int? y = null, int? width = null, int? height = null)
+    {
+        if (Image.Region.CustomRegion == null) return;
+
+        var monitors = CaptureService.GetMonitors();
+        var monitor = monitors.FirstOrDefault(m => m.Index == ConfigService.CaptureConfig.MonitorIndex);
+        var reference = monitor?.Resolution == null
+            ? null
+            : new Resolution(monitor.Resolution.Width, monitor.Resolution.Height);
+
+        EditorUi.UpdateCustomRegion(Image, reference, x, y, width, height);
+        ConfigService.UpdateImage(ModuleId, Image);
+    }
+}

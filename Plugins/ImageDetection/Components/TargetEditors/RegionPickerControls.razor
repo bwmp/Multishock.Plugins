@@ -1,0 +1,58 @@
+@inject RegionPickerArmService PickerArmService
+@inject IGlobalHotkeyService HotkeyService
+@inject ImageConfigService ConfigService
+
+@* Arm-picker / instant-capture button pair shared by the meter, OCR, and
+   template region editors. The actual picker modal lives in HomeModuleEditor;
+   OnCaptureRequested asks it to capture and open. *@
+
+<div class="flex items-center gap-2">
+    @if (IsArmedForTarget)
+    {
+        <Button Class="flex-1" Variant="none" OnClick="ToggleArm">
+            <span class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 font-medium hover:bg-yellow-500/30 transition-colors w-full">
+                <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                Armed - Press @PickerHotkeyDisplay in game
+            </span>
+        </Button>
+    }
+    else
+    {
+        <Button Text="Arm Region Picker" Variant="primary" Class="flex-1"
+                Disabled="@(!HotkeyService.IsRegistered)"
+                OnClick="ToggleArm" />
+    }
+    <Button Variant="secondary" OnClick="OnCaptureRequested">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+    </Button>
+</div>
+
+@if (!HotkeyService.IsRegistered)
+{
+    <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2">
+        @(HotkeyService.IsSupported
+            ? "Global hotkey not registered. Configure it in plugin settings to use the arm/hotkey workflow."
+            : (HotkeyService.UnsupportedReason ?? "Global hotkeys are not supported on this platform."))
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string TargetId { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnCaptureRequested { get; set; }
+
+    private string PickerHotkeyDisplay => ConfigService.PickerHotkey.GetDisplayString();
+
+    private bool IsArmedForTarget =>
+        PickerArmService.IsArmed &&
+        PickerArmService.Current?.ModuleId == ModuleId &&
+        PickerArmService.Current?.TargetId == TargetId;
+
+    private void ToggleArm()
+    {
+        if (string.IsNullOrEmpty(ModuleId) || string.IsNullOrEmpty(TargetId)) return;
+        PickerArmService.Toggle(ModuleId, TargetId);
+    }
+}

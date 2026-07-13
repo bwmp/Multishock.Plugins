@@ -254,8 +254,13 @@ public class ThroneService : IDisposable
         var subscribeMessage = new WebSocketSubscribeMessage
         {
             Action = "subscribe",
-            Collection = "overlays",
-            CreatorId = _creatorId!
+            Collection = "contributions",
+            CreatorId = _creatorId!,
+            Filters = new Dictionary<string, object>
+            {
+                ["completed"] = true,
+                ["removed"] = false
+            }
         };
 
         var messageJson = JsonSerializer.Serialize(subscribeMessage);
@@ -382,6 +387,9 @@ public class ThroneService : IDisposable
     {
         var evt = new ThroneEvent();
 
+        if (root.TryGetProperty("changeType", out var changeTypeProp))
+            evt.ChangeType = changeTypeProp.GetString() ?? string.Empty;
+
         if (root.TryGetProperty("documentId", out var docIdProp))
             evt.Id = docIdProp.GetString() ?? string.Empty;
         else if (dataElement.TryGetProperty("_id", out var idProp))
@@ -392,18 +400,60 @@ public class ThroneService : IDisposable
         if (dataElement.TryGetProperty("creatorId", out var creatorIdProp))
             evt.CreatorId = creatorIdProp.GetString() ?? string.Empty;
 
+        if (dataElement.TryGetProperty("type", out var eventTypeProp))
+            evt.EventType = eventTypeProp.GetString() ?? string.Empty;
+
+        if (dataElement.TryGetProperty("cartId", out var cartIdProp))
+            evt.CartId = cartIdProp.GetString() ?? string.Empty;
+
+        if (dataElement.TryGetProperty("contentId", out var contentIdProp))
+            evt.ContentId = contentIdProp.GetString() ?? string.Empty;
+
+        if (dataElement.TryGetProperty("itemId", out var itemIdProp))
+            evt.ItemId = itemIdProp.GetString() ?? string.Empty;
+
+        if (dataElement.TryGetProperty("orderId", out var orderIdProp) && orderIdProp.ValueKind != JsonValueKind.Null)
+            evt.OrderId = orderIdProp.GetString() ?? string.Empty;
+
+        if (dataElement.TryGetProperty("foreignPaymentId", out var foreignPaymentIdProp))
+            evt.ForeignPaymentId = foreignPaymentIdProp.GetString() ?? string.Empty;
+
+        if (dataElement.TryGetProperty("completed", out var completedProp))
+            evt.Completed = ReadBool(completedProp) ?? false;
+
+        if (dataElement.TryGetProperty("removed", out var removedProp))
+            evt.Removed = ReadBool(removedProp) ?? false;
+
         if (dataElement.TryGetProperty("createdAt", out var createdAtProp))
         {
-            if (createdAtProp.ValueKind == JsonValueKind.Number)
-                evt.CreatedAt = createdAtProp.GetInt64();
-            else if (createdAtProp.ValueKind == JsonValueKind.String &&
-                     long.TryParse(createdAtProp.GetString(), out var timestamp))
-                evt.CreatedAt = timestamp;
+            evt.CreatedAt = ReadLong(createdAtProp) ?? 0;
         }
+
+        if (dataElement.TryGetProperty("updatedAt", out var updatedAtProp))
+            evt.UpdatedAt = ReadLong(updatedAtProp) ?? 0;
+
+        if (dataElement.TryGetProperty("completedAt", out var completedAtProp))
+            evt.CompletedAt = ReadLong(completedAtProp);
+
+        if (dataElement.TryGetProperty("removedAt", out var removedAtProp))
+            evt.RemovedAt = ReadLong(removedAtProp);
+
+        if (dataElement.TryGetProperty("displayData", out var displayDataProp))
+            evt.DisplayData = ParseDisplayData(displayDataProp);
+
+        if (dataElement.TryGetProperty("total", out var totalProp))
+            evt.Total = ParseMoneyTotal(totalProp);
+
+        if (dataElement.TryGetProperty("totalUsd", out var totalUsdProp))
+            evt.TotalUsd = ParseMoneyTotal(totalUsdProp);
 
         if (dataElement.TryGetProperty("overlayInformation", out var overlayProp))
         {
             evt.OverlayInformation = ParseOverlayInformation(overlayProp);
+        }
+        else if (evt.EventType.Equals("contribution", StringComparison.OrdinalIgnoreCase))
+        {
+            evt.OverlayInformation = ParseContributionInformation(dataElement, evt);
         }
 
         if (!string.IsNullOrEmpty(evt.Id) || evt.OverlayInformation != null)
@@ -443,6 +493,112 @@ public class ThroneService : IDisposable
         return overlay;
     }
 
+    private OverlayInformation ParseContributionInformation(JsonElement element, ThroneEvent evt)
+    {
+        var overlay = new OverlayInformation
+        {
+            Type = "contribution",
+            GifterUsername = evt.DisplayData?.CustomerUsername ?? "Anonymous",
+            Message = evt.DisplayData?.CustomerMessage ?? string.Empty,
+            ItemImage = evt.DisplayData?.CustomerImage,
+            Amount = evt.Total?.Total ?? evt.TotalUsd?.Total
+        };
+
+        if (element.TryGetProperty("itemName", out var itemNameProp))
+            overlay.ItemName = itemNameProp.GetString();
+
+        if (element.TryGetProperty("itemImage", out var itemImageProp))
+            overlay.ItemImage = itemImageProp.GetString();
+
+        return overlay;
+    }
+
+    private static DisplayData ParseDisplayData(JsonElement element)
+    {
+        var displayData = new DisplayData();
+
+        if (element.TryGetProperty("customerUsername", out var usernameProp) && usernameProp.ValueKind != JsonValueKind.Null)
+            displayData.CustomerUsername = usernameProp.GetString();
+
+        if (element.TryGetProperty("customerMessage", out var messageProp) && messageProp.ValueKind != JsonValueKind.Null)
+            displayData.CustomerMessage = messageProp.GetString();
+
+        if (element.TryGetProperty("customerImage", out var imageProp) && imageProp.ValueKind != JsonValueKind.Null)
+            displayData.CustomerImage = imageProp.GetString();
+
+        return displayData;
+    }
+
+    private static MoneyTotal ParseMoneyTotal(JsonElement element)
+    {
+        var total = new MoneyTotal();
+
+        if (element.TryGetProperty("subTotal", out var subTotalProp))
+            total.SubTotal = ReadDouble(subTotalProp) ?? 0;
+
+        if (element.TryGetProperty("extras", out var extrasProp))
+            total.Extras = ReadDouble(extrasProp) ?? 0;
+
+        if (element.TryGetProperty("currency", out var currencyProp))
+            total.Currency = currencyProp.GetString() ?? string.Empty;
+
+        if (element.TryGetProperty("shipping", out var shippingProp))
+            total.Shipping = ReadDouble(shippingProp) ?? 0;
+
+        if (element.TryGetProperty("total", out var totalProp))
+            total.Total = ReadDouble(totalProp) ?? 0;
+
+        if (element.TryGetProperty("price", out var priceProp))
+            total.Price = ReadDouble(priceProp) ?? 0;
+
+        if (element.TryGetProperty("tax", out var taxProp))
+            total.Tax = ReadDouble(taxProp) ?? 0;
+
+        if (element.TryGetProperty("fees", out var feesProp))
+            total.Fees = ReadDouble(feesProp) ?? 0;
+
+        return total;
+    }
+
+    private static long? ReadLong(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Null || element.ValueKind == JsonValueKind.Undefined)
+            return null;
+
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out var longValue))
+            return longValue;
+
+        if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(), out var parsedValue))
+            return parsedValue;
+
+        return null;
+    }
+
+    private static double? ReadDouble(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Null || element.ValueKind == JsonValueKind.Undefined)
+            return null;
+
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetDouble(out var doubleValue))
+            return doubleValue;
+
+        if (element.ValueKind == JsonValueKind.String && double.TryParse(element.GetString(), out var parsedValue))
+            return parsedValue;
+
+        return null;
+    }
+
+    private static bool? ReadBool(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.True || element.ValueKind == JsonValueKind.False)
+            return element.GetBoolean();
+
+        if (element.ValueKind == JsonValueKind.String && bool.TryParse(element.GetString(), out var parsedValue))
+            return parsedValue;
+
+        return null;
+    }
+
     public void Dispose()
     {
         Stop();
@@ -460,5 +616,8 @@ public class ThroneService : IDisposable
 
         [JsonPropertyName("creatorId")]
         public string CreatorId { get; set; } = string.Empty;
+
+        [JsonPropertyName("filters")]
+        public Dictionary<string, object>? Filters { get; set; }
     }
 }

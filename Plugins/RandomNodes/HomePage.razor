@@ -1,0 +1,48 @@
+@page "/plugins/com-multishock-randomnodes/randomnodes"
+
+<div class="space-y-6 p-4">
+    <div>
+        <h1 class="text-xl font-bold">Random Nodes</h1>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            A grab bag of handy flow nodes for media status, randomization, text checks, time, and delays.
+        </p>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2">
+        <section class="randomnodes-card space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+            <div>
+                <h2 class="font-semibold">Media nodes</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Read currently playing music from Windows media sessions, including local Spotify.
+                </p>
+            </div>
+            <ul class="list-disc space-y-2 pl-5 text-sm">
+                <li><strong>Spotify Now Playing</strong> — song name, artist, album, length, current playtime, progress, and pause/play status.</li>
+                <li><strong>Active Media Session</strong> — the same metadata for whichever player Windows reports as active.</li>
+            </ul>
+        </section>
+
+        <section class="randomnodes-card space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+            <div>
+                <h2 class="font-semibold">Utility nodes</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Small building blocks for adding randomness and quick logic to flows.
+                </p>
+            </div>
+            <ul class="list-disc space-y-2 pl-5 text-sm">
+                <li><strong>Random Number</strong> — generate a value between a min and max.</li>
+                <li><strong>Random Choice</strong> — pick one comma- or line-separated choice.</li>
+                <li><strong>Chance Gate</strong> — route flow by percentage chance.</li>
+                <li><strong>Text Contains</strong> — branch based on a case-insensitive text match.</li>
+                <li><strong>Time Now</strong> — output the current time string, local time, UTC time, Unix seconds, and day of week.</li>
+                <li><strong>Format Time</strong> — convert seconds to mm:ss or a Unix timestamp to hh:mm AM/PM using local, UTC, or a manual offset.</li>
+                <li><strong>Random Delay</strong> — wait a random duration before continuing.</li>
+            </ul>
+        </section>
+    </div>
+
+    <div class="rounded-lg bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
+        <strong>Spotify note:</strong> the Spotify node uses the Windows media controls API, so Spotify must be running and exposing a media session.
+        If Spotify is not found, the node falls back to the current Windows media session when available.
+    </div>
+</div>

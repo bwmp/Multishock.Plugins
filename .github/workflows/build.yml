@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'Plugins/**Plugin/**'
+      - 'Plugins/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches:
       - main
     paths:
-      - 'Plugins/**Plugin/**'
+      - 'Plugins/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:

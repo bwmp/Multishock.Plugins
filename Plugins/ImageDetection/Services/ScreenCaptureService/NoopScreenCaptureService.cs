@@ -16,6 +16,8 @@ public class NoopScreenCaptureService : IScreenCaptureService
 
     public string? UnsupportedReason => "Screen capture is only implemented for Windows in this plugin build.";
 
+    public string? DpiWarning => null;
+
     public CaptureConfig Config
     {
         get => _config;
@@ -33,12 +35,13 @@ public class NoopScreenCaptureService : IScreenCaptureService
     {
         if (regionConfig.Type == RegionType.FullScreen)
         {
-            return screenshot.Clone();
+            return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
         }
 
         if (regionConfig.Type == RegionType.Custom && regionConfig.CustomRegion != null)
         {
-            return ApplyCustomRegion(screenshot, regionConfig.CustomRegion);
+            var region = regionConfig.GetCustomRegionFor(screenshot.Width, screenshot.Height)!;
+            return ApplyCustomRegion(screenshot, region);
         }
 
         if (regionConfig.Type == RegionType.Grid)
@@ -46,7 +49,7 @@ public class NoopScreenCaptureService : IScreenCaptureService
             return ApplyGridSections(screenshot, regionConfig.GridSections);
         }
 
-        return screenshot.Clone();
+        return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
     }
 
     public List<MonitorInfo> GetMonitors() =>
@@ -84,22 +87,21 @@ public class NoopScreenCaptureService : IScreenCaptureService
 
         if (width <= 0 || height <= 0)
         {
-            return screenshot.Clone();
+            return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
         }
 
         var roi = new System.Drawing.Rectangle(x, y, width, height);
-        using var subMat = new Mat(screenshot, roi);
-        return subMat.Clone();
+        return new Mat(screenshot, roi);
     }
 
     private static Mat ApplyGridSections(Mat screenshot, GridSections? sections)
     {
         if (sections == null || sections.AllSectionsEnabled())
         {
-            return screenshot.Clone();
+            return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
         }
 
-        var result = screenshot.Clone();
+        var result = new Mat(screenshot.Size, screenshot.Depth, screenshot.NumberOfChannels);
         int sectionWidth = screenshot.Width / 3;
         int sectionHeight = screenshot.Height / 3;
 
@@ -125,10 +127,7 @@ public class NoopScreenCaptureService : IScreenCaptureService
             }
         }
 
-        using var maskedResult = new Mat();
-        CvInvoke.BitwiseAnd(result, result, maskedResult, mask);
-
-        result.Dispose();
-        return maskedResult.Clone();
+        CvInvoke.BitwiseAnd(screenshot, screenshot, result, mask);
+        return result;
     }
 }

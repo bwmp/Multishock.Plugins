@@ -1,0 +1,447 @@
+@inject ImageDetectionService DetectionService
+@inject ImageConfigService ConfigService
+@inject IScreenCaptureService CaptureService
+@inject ValueChangeAnalyzerService ValueAnalyzer
+@inject IPluginHost PluginHost
+
+@* Meter/healthbar target editor: setup warning, live value, region selection,
+   and detection settings. Action settings live in ActionSettingsCard. *@
+
+@{
+    var regionConfigured = Image.Region.CustomRegion != null
+        && (Image.Region.CustomRegion.X != 0 || Image.Region.CustomRegion.Y != 0
+            || !string.IsNullOrEmpty(Image.Meter.RegionPreviewPath));
+}
+
+@if (!regionConfigured)
+{
+    <div class="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-yellow-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <p class="text-sm font-medium text-yellow-300">Setup required: Select your health bar region</p>
+                <p class="text-xs text-yellow-400/80 mt-1">
+                    Use the region picker below to select where the health bar appears on screen.
+                    This is required before detection can work.
+                </p>
+            </div>
+        </div>
+    </div>
+}
+
+@if (DetectionService.IsRunning && !string.IsNullOrEmpty(ModuleId))
+{
+    var currentVal = GetMeterCurrentValue();
+    <div class="p-3 rounded-lg bg-black/20 border border-app-border">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-app-muted font-medium uppercase tracking-wide">Live Value</span>
+            @if (currentVal.HasValue)
+            {
+                <span class="text-sm font-mono font-bold text-green-400">@currentVal.Value.ToString("F1")%</span>
+            }
+            else
+            {
+                <span class="text-xs text-app-muted">Waiting for data...</span>
+            }
+        </div>
+        @if (currentVal.HasValue)
+        {
+            <div class="w-full h-2.5 rounded-full bg-app-surface overflow-hidden">
+                <div class="h-full rounded-full bg-green-500 transition-all duration-300"
+                     style="width: @(currentVal.Value)%"></div>
+            </div>
+        }
+    </div>
+}
+
+<Card Title="Step 1: Select Health Bar Region" Description="Define where the health bar is on your screen">
+    <div class="space-y-4">
+        @if (!string.IsNullOrEmpty(Image.Meter.RegionPreviewPath) && File.Exists(Image.Meter.RegionPreviewPath))
+        {
+            <div class="p-3 rounded-lg bg-black/20 border border-app-border">
+                <span class="text-xs text-app-muted font-medium uppercase tracking-wide mb-2 block">Region Preview</span>
+                <div class="rounded border border-app-border overflow-hidden bg-black/30">
+                    <img src="@EditorUi.GetImageDataUri(Image.Meter.RegionPreviewPath)"
+                         alt="Region preview"
+                         class="max-w-full max-h-24 mx-auto object-contain" />
+                </div>
+                <span class="text-xs text-app-muted mt-1 block">
+                    @(Image.Region.CustomRegion != null
+                        ? $"{Image.Region.CustomRegion.Width} x {Image.Region.CustomRegion.Height} px at ({Image.Region.CustomRegion.X}, {Image.Region.CustomRegion.Y})"
+                        : "")
+                </span>
+            </div>
+        }
+
+        <p class="text-xs text-app-muted">
+            Take a screenshot of your game, then draw a box around the health bar.
+            For best results, select just the filled portion of the bar (avoid borders and text).
+        </p>
+
+        <RegionPickerControls ModuleId="@ModuleId" TargetId="@Image.Id" OnCaptureRequested="OnPickRegion" />
+
+        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
+            <summary class="cursor-pointer text-sm text-zinc-400">Manual coordinates</summary>
+            <div class="mt-3">
+                <ManualRegionInputs ModuleId="@ModuleId" Image="Image" />
+            </div>
+        </details>
+    </div>
+</Card>
+
+<Card Title="Step 2: Detection Settings" Description="Configure how the health bar is read">
+    <div class="space-y-3">
+
+        <Select Label="Fill Direction" TValue="MeterFillDirection"
+                Value="Image.Meter.Direction"
+                ValueChanged="OnMeterDirectionChangedSelect"
+                Options="MeterDirectionOptions"
+                Description="Which direction the bar fills when full" />
+
+        <Checkbox Label="Decreases only (damage)" Description="Only trigger when the bar goes down - ignores healing or regeneration"
+                  Value="Image.Meter.DecreasesOnly" ValueChanged="OnDecreasesOnlyChanged" />
+
+        <Slider Label="Min Change %" Value="Image.Meter.MinDeltaPercent"
+                ValueChanged="UpdateMeterMinDelta"
+                Min="0.5" Max="20" Step="0.5" Filled="true" ShowValueDirection="right" />
+        <p class="text-xs text-app-muted -mt-2">
+            Ignore changes smaller than this. Increase if you get false triggers from bar animations.
+        </p>
+        <div class="rounded-lg border border-app-border bg-black/15 px-3 py-3 space-y-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-sm text-zinc-300 font-medium">Bar Color</span>
+                    <p class="text-xs text-app-muted mt-0.5">
+                        @if (Image.Meter.UseColorHint && Image.Meter.ColorHint != null)
+                        {
+                            @($"Active - Hue {Image.Meter.ColorHint.HueMin}-{Image.Meter.ColorHint.HueMax}")
+                        }
+                        else
+                        {
+                            @("Not set - using brightness-based detection")
+                        }
+                    </p>
+                </div>
+                @if (Image.Meter.UseColorHint)
+                {
+                    <Button Text="Re-detect" Size="sm" Variant="secondary" OnClick="RedetectBarColor" />
+                }
+            </div>
+
+            <Checkbox Label="Use color filtering" Description="Filter by the bar's color for more accurate readings"
+                      Value="Image.Meter.UseColorHint" ValueChanged="OnUseColorHintChanged" />
+
+            @if (Image.Meter.UseColorHint)
+            {
+                <div class="space-y-2">
+                    <label class="block text-xs font-medium text-app-muted">Quick preset</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-green-600/30 text-green-300 border border-green-500/40 hover:bg-green-600/50 transition-colors"
+                                @onclick="@(() => ApplyColorPreset("green"))">Green</button>
+                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-red-600/30 text-red-300 border border-red-500/40 hover:bg-red-600/50 transition-colors"
+                                @onclick="@(() => ApplyColorPreset("red"))">Red</button>
+                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-blue-600/30 text-blue-300 border border-blue-500/40 hover:bg-blue-600/50 transition-colors"
+                                @onclick="@(() => ApplyColorPreset("blue"))">Blue</button>
+                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-yellow-600/30 text-yellow-300 border border-yellow-500/40 hover:bg-yellow-600/50 transition-colors"
+                                @onclick="@(() => ApplyColorPreset("yellow"))">Yellow</button>
+                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-zinc-600/30 text-zinc-300 border border-zinc-500/40 hover:bg-zinc-600/50 transition-colors"
+                                @onclick="@(() => ApplyColorPreset("white"))">White</button>
+                    </div>
+
+                    @if (Image.Meter.ColorHint != null)
+                    {
+                        <details class="rounded border border-app-border bg-black/10 px-2 py-1.5">
+                            <summary class="cursor-pointer text-xs text-zinc-500">Manual HSV tuning</summary>
+                            <div class="mt-2 space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <NumberInput Label="Hue Min" Value="(double)Image.Meter.ColorHint.HueMin"
+                                                 ValueChanged="@(v => UpdateColorHint(h => h.HueMin = (int)Math.Clamp(v ?? 0, 0, 180)))"
+                                                 Min="0" Max="180" Step="1" />
+                                    <NumberInput Label="Hue Max" Value="(double)Image.Meter.ColorHint.HueMax"
+                                                 ValueChanged="@(v => UpdateColorHint(h => h.HueMax = (int)Math.Clamp(v ?? 0, 0, 180)))"
+                                                 Min="0" Max="180" Step="1" />
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <NumberInput Label="Saturation Min" Value="(double)Image.Meter.ColorHint.SatMin"
+                                                 ValueChanged="@(v => UpdateColorHint(h => h.SatMin = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                 Min="0" Max="255" Step="1" />
+                                    <NumberInput Label="Saturation Max" Value="(double)Image.Meter.ColorHint.SatMax"
+                                                 ValueChanged="@(v => UpdateColorHint(h => h.SatMax = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                 Min="0" Max="255" Step="1" />
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <NumberInput Label="Brightness Min" Value="(double)Image.Meter.ColorHint.ValMin"
+                                                 ValueChanged="@(v => UpdateColorHint(h => h.ValMin = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                 Min="0" Max="255" Step="1" />
+                                    <NumberInput Label="Brightness Max" Value="(double)Image.Meter.ColorHint.ValMax"
+                                                 ValueChanged="@(v => UpdateColorHint(h => h.ValMax = (int)Math.Clamp(v ?? 0, 0, 255)))"
+                                                 Min="0" Max="255" Step="1" />
+                                </div>
+                            </div>
+                        </details>
+                    }
+                </div>
+            }
+        </div>
+        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
+            <summary class="cursor-pointer text-sm text-zinc-400">Advanced tuning</summary>
+            <div class="mt-3 space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <NumberInput Label="Smoothing Frames" Value="(double)Image.Meter.SmoothingFrames"
+                                     ValueChanged="OnMeterSmoothingChanged"
+                                     Min="1" Max="10" Step="1" />
+                        <p class="text-xs text-app-muted mt-1">Averages this many readings to reduce noise. Higher = more stable but slower to react.</p>
+                    </div>
+                    <div>
+                        <NumberInput Label="Event Cooldown (ms)" Value="(double)Image.Meter.EventCooldownMs"
+                                     ValueChanged="OnMeterCooldownChanged"
+                                     Min="50" Max="5000" Step="50" />
+                        <p class="text-xs text-app-muted mt-1">Minimum time between triggers. Prevents rapid repeated activations.</p>
+                    </div>
+                </div>
+
+                <div>
+                    <Slider Label="Fill Sensitivity" Value="Image.Meter.FillSensitivity"
+                            ValueChanged="OnMeterFillSensitivityChanged"
+                            Min="0.05" Max="0.95" Step="0.05" Filled="true" ShowValueDirection="right" />
+                    <p class="text-xs text-app-muted mt-1">
+                        How much of a column must be lit to count as filled.
+                        Lower tolerates borders/anti-aliasing; raise it if glow or bloom
+                        around the bar inflates the reading.
+                    </p>
+                </div>
+
+                <Checkbox Label="Require focused window" Description="Only track when a specific window is in the foreground"
+                          Value="Image.Meter.RequireFocusedWindow" ValueChanged="OnRequireFocusedWindowChanged" />
+
+                @if (Image.Meter.RequireFocusedWindow)
+                {
+                    <div class="pl-6 space-y-2">
+                        <div class="flex gap-2 items-end">
+                            <div class="flex-1">
+                                <Select Label="Required Window" TValue="string"
+                                        Value="GetRequiredWindowSelectionKey()"
+                                        ValueChanged="OnRequiredFocusWindowSelect"
+                                        Placeholder="Select a window..."
+                                        Options="GetFocusWindowOptions()" />
+                            </div>
+                            <Button Text="Refresh" Size="sm" Variant="secondary" OnClick="RefreshWindowOptions" />
+                        </div>
+                    </div>
+                }
+            </div>
+        </details>
+    </div>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public DetectionImage Image { get; set; } = default!;
+
+    /// <summary>Asks the host editor to capture a screenshot and open the region picker.</summary>
+    [Parameter] public EventCallback OnPickRegion { get; set; }
+
+    private static readonly IEnumerable<Select<MeterFillDirection>.SelectOption<MeterFillDirection>> MeterDirectionOptions =
+    [
+        new(MeterFillDirection.LeftToRight, "Left to Right"),
+        new(MeterFillDirection.RightToLeft, "Right to Left"),
+        new(MeterFillDirection.BottomToTop, "Bottom to Top"),
+        new(MeterFillDirection.TopToBottom, "Top to Bottom"),
+    ];
+
+    private List<WindowInfo> AvailableWindows = [];
+
+    protected override void OnInitialized()
+    {
+        AvailableWindows = CaptureService.GetWindows();
+    }
+
+    private void Save() => ConfigService.UpdateImage(ModuleId, Image);
+
+    private double? GetMeterCurrentValue()
+    {
+        try
+        {
+            return ValueAnalyzer.GetCurrentValue(ModuleId, Image.Id);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void OnMeterDirectionChangedSelect(MeterFillDirection direction)
+    {
+        Image.Meter.Direction = direction;
+        Save();
+    }
+
+    private void OnDecreasesOnlyChanged(bool value)
+    {
+        Image.Meter.DecreasesOnly = value;
+        Save();
+    }
+
+    private void UpdateMeterMinDelta(double value)
+    {
+        Image.Meter.MinDeltaPercent = Math.Clamp(value, 0.5, 20);
+        Save();
+    }
+
+    private void OnMeterSmoothingChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Meter.SmoothingFrames = (int)Math.Clamp(value.Value, 1, 10);
+        Save();
+    }
+
+    private void OnMeterCooldownChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Meter.EventCooldownMs = (int)Math.Clamp(value.Value, 50, 5000);
+        Save();
+    }
+
+    private void OnMeterFillSensitivityChanged(double value)
+    {
+        Image.Meter.FillSensitivity = Math.Clamp(value, 0.05, 0.95);
+        Save();
+    }
+
+    private void OnRequireFocusedWindowChanged(bool value)
+    {
+        Image.Meter.RequireFocusedWindow = value;
+
+        if (!value)
+        {
+            Image.Meter.RequiredFocusWindowProcess = null;
+            Image.Meter.RequiredFocusWindowTitle = null;
+        }
+
+        Save();
+    }
+
+    private void OnRequiredFocusWindowSelect(string value)
+    {
+        var split = value.Split('|', 2);
+        Image.Meter.RequiredFocusWindowProcess = split.Length > 0 ? split[0] : null;
+        Image.Meter.RequiredFocusWindowTitle = split.Length > 1 ? split[1] : null;
+        Save();
+    }
+
+    private string GetRequiredWindowSelectionKey()
+    {
+        var process = Image.Meter.RequiredFocusWindowProcess ?? string.Empty;
+        var title = Image.Meter.RequiredFocusWindowTitle ?? string.Empty;
+        return $"{process}|{title}";
+    }
+
+    private IEnumerable<Select<string>.SelectOption<string>> GetFocusWindowOptions()
+    {
+        return AvailableWindows
+            .OrderBy(w => w.ProcessName)
+            .ThenBy(w => w.Title)
+            .Select(w => new Select<string>.SelectOption<string>(
+                $"{w.ProcessName}|{w.Title}",
+                string.IsNullOrWhiteSpace(w.ProcessName) ? w.Title : $"{w.ProcessName} - {w.Title}"));
+    }
+
+    private void RefreshWindowOptions()
+    {
+        AvailableWindows = CaptureService.GetWindows();
+        StateHasChanged();
+    }
+
+    private void OnUseColorHintChanged(bool value)
+    {
+        Image.Meter.UseColorHint = value;
+        if (value && Image.Meter.ColorHint == null)
+        {
+            Image.Meter.ColorHint = HsvRange.Green;
+        }
+        Save();
+    }
+
+    private void ApplyColorPreset(string preset)
+    {
+        Image.Meter.ColorHint = preset switch
+        {
+            "green" => HsvRange.Green,
+            "red" => HsvRange.Red,
+            "blue" => HsvRange.Blue,
+            "yellow" => HsvRange.Yellow,
+            "white" => HsvRange.White,
+            _ => HsvRange.Green
+        };
+        Save();
+    }
+
+    private void UpdateColorHint(Action<HsvRange> update)
+    {
+        if (Image.Meter.ColorHint == null) return;
+        update(Image.Meter.ColorHint);
+        Save();
+    }
+
+    private void RedetectBarColor()
+    {
+        var previewPath = Image.Meter.RegionPreviewPath;
+        if (!string.IsNullOrEmpty(previewPath) && File.Exists(previewPath))
+        {
+            try
+            {
+                using var previewMat = Emgu.CV.CvInvoke.Imread(previewPath, Emgu.CV.CvEnum.ImreadModes.Unchanged);
+                if (previewMat != null && !previewMat.IsEmpty)
+                {
+                    var autoHsv = ImageDetection.Algorithms.MeterFillAlgorithm.ComputeDominantHsvRange(previewMat);
+                    if (autoHsv != null)
+                    {
+                        Image.Meter.ColorHint = autoHsv;
+                        Image.Meter.UseColorHint = true;
+                        Save();
+                        PluginHost.ShowSuccessToast("Color Updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
+                        return;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        if (Image.Region.CustomRegion != null)
+        {
+            try
+            {
+                using var screenshot = CaptureService.CaptureMonitor(ConfigService.CaptureConfig.MonitorIndex);
+                var region = Image.Region.CustomRegion;
+                using var subMat = new Emgu.CV.Mat(screenshot,
+                    new System.Drawing.Rectangle(
+                        Math.Max(0, region.X), Math.Max(0, region.Y),
+                        Math.Min(region.Width, screenshot.Width - Math.Max(0, region.X)),
+                        Math.Min(region.Height, screenshot.Height - Math.Max(0, region.Y))));
+                using var roiClone = subMat.Clone();
+
+                var autoHsv = ImageDetection.Algorithms.MeterFillAlgorithm.ComputeDominantHsvRange(roiClone);
+                if (autoHsv != null)
+                {
+                    Image.Meter.ColorHint = autoHsv;
+                    Image.Meter.UseColorHint = true;
+                    Save();
+                    PluginHost.ShowSuccessToast("Color Updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                PluginHost.ShowErrorToast("Re-detect Failed", $"Failed to re-detect color: {ex.Message}");
+                return;
+            }
+        }
+
+        PluginHost.ShowErrorToast("Re-detect Failed", "Could not detect bar color. Try re-picking the region first.");
+    }
+}

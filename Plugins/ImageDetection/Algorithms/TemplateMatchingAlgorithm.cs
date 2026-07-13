@@ -5,6 +5,30 @@ using ImageDetection.Models;
 
 namespace ImageDetection.Algorithms;
 
+/// <summary>
+/// Interprets an OpenCV MatchTemplate result map according to the match method:
+/// SqDiff variants are distance metrics (lower = better, match at minLoc), the
+/// others are similarity metrics (higher = better, match at maxLoc).
+/// </summary>
+internal static class TemplateMatchInterpreter
+{
+    public static (double Confidence, System.Drawing.Point Location) GetBestMatch(
+        Mat result, TemplateMatchingType method)
+    {
+        double minVal = 0, maxVal = 0;
+        System.Drawing.Point minLoc = default, maxLoc = default;
+        CvInvoke.MinMaxLoc(result, ref minVal, ref maxVal, ref minLoc, ref maxLoc);
+
+        return method switch
+        {
+            TemplateMatchingType.SqdiffNormed => (1.0 - minVal, minLoc),
+            // Raw Sqdiff is unbounded; map to (0,1] so thresholds stay comparable.
+            TemplateMatchingType.Sqdiff => (1.0 / (1.0 + minVal), minLoc),
+            _ => (maxVal, maxLoc)
+        };
+    }
+}
+
 public class TemplateMatchingAlgorithm : IDetectionAlgorithm
 {
     public string Id => "template-matching";
@@ -42,23 +66,19 @@ public class TemplateMatchingAlgorithm : IDetectionAlgorithm
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            using var screenshotConverted = EnsureColorFormat(screenshot);
-            using var templateConverted = EnsureColorFormat(template);
-
             using var result = new Mat();
+            if (screenshot.NumberOfChannels != template.NumberOfChannels)
+                return DetectionResult.Failed("Screenshot and template channel counts do not match");
 
-            CvInvoke.MatchTemplate(screenshotConverted, templateConverted, result, MatchMethod);
+            CvInvoke.MatchTemplate(screenshot, template, result, MatchMethod);
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            double minVal = 0, maxVal = 0;
-            System.Drawing.Point minLoc = default, maxLoc = default;
-            CvInvoke.MinMaxLoc(result, ref minVal, ref maxVal, ref minLoc, ref maxLoc);
+            var (confidence, bestLoc) = TemplateMatchInterpreter.GetBestMatch(result, MatchMethod);
 
             stopwatch.Stop();
 
-            var confidence = maxVal;
-            var matchLocation = new Models.Point(maxLoc.X, maxLoc.Y);
+            var matchLocation = new Models.Point(bestLoc.X, bestLoc.Y);
             var matchSize = new Models.Size(template.Width, template.Height);
 
             if (confidence >= threshold)
@@ -94,25 +114,6 @@ public class TemplateMatchingAlgorithm : IDetectionAlgorithm
             stopwatch.Stop();
             return DetectionResult.Failed($"Template matching failed: {ex.Message}");
         }
-    }
-
-    private Mat EnsureColorFormat(Mat image)
-    {
-        if (image.NumberOfChannels == 4)
-        {
-
-            var converted = new Mat();
-            CvInvoke.CvtColor(image, converted, ColorConversion.Bgra2Bgr);
-            return converted;
-        }
-        else if (image.NumberOfChannels == 1)
-        {
-            var converted = new Mat();
-            CvInvoke.CvtColor(image, converted, ColorConversion.Gray2Bgr);
-            return converted;
-        }
-
-        return image.Clone();
     }
 
     public bool IsAvailable() => true;
@@ -205,14 +206,11 @@ public class MaskedTemplateMatchingAlgorithm : IDetectionAlgorithm
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            double minVal = 0, maxVal = 0;
-            System.Drawing.Point minLoc = default, maxLoc = default;
-            CvInvoke.MinMaxLoc(result, ref minVal, ref maxVal, ref minLoc, ref maxLoc);
+            var (confidence, bestLoc) = TemplateMatchInterpreter.GetBestMatch(result, MatchMethod);
 
             stopwatch.Stop();
 
-            var confidence = maxVal;
-            var matchLocation = new Models.Point(maxLoc.X, maxLoc.Y);
+            var matchLocation = new Models.Point(bestLoc.X, bestLoc.Y);
             var matchSize = new Models.Size(template.Width, template.Height);
 
             if (confidence >= threshold)

@@ -1,0 +1,164 @@
+@inject ImageConfigService ConfigService
+@inject IScreenCaptureService CaptureService
+
+@* Detection region + image preview for template targets. The visual grid
+   selector and region picker modals live in HomeModuleEditor. *@
+
+@{
+    var showImagePreview = !string.IsNullOrEmpty(Image.FilePath) && File.Exists(Image.FilePath);
+}
+
+<div class="region-preview-layout @(showImagePreview ? "has-preview" : "")">
+    <Card Title="Detection Region">
+        <div class="space-y-4">
+            <Select Label="Region Type" TValue="RegionType"
+                    Value="Image.Region.Type"
+                    ValueChanged="OnRegionTypeSelect"
+                    Options="RegionTypeOptions" />
+
+            <RegionPickerControls ModuleId="@ModuleId" TargetId="@Image.Id" OnCaptureRequested="OnPickRegion" />
+
+            @if (Image.Region.Type == RegionType.Grid)
+            {
+                <div>
+                    <label class="block text-xs font-medium text-app-muted mb-3">Active Sections</label>
+                    <div class="inline-block">
+                        <div class="grid grid-cols-3 gap-1">
+                            @for (var i = 0; i < 9; i++)
+                            {
+                                var index = i;
+                                var isActive = Image.Region.GridSections?.Sections[index] ?? true;
+                                <button type="button"
+                                        class="w-16 h-12 rounded text-xs font-medium transition-all @(isActive ? "bg-green-600 hover:bg-green-500" : "bg-red-600/50 hover:bg-red-500/50")"
+                                        @onclick="@(() => ToggleSection(index))">
+                                    @(index + 1)
+                                </button>
+                            }
+                        </div>
+                        <div class="flex gap-2 mt-3">
+                            <Button Text="All" Size="sm" Variant="ghost" OnClick="EnableAllSections" />
+                            <Button Text="None" Size="sm" Variant="ghost" OnClick="DisableAllSections" />
+                            <Button Text="Visual Preview" Size="sm" Variant="primary" OnClick="OnOpenVisualSelector" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-app-muted mt-2">Green = enabled, Red = disabled</p>
+                </div>
+            }
+
+            @if (Image.Region.Type == RegionType.Custom)
+            {
+                <ManualRegionInputs ModuleId="@ModuleId" Image="Image" />
+            }
+        </div>
+    </Card>
+    @if (showImagePreview)
+    {
+        <Card Title="Image Preview">
+            <div class="rounded-lg border border-app-border overflow-hidden bg-black/20">
+                <img src="@EditorUi.GetImageDataUri(Image.FilePath)"
+                     alt="@Image.Name"
+                     class="max-w-full max-h-64 mx-auto object-contain" />
+            </div>
+            <div class="mt-3 flex flex-col gap-1 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-app-muted">Captured at:</span>
+                    <span class="text-app-text font-medium">@Image.CaptureResolution.Width&times;@Image.CaptureResolution.Height</span>
+                    @if (IsResolutionMismatch())
+                    {
+                        <span class="text-yellow-500">(mismatch)</span>
+                    }
+                </div>
+                @if (IsResolutionMismatch())
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="text-app-muted">Auto-resize:</span>
+                        <Checkbox Label="@(Image.AutoResize ? $"Enabled (will resize to {GetCurrentMonitorResolution()?.Width}x{GetCurrentMonitorResolution()?.Height})" : "Disabled")"
+                                  Value="Image.AutoResize" ValueChanged="OnAutoResizeChanged" />
+                    </div>
+                }
+            </div>
+        </Card>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public DetectionImage Image { get; set; } = default!;
+
+    /// <summary>Asks the host editor to capture a screenshot and open the region picker.</summary>
+    [Parameter] public EventCallback OnPickRegion { get; set; }
+
+    /// <summary>Asks the host editor to open the visual grid-section selector.</summary>
+    [Parameter] public EventCallback OnOpenVisualSelector { get; set; }
+
+    private static readonly IEnumerable<Select<RegionType>.SelectOption<RegionType>> RegionTypeOptions =
+    [
+        new(RegionType.FullScreen, "Full Screen"),
+        new(RegionType.Grid, "Grid Sections"),
+        new(RegionType.Custom, "Custom Region"),
+    ];
+
+    private List<MonitorInfo> _monitors = [];
+
+    protected override void OnInitialized()
+    {
+        _monitors = CaptureService.GetMonitors();
+    }
+
+    private void Save() => ConfigService.UpdateImage(ModuleId, Image);
+
+    private Resolution? GetCurrentMonitorResolution()
+        => _monitors.FirstOrDefault(m => m.Index == ConfigService.CaptureConfig.MonitorIndex)?.Resolution;
+
+    private bool IsResolutionMismatch()
+    {
+        var current = GetCurrentMonitorResolution();
+        if (current == null) return false;
+
+        return Image.CaptureResolution.Width != current.Width
+            || Image.CaptureResolution.Height != current.Height;
+    }
+
+    private void OnRegionTypeSelect(RegionType type)
+    {
+        Image.Region.Type = type;
+
+        if (type == RegionType.Grid && Image.Region.GridSections == null)
+            Image.Region.GridSections = GridSections.All();
+        if (type == RegionType.Custom && Image.Region.CustomRegion == null)
+        {
+            Image.Region.CustomRegion = new ScreenRegion { X = 0, Y = 0, Width = 100, Height = 100 };
+            var current = GetCurrentMonitorResolution();
+            Image.Region.ReferenceResolution = current == null
+                ? null
+                : new Resolution(current.Width, current.Height);
+        }
+
+        Save();
+    }
+
+    private void OnAutoResizeChanged(bool value)
+    {
+        Image.AutoResize = value;
+        Save();
+    }
+
+    private void ToggleSection(int index)
+    {
+        if (Image.Region.GridSections == null) return;
+        Image.Region.GridSections.Sections[index] = !Image.Region.GridSections.Sections[index];
+        Save();
+    }
+
+    private void EnableAllSections()
+    {
+        Image.Region.GridSections = GridSections.All();
+        Save();
+    }
+
+    private void DisableAllSections()
+    {
+        Image.Region.GridSections = GridSections.None();
+        Save();
+    }
+}

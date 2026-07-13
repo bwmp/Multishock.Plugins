@@ -8,16 +8,32 @@ namespace ImageDetection.Services;
 
 /// <summary>
 /// Windows implementation of <see cref="IScreenCaptureService"/>.
-/// Uses Win32/GDI P/Invoke directly to avoid System.Drawing.Common dependency.
+/// Prefers Windows Graphics Capture (captures hardware-accelerated and
+/// fullscreen content, ignores overlapping windows) and falls back to
+/// Win32/GDI BitBlt when WGC is unavailable or fails.
 /// </summary>
-public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptureService
+public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptureService, IDisposable
 {
     private readonly ILogger? _logger = logger;
     private CaptureConfig _config = new();
+    private readonly object _captureBufferLock = new();
+    private Mat? _captureBuffer;
+
+    private readonly object _wgcLock = new();
+    private WgcCaptureSession? _wgcSession;
+    private string? _wgcSessionKey;
+    private bool _wgcFailed;
 
     public bool IsSupported => true;
 
     public string? UnsupportedReason => null;
+
+    /// <summary>
+    /// Non-null when the host process is not per-monitor DPI aware, meaning
+    /// Windows reports virtualized (scaled) coordinates and captures/regions
+    /// will not line up with physical pixels on scaled displays.
+    /// </summary>
+    public string? DpiWarning { get; } = CheckDpiAwareness(logger);
 
     /// <summary>
     /// Current capture configuration.
@@ -25,7 +41,18 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
     public CaptureConfig Config
     {
         get => _config;
-        set => _config = value ?? new CaptureConfig();
+        set
+        {
+            _config = value ?? new CaptureConfig();
+
+            // Capture source or backend may have changed: drop the cached WGC
+            // session and allow Auto mode to retry WGC after an earlier failure.
+            lock (_wgcLock)
+            {
+                ResetWgcSessionLocked();
+                _wgcFailed = false;
+            }
+        }
     }
 
     /// <summary>
@@ -33,12 +60,114 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
     /// </summary>
     public Mat CaptureScreen()
     {
+        if (UseWgcBackend())
+        {
+            try
+            {
+                return CaptureViaWgc();
+            }
+            catch (Exception ex) when (_config.Backend == CaptureBackendType.Auto)
+            {
+                _logger?.LogWarning(ex, "Windows Graphics Capture failed; falling back to GDI capture");
+                lock (_wgcLock)
+                {
+                    ResetWgcSessionLocked();
+                    _wgcFailed = true;
+                }
+            }
+        }
+
         return _config.SourceType switch
         {
             CaptureSourceType.Monitor => CaptureMonitor(_config.MonitorIndex),
             CaptureSourceType.Window => CaptureWindow(_config.WindowTitle, _config.WindowId),
             _ => CaptureMonitor(1)
         };
+    }
+
+    private bool UseWgcBackend()
+    {
+        return _config.Backend switch
+        {
+            CaptureBackendType.LegacyGdi => false,
+            CaptureBackendType.WindowsGraphicsCapture => WgcCaptureSession.IsSupported()
+                ? true
+                : throw new InvalidOperationException(
+                    "Windows Graphics Capture is not supported on this system. Switch the capture backend to Auto or Legacy GDI."),
+            _ => !_wgcFailed && WgcCaptureSession.IsSupported()
+        };
+    }
+
+    private Mat CaptureViaWgc()
+    {
+        lock (_wgcLock)
+        {
+            var key = _config.SourceType == CaptureSourceType.Window
+                ? $"window:{_config.WindowId}|{_config.WindowTitle}|{_config.IncludeCursor}"
+                : $"monitor:{_config.MonitorIndex}|{_config.IncludeCursor}";
+
+            if (_wgcSession is { IsDead: true } || (_wgcSession != null && _wgcSessionKey != key))
+            {
+                ResetWgcSessionLocked();
+            }
+
+            if (_wgcSession == null)
+            {
+                _wgcSession = CreateWgcSession();
+                _wgcSessionKey = key;
+            }
+
+            return _wgcSession.CaptureFrame();
+        }
+    }
+
+    private WgcCaptureSession CreateWgcSession()
+    {
+        if (_config.SourceType == CaptureSourceType.Window)
+        {
+            var hwnd = ResolveWindowHandle(_config.WindowTitle, _config.WindowId);
+            if (hwnd == IntPtr.Zero)
+            {
+                throw new InvalidOperationException($"Window not found: {_config.WindowTitle}");
+            }
+
+            return WgcCaptureSession.CreateForWindow(hwnd, _config.IncludeCursor, _logger);
+        }
+
+        var hMonitor = GetMonitorHandle(_config.MonitorIndex);
+        if (hMonitor == IntPtr.Zero)
+        {
+            throw new InvalidOperationException($"Monitor {_config.MonitorIndex} not found");
+        }
+
+        return WgcCaptureSession.CreateForMonitor(hMonitor, _config.IncludeCursor, _logger);
+    }
+
+    private void ResetWgcSessionLocked()
+    {
+        _wgcSession?.Dispose();
+        _wgcSession = null;
+        _wgcSessionKey = null;
+    }
+
+    /// <summary>
+    /// Gets the HMONITOR for a 1-based monitor index, using the same
+    /// enumeration order as <see cref="GetMonitors"/>.
+    /// </summary>
+    private static IntPtr GetMonitorHandle(int monitorIndex)
+    {
+        var handles = new List<IntPtr>();
+
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (hMonitor, _, _, _) =>
+        {
+            handles.Add(hMonitor);
+            return true;
+        }, IntPtr.Zero);
+
+        if (handles.Count == 0) return IntPtr.Zero;
+
+        var index = Math.Clamp(monitorIndex - 1, 0, handles.Count - 1);
+        return handles[index];
     }
 
     /// <summary>
@@ -80,12 +209,7 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
     {
         try
         {
-            IntPtr hwnd = ParseWindowId(windowId);
-
-            if (hwnd == IntPtr.Zero && !string.IsNullOrEmpty(windowTitle))
-            {
-                hwnd = FindWindow(null, windowTitle);
-            }
+            IntPtr hwnd = ResolveWindowHandle(windowTitle, windowId);
 
             if (hwnd == IntPtr.Zero)
             {
@@ -112,6 +236,18 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
             _logger?.LogError(ex, "Failed to capture window: {Title}", windowTitle);
             throw;
         }
+    }
+
+    private static IntPtr ResolveWindowHandle(string? windowTitle, string? windowId)
+    {
+        IntPtr hwnd = ParseWindowId(windowId);
+
+        if (hwnd == IntPtr.Zero && !string.IsNullOrEmpty(windowTitle))
+        {
+            hwnd = FindWindow(null, windowTitle);
+        }
+
+        return hwnd;
     }
 
     private static IntPtr ParseWindowId(string? windowId)
@@ -204,26 +340,25 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
             }
         };
 
-        int stride = (width * 32 + 31) / 32 * 4;
-        int bufferSize = stride * height;
-        byte[] pixelData = new byte[bufferSize];
-
-        IntPtr hdc = GetDC(IntPtr.Zero);
-        try
+        lock (_captureBufferLock)
         {
-            int result = GetDIBits(hdc, hBitmap, 0, (uint)height, pixelData, ref bmi, DIB_RGB_COLORS);
-            if (result == 0)
-                throw new InvalidOperationException("GetDIBits failed");
-        }
-        finally
-        {
-            _ = ReleaseDC(IntPtr.Zero, hdc);
-        }
+            if (_captureBuffer == null || _captureBuffer.Width != width || _captureBuffer.Height != height)
+            {
+                _captureBuffer?.Dispose();
+                _captureBuffer = new Mat(height, width, DepthType.Cv8U, 4);
+            }
 
-        var mat = new Mat(height, width, DepthType.Cv8U, 4);
-        Marshal.Copy(pixelData, 0, mat.DataPointer, bufferSize);
+            IntPtr hdc = GetDC(IntPtr.Zero);
+            try
+            {
+                int result = GetDIBits(hdc, hBitmap, 0, (uint)height, _captureBuffer.DataPointer, ref bmi, DIB_RGB_COLORS);
+                if (result == 0) throw new InvalidOperationException("GetDIBits failed");
+            }
+            finally { _ = ReleaseDC(IntPtr.Zero, hdc); }
 
-        return mat;
+            // Return a lightweight header; the reusable backing Mat remains owned here.
+            return new Mat(_captureBuffer, new System.Drawing.Rectangle(0, 0, width, height));
+        }
     }
 
     /// <summary>
@@ -233,12 +368,13 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
     {
         if (regionConfig.Type == RegionType.FullScreen)
         {
-            return screenshot.Clone();
+            return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
         }
 
         if (regionConfig.Type == RegionType.Custom && regionConfig.CustomRegion != null)
         {
-            return ApplyCustomRegion(screenshot, regionConfig.CustomRegion);
+            var region = regionConfig.GetCustomRegionFor(screenshot.Width, screenshot.Height)!;
+            return ApplyCustomRegion(screenshot, region);
         }
 
         if (regionConfig.Type == RegionType.Grid)
@@ -246,7 +382,7 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
             return ApplyGridSections(screenshot, regionConfig.GridSections);
         }
 
-        return screenshot.Clone();
+        return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
     }
 
     /// <summary>
@@ -261,12 +397,11 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
 
         if (width <= 0 || height <= 0)
         {
-            return screenshot.Clone();
+            return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
         }
 
         var roi = new System.Drawing.Rectangle(x, y, width, height);
-        using var subMat = new Mat(screenshot, roi);
-        return subMat.Clone();
+        return new Mat(screenshot, roi);
     }
 
     /// <summary>
@@ -277,10 +412,10 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
     {
         if (sections == null || sections.AllSectionsEnabled())
         {
-            return screenshot.Clone();
+            return new Mat(screenshot, new System.Drawing.Rectangle(0, 0, screenshot.Width, screenshot.Height));
         }
 
-        var result = screenshot.Clone();
+        var result = new Mat(screenshot.Size, screenshot.Depth, screenshot.NumberOfChannels);
         int sectionWidth = screenshot.Width / 3;
         int sectionHeight = screenshot.Height / 3;
 
@@ -306,11 +441,58 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
             }
         }
 
-        using var maskedResult = new Mat();
-        CvInvoke.BitwiseAnd(result, result, maskedResult, mask);
+        CvInvoke.BitwiseAnd(screenshot, screenshot, result, mask);
+        return result;
+    }
 
-        result.Dispose();
-        return maskedResult.Clone();
+    public void Dispose()
+    {
+        lock (_wgcLock)
+        {
+            ResetWgcSessionLocked();
+        }
+
+        lock (_captureBufferLock)
+        {
+            _captureBuffer?.Dispose();
+            _captureBuffer = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies the process is per-monitor DPI aware. When it is not, Windows
+    /// virtualizes coordinates on scaled displays (125%/150% etc.), so captures
+    /// come out scaled and saved regions/templates silently stop matching.
+    /// The host app manifest declares PerMonitorV2; this catches regressions.
+    /// </summary>
+    private static string? CheckDpiAwareness(ILogger? logger)
+    {
+        try
+        {
+            var context = GetThreadDpiAwarenessContext();
+            var awareness = GetAwarenessFromDpiAwarenessContext(context);
+
+            if (awareness == DPI_AWARENESS_PER_MONITOR_AWARE) return null;
+
+            var level = awareness switch
+            {
+                DPI_AWARENESS_SYSTEM_AWARE => "system DPI aware only",
+                DPI_AWARENESS_UNAWARE => "not DPI aware",
+                _ => "of unknown DPI awareness"
+            };
+
+            var warning =
+                $"The host process is {level}. On displays with scaling other than 100%, " +
+                "captures are scaled by Windows and detection regions/templates may not line up with the screen.";
+
+            logger?.LogWarning("{DpiWarning}", warning);
+            return warning;
+        }
+        catch
+        {
+            // GetThreadDpiAwarenessContext requires Windows 10 1607+.
+            return null;
+        }
     }
 
     /// <summary>
@@ -546,7 +728,7 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
 
     [DllImport("gdi32.dll")]
     private static extern int GetDIBits(IntPtr hdc, IntPtr hbmp, uint uStartScan, uint cScanLines,
-        [Out] byte[] lpvBits, ref BITMAPINFO lpbi, uint uUsage);
+        IntPtr lpvBits, ref BITMAPINFO lpbi, uint uUsage);
 
     // User32
     [DllImport("user32.dll")]
@@ -587,6 +769,17 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    // DPI awareness (Windows 10 1607+)
+    private const int DPI_AWARENESS_UNAWARE = 0;
+    private const int DPI_AWARENESS_SYSTEM_AWARE = 1;
+    private const int DPI_AWARENESS_PER_MONITOR_AWARE = 2;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetThreadDpiAwarenessContext();
+
+    [DllImport("user32.dll")]
+    private static extern int GetAwarenessFromDpiAwarenessContext(IntPtr dpiContext);
 
     // Structures
     [StructLayout(LayoutKind.Sequential)]

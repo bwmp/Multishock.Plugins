@@ -1,0 +1,396 @@
+@inject ImageConfigService ConfigService
+
+@* Action, matching, and cooldown settings shared by all target types.
+   Template-only tuning (threshold, debounce, multi-scale, ...) renders
+   conditionally. *@
+
+<Card Title="@(Image.TargetType == DetectionTargetType.Template ? "Action Settings" : "Step 3: Action Settings")"
+      Description="@(Image.TargetType == DetectionTargetType.Meter ? "What happens when damage is detected" : Image.TargetType == DetectionTargetType.Ocr ? "What happens when OCR events are detected" : null)">
+    <div class="space-y-4">
+        @if (Image.TargetType == DetectionTargetType.Meter)
+        {
+            <Select Label="Intensity Mode" TValue="MeterIntensityMode"
+                    Value="Image.Meter.IntensityMode"
+                    ValueChanged="OnIntensityModeSelect"
+                    Options="IntensityModeOptions" />
+
+            @switch (Image.Meter.IntensityMode)
+            {
+                case MeterIntensityMode.Scaled:
+                    <Slider Label="Max Intensity" Value="Image.Action.Intensity"
+                            ValueChanged="OnIntensitySliderChanged"
+                            Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                    <p class="text-xs text-app-muted -mt-2">
+                        Damage % scaled against max. e.g. 30% HP loss at max 80 = intensity 24.
+                    </p>
+                    break;
+
+                case MeterIntensityMode.Direct:
+                    <Slider Label="Max Intensity" Value="Image.Action.Intensity"
+                            ValueChanged="OnIntensitySliderChanged"
+                            Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                    <p class="text-xs text-app-muted -mt-2">
+                        Damage % is the intensity directly. e.g. 30% HP loss = intensity 30, capped at max.
+                    </p>
+                    break;
+
+                case MeterIntensityMode.Fixed:
+                default:
+                    <Slider Label="Intensity" Value="Image.Action.Intensity"
+                            ValueChanged="OnIntensitySliderChanged"
+                            Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+                    break;
+            }
+        }
+        else
+        {
+            <Slider Label="Intensity" Value="Image.Action.Intensity"
+                    ValueChanged="OnIntensitySliderChanged"
+                    Min="1" Max="100" Step="1" Filled="true" ShowValueDirection="right" />
+        }
+
+        <Slider Label="Duration (seconds)" Value="Image.Action.DurationSeconds"
+                ValueChanged="OnDurationSliderChanged"
+                Min="0.1" Max="15" Step="0.1" Filled="true" ShowValueDirection="right" />
+
+        @if (Image.TargetType == DetectionTargetType.Template)
+        {
+            <Slider Label="Detection Threshold" Value="Image.Threshold"
+                    ValueChanged="OnThresholdSliderChanged"
+                    Min="0.5" Max="1" Step="0.01" Filled="true" ShowValueDirection="right" />
+            <Checkbox Label="Use color matching (slower)" Value="Image.UseColorMatching"
+                      ValueChanged="OnUseColorMatchingChanged" />
+
+            <Checkbox Label="Show toast on detection" Value="Image.ShowDetectionToasts"
+                      ValueChanged="OnShowToastsChanged"
+                      Description="Toasts are rate-limited to one per 30 seconds per target" />
+
+            <div>
+                <Slider Label="Consecutive matches to trigger" Value="Image.RequiredConsecutiveMatches"
+                        ValueChanged="OnConsecutiveMatchesChanged"
+                        Min="1" Max="10" Step="1" Filled="true" ShowValueDirection="right" />
+                <p class="text-xs text-app-muted -mt-2">
+                    The image must be seen in this many capture frames in a row before
+                    triggering. Raise to 2-3 to filter out single-frame false positives.
+                </p>
+            </div>
+
+            <Checkbox Label="Multi-scale matching (slower)" Value="Image.MultiScale.Enabled"
+                      ValueChanged="OnMultiScaleEnabledChanged" />
+            @if (Image.MultiScale.Enabled)
+            {
+                <div>
+                    <Slider Label="Scale range"
+                            RangeMode="true"
+                            RangeStart="Image.MultiScale.MinScale"
+                            RangeStartChanged="OnMultiScaleMinChanged"
+                            RangeEnd="Image.MultiScale.MaxScale"
+                            RangeEndChanged="OnMultiScaleMaxChanged"
+                            Min="0.5" Max="2.0" Step="0.05"
+                            Filled="true" ShowValueDirection="right" />
+                    <p class="text-xs text-app-muted -mt-2">
+                        Also tries the template at these scales when it isn't found at its
+                        native size. Use when the game's UI scale differs from when the
+                        template was captured.
+                    </p>
+                </div>
+                <NumberInput Label="Scale steps" Value="(double)Image.MultiScale.Steps"
+                             ValueChanged="OnMultiScaleStepsChanged"
+                             Min="2" Max="15" Step="1" />
+            }
+
+            <Checkbox Label="Require focused window" Value="Image.RequireFocusedWindow"
+                      ValueChanged="OnTemplateRequireFocusedWindowChanged" />
+            @if (Image.RequireFocusedWindow)
+            {
+                <TextInput Label="Required process" Value="@(Image.RequiredFocusWindowProcess ?? string.Empty)"
+                           ValueChanged="OnTemplateFocusProcessChanged" />
+                <TextInput Label="Window title contains" Value="@(Image.RequiredFocusWindowTitle ?? string.Empty)"
+                           ValueChanged="OnTemplateFocusTitleChanged" />
+            }
+        }
+
+        <TextInput Label="Process every Nth frame" Value="@Image.ProcessEveryNthFrame.ToString()"
+                   ValueChanged="OnCadenceChanged" />
+
+        <Select Label="Action Type" TValue="ActionType"
+                Value="Image.Action.Type"
+                ValueChanged="OnActionTypeSelect"
+                Options="ActionTypeOptions" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <ShockerSelect Label="Shockers" MultiSelect="true"
+                           SelectedIds="Image.Action.ShockerIds"
+                           SelectedIdsChanged="OnShockerIdsChanged"
+                           Placeholder="Select shockers..."
+                           GroupByDevice="true" />
+
+            <Select Label="Target Mode" TValue="ShockerMode"
+                    Value="Image.Action.Mode"
+                    ValueChanged="OnModeSelect"
+                    Options="ShockerModeOptions" />
+        </div>
+
+        @if (Image.Action.Mode == ShockerMode.Random && Image.Action.ShockerIds.Count > 1)
+        {
+            var maxShockers = Image.Action.ShockerIds.Count;
+            <Slider Label="Random Count"
+                    RangeMode="true"
+                    RangeStart="Image.Action.RandomCountMin"
+                    RangeStartChanged="OnRandomCountMinChanged"
+                    RangeEnd="Image.Action.RandomCountMax"
+                    RangeEndChanged="OnRandomCountMaxChanged"
+                    Min="1" Max="@maxShockers" Step="1"
+                    Filled="true" ShowValueDirection="right" />
+            <p class="text-xs text-app-muted -mt-2">
+                @if (Image.Action.RandomCountMin == Image.Action.RandomCountMax)
+                {
+                    @($"Always picks {Image.Action.RandomCountMin} of {maxShockers} shockers.")
+                }
+                else
+                {
+                    @($"Randomly picks between {Image.Action.RandomCountMin} and {Image.Action.RandomCountMax} of {maxShockers} shockers.")
+                }
+            </p>
+        }
+
+        <div class="rounded-lg border border-app-border bg-black/15 p-3 space-y-3">
+            <div class="text-xs text-app-muted uppercase tracking-wide">Cooldown</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <NumberInput Label="Duration (seconds)" Value="(double)Image.Cooldown.DurationSeconds"
+                             ValueChanged="OnCooldownNumberChanged"
+                             Min="0" Max="3600" Step="1" />
+
+                <Select Label="Type" TValue="CooldownType"
+                        Value="Image.Cooldown.Type"
+                        ValueChanged="OnCooldownTypeSelect"
+                        Options="CooldownTypeOptions" />
+            </div>
+
+            @if (Image.Cooldown.Type == CooldownType.ImageReset)
+            {
+                <Select Label="Reset Trigger Target" TValue="string"
+                        Value="@(Image.Cooldown.ResetImagePath ?? "")"
+                        ValueChanged="OnResetImageSelect"
+                        Placeholder="Select another target..."
+                        Options="GetResetImageOptions()" />
+
+                @if (!GetResetImageOptions().Any())
+                {
+                    <p class="text-xs text-app-muted">Add another target in this module to use image-reset cooldown.</p>
+                }
+            }
+        </div>
+    </div>
+</Card>
+
+@code {
+    [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public DetectionImage Image { get; set; } = default!;
+
+    private static readonly IEnumerable<Select<ActionType>.SelectOption<ActionType>> ActionTypeOptions =
+    [
+        new(ActionType.Shock, "Shock"),
+        new(ActionType.Vibrate, "Vibrate"),
+        new(ActionType.Beep, "Beep"),
+    ];
+
+    private static readonly IEnumerable<Select<ShockerMode>.SelectOption<ShockerMode>> ShockerModeOptions =
+    [
+        new(ShockerMode.Selected, "Selected"),
+        new(ShockerMode.Random, "Random from Selected"),
+    ];
+
+    private static readonly IEnumerable<Select<MeterIntensityMode>.SelectOption<MeterIntensityMode>> IntensityModeOptions =
+    [
+        new(MeterIntensityMode.Scaled, "Scaled (% of max)"),
+        new(MeterIntensityMode.Direct, "Direct (up to max)"),
+        new(MeterIntensityMode.Fixed, "Fixed"),
+    ];
+
+    private static readonly IEnumerable<Select<CooldownType>.SelectOption<CooldownType>> CooldownTypeOptions =
+    [
+        new(CooldownType.Standard, "Standard"),
+        new(CooldownType.Continuous, "Reset on Detection"),
+        new(CooldownType.ImageReset, "Wait for Reset Image"),
+    ];
+
+    private void Save() => ConfigService.UpdateImage(ModuleId, Image);
+
+    private void OnIntensityModeSelect(MeterIntensityMode mode)
+    {
+        Image.Meter.IntensityMode = mode;
+        Save();
+    }
+
+    private void OnIntensitySliderChanged(double value)
+    {
+        Image.Action.Intensity = (int)Math.Clamp(value, 1, 100);
+        Save();
+    }
+
+    private void OnDurationSliderChanged(double value)
+    {
+        Image.Action.DurationSeconds = Math.Clamp(value, 0.1, 15);
+        Save();
+    }
+
+    private void OnThresholdSliderChanged(double value)
+    {
+        Image.Threshold = Math.Clamp(value, 0.5, 1.0);
+        Save();
+    }
+
+    private void OnUseColorMatchingChanged(bool value)
+    {
+        Image.UseColorMatching = value;
+        Save();
+    }
+
+    private void OnShowToastsChanged(bool value)
+    {
+        Image.ShowDetectionToasts = value;
+        Save();
+    }
+
+    private void OnConsecutiveMatchesChanged(double value)
+    {
+        Image.RequiredConsecutiveMatches = (int)Math.Clamp(value, 1, 10);
+        Save();
+    }
+
+    private void OnMultiScaleEnabledChanged(bool value)
+    {
+        Image.MultiScale.Enabled = value;
+        Save();
+    }
+
+    private void OnMultiScaleMinChanged(double value)
+    {
+        Image.MultiScale.MinScale = Math.Clamp(value, 0.5, Image.MultiScale.MaxScale);
+        Save();
+    }
+
+    private void OnMultiScaleMaxChanged(double value)
+    {
+        Image.MultiScale.MaxScale = Math.Clamp(value, Image.MultiScale.MinScale, 2.0);
+        Save();
+    }
+
+    private void OnMultiScaleStepsChanged(double? value)
+    {
+        if (value == null) return;
+        Image.MultiScale.Steps = (int)Math.Clamp(value.Value, 2, 15);
+        Save();
+    }
+
+    private void OnTemplateRequireFocusedWindowChanged(bool value)
+    {
+        Image.RequireFocusedWindow = value;
+        Save();
+    }
+
+    private void OnTemplateFocusProcessChanged(string value)
+    {
+        Image.RequiredFocusWindowProcess = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        Save();
+    }
+
+    private void OnTemplateFocusTitleChanged(string value)
+    {
+        Image.RequiredFocusWindowTitle = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        Save();
+    }
+
+    private void OnCadenceChanged(string value)
+    {
+        if (!int.TryParse(value, out var cadence)) return;
+        Image.ProcessEveryNthFrame = Math.Clamp(cadence, 1, 1000);
+        Save();
+    }
+
+    private void OnActionTypeSelect(ActionType type)
+    {
+        Image.Action.Type = type;
+        Save();
+    }
+
+    private void OnModeSelect(ShockerMode mode)
+    {
+        Image.Action.Mode = mode;
+        Save();
+    }
+
+    private void OnShockerIdsChanged(List<string> ids)
+    {
+        Image.Action.ShockerIds = ids;
+        if (ids.Count > 0)
+        {
+            Image.Action.RandomCountMin = Math.Clamp(Image.Action.RandomCountMin, 1, ids.Count);
+            Image.Action.RandomCountMax = Math.Clamp(Image.Action.RandomCountMax, Image.Action.RandomCountMin, ids.Count);
+        }
+
+        Save();
+    }
+
+    private void OnRandomCountMinChanged(double value)
+    {
+        var cap = Math.Max(1, Image.Action.ShockerIds.Count);
+        var newMin = (int)Math.Clamp(value, 1, cap);
+        Image.Action.RandomCountMin = newMin;
+        if (Image.Action.RandomCountMax < newMin)
+            Image.Action.RandomCountMax = newMin;
+        Save();
+    }
+
+    private void OnRandomCountMaxChanged(double value)
+    {
+        var cap = Math.Max(1, Image.Action.ShockerIds.Count);
+        var newMax = (int)Math.Clamp(value, 1, cap);
+        Image.Action.RandomCountMax = newMax;
+        if (Image.Action.RandomCountMin > newMax)
+            Image.Action.RandomCountMin = newMax;
+        Save();
+    }
+
+    private void OnCooldownNumberChanged(double? value)
+    {
+        if (value == null) return;
+        Image.Cooldown.DurationSeconds = (int)Math.Max(0, value.Value);
+        Save();
+    }
+
+    private void OnCooldownTypeSelect(CooldownType type)
+    {
+        Image.Cooldown.Type = type;
+        Save();
+    }
+
+    private void OnResetImageSelect(string? path)
+    {
+        Image.Cooldown.ResetImagePath = path;
+        Save();
+    }
+
+    private IEnumerable<Select<string>.SelectOption<string>> GetResetImageOptions()
+    {
+        if (string.IsNullOrEmpty(ModuleId)
+            || !ConfigService.Modules.TryGetValue(ModuleId, out var module))
+        {
+            return Enumerable.Empty<Select<string>.SelectOption<string>>();
+        }
+
+        return module.Images.Values
+            .Where(i => i.Id != Image.Id)
+            .Select(i =>
+            {
+                var label = i.TargetType switch
+                {
+                    DetectionTargetType.Meter => $"[Meter] {i.Name}",
+                    DetectionTargetType.Ocr => $"[OCR] {i.Name}",
+                    _ => i.Name
+                };
+                return new Select<string>.SelectOption<string>($"{ModuleId}/{i.Id}", label);
+            });
+    }
+}

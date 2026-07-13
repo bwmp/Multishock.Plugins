@@ -81,28 +81,28 @@
                         <input type="number" min="0" max="@(_screenshotWidth)"
                                class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
                                value="@_selX"
-                               @onchange="@(e => UpdateManualCoord(x: int.Parse(e.Value?.ToString() ?? "0")))" />
+                               @onchange="@(e => UpdateManualCoord(x: ParseCoord(e.Value)))" />
                     </div>
                     <div>
                         <label class="block text-xs text-zinc-500 mb-1">Y</label>
                         <input type="number" min="0" max="@(_screenshotHeight)"
                                class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
                                value="@_selY"
-                               @onchange="@(e => UpdateManualCoord(y: int.Parse(e.Value?.ToString() ?? "0")))" />
+                               @onchange="@(e => UpdateManualCoord(y: ParseCoord(e.Value)))" />
                     </div>
                     <div>
                         <label class="block text-xs text-zinc-500 mb-1">Width</label>
                         <input type="number" min="1" max="@(_screenshotWidth)"
                                class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
                                value="@_selW"
-                               @onchange="@(e => UpdateManualCoord(w: int.Parse(e.Value?.ToString() ?? "1")))" />
+                               @onchange="@(e => UpdateManualCoord(w: ParseCoord(e.Value)))" />
                     </div>
                     <div>
                         <label class="block text-xs text-zinc-500 mb-1">Height</label>
                         <input type="number" min="1" max="@(_screenshotHeight)"
                                class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
                                value="@_selH"
-                               @onchange="@(e => UpdateManualCoord(h: int.Parse(e.Value?.ToString() ?? "1")))" />
+                               @onchange="@(e => UpdateManualCoord(h: ParseCoord(e.Value)))" />
                     </div>
                     <button class="px-3 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 transition-colors text-zinc-300"
                             @onclick="ClearSelection">Clear</button>
@@ -320,6 +320,10 @@
         _displaySelW = (int)Math.Round(_selW * _scale);
         _displaySelH = (int)Math.Round(_selH * _scale);
     }
+
+    // Non-numeric input leaves the coordinate unchanged instead of throwing.
+    private static int? ParseCoord(object? value)
+        => int.TryParse(value?.ToString(), out var parsed) ? parsed : null;
 
     private void UpdateManualCoord(int? x = null, int? y = null, int? w = null, int? h = null)
     {

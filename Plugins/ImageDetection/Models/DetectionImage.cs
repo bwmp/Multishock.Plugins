@@ -61,6 +61,37 @@ public class DetectionImage
     /// </summary>
     public bool AutoResize { get; set; } = true;
 
+    /// <summary>Use three-channel color matching instead of the faster grayscale path.</summary>
+    public bool UseColorMatching { get; set; }
+
+    /// <summary>
+    /// Number of consecutive capture frames the template must match before the
+    /// trigger fires (1 = fire on the first match). Filters out single-frame
+    /// false positives from animations, transitions, and compression artifacts.
+    /// </summary>
+    public int RequiredConsecutiveMatches { get; set; } = 1;
+
+    /// <summary>
+    /// Multi-scale matching configuration. Only used for template targets.
+    /// </summary>
+    public MultiScaleConfig MultiScale { get; set; } = new();
+
+    /// <summary>
+    /// Whether to show a toast notification when this target triggers.
+    /// Toasts are additionally rate-limited to one per target per 30 seconds.
+    /// </summary>
+    public bool ShowDetectionToasts { get; set; } = true;
+
+    /// <summary>Run this target every Nth capture loop. Values below one are treated as one.</summary>
+    public int ProcessEveryNthFrame { get; set; } = 1;
+
+    /// <summary>Only process this template while the configured window is focused.</summary>
+    public bool RequireFocusedWindow { get; set; }
+
+    public string? RequiredFocusWindowProcess { get; set; }
+
+    public string? RequiredFocusWindowTitle { get; set; }
+
     /// <summary>
     /// The type of detection target (Template, Meter, or Ocr).
     /// Defaults to Template for backward compatibility.
@@ -91,6 +122,36 @@ public class DetectionImage
     /// When the image config was last modified.
     /// </summary>
     public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Configuration for multi-scale template matching. When enabled, the template
+/// is additionally tried at several scales between MinScale and MaxScale so
+/// matching survives in-game UI scale differences that monitor-resolution
+/// auto-resize cannot account for.
+/// </summary>
+public class MultiScaleConfig
+{
+    /// <summary>
+    /// Whether multi-scale matching is enabled. Costs roughly Steps times the
+    /// matching time when the template is not found at native scale.
+    /// </summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>
+    /// Smallest template scale to try (relative to the loaded template size).
+    /// </summary>
+    public double MinScale { get; set; } = 0.8;
+
+    /// <summary>
+    /// Largest template scale to try.
+    /// </summary>
+    public double MaxScale { get; set; } = 1.25;
+
+    /// <summary>
+    /// Number of scales to try across the range (including 1.0).
+    /// </summary>
+    public int Steps { get; set; } = 7;
 }
 
 /// <summary>

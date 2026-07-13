@@ -104,6 +104,59 @@ public class GridSections
     /// Checks if all sections are enabled.
     /// </summary>
     public bool AllSectionsEnabled() => Sections.All(s => s);
+
+    /// <summary>
+    /// Decomposes the enabled sections into maximal pixel rectangles for the
+    /// given capture size (greedy row-major merge). Matching inside these
+    /// rectangles instead of a blacked-out full frame avoids false matches in
+    /// disabled areas and skips the disabled area's matching cost entirely.
+    /// Note: a match must fit within one contiguous rectangular block of
+    /// enabled sections.
+    /// </summary>
+    public List<System.Drawing.Rectangle> GetEnabledRectangles(int width, int height)
+    {
+        var rects = new List<System.Drawing.Rectangle>();
+        int sectionWidth = width / 3;
+        int sectionHeight = height / 3;
+        var used = new bool[3, 3];
+
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                if (!this[row, col] || used[row, col]) continue;
+
+                int spanCols = 1;
+                while (col + spanCols < 3 && this[row, col + spanCols] && !used[row, col + spanCols])
+                    spanCols++;
+
+                int spanRows = 1;
+                while (row + spanRows < 3 && RowRangeAvailable(used, row + spanRows, col, spanCols))
+                    spanRows++;
+
+                for (int r = row; r < row + spanRows; r++)
+                    for (int c = col; c < col + spanCols; c++)
+                        used[r, c] = true;
+
+                int x = col * sectionWidth;
+                int y = row * sectionHeight;
+                int right = (col + spanCols == 3) ? width : (col + spanCols) * sectionWidth;
+                int bottom = (row + spanRows == 3) ? height : (row + spanRows) * sectionHeight;
+                rects.Add(new System.Drawing.Rectangle(x, y, right - x, bottom - y));
+            }
+        }
+
+        return rects;
+    }
+
+    private bool RowRangeAvailable(bool[,] used, int row, int colStart, int spanCols)
+    {
+        for (int c = colStart; c < colStart + spanCols; c++)
+        {
+            if (!this[row, c] || used[row, c]) return false;
+        }
+        return true;
+    }
 }
 
 /// <summary>
@@ -125,6 +178,41 @@ public class RegionConfig
     /// Custom region configuration (used when Type is Custom).
     /// </summary>
     public ScreenRegion? CustomRegion { get; set; }
+
+    /// <summary>
+    /// Capture dimensions the custom region coordinates refer to.
+    /// Null on configs saved before this field existed; those are treated as
+    /// already being in the current capture's pixel space (legacy behavior)
+    /// and get stamped with the actual capture size on first use.
+    /// </summary>
+    public Resolution? ReferenceResolution { get; set; }
+
+    /// <summary>
+    /// Returns the custom region scaled from its reference resolution to the
+    /// actual capture dimensions, so regions keep pointing at the same UI
+    /// element after a monitor/resolution change.
+    /// </summary>
+    public ScreenRegion? GetCustomRegionFor(int actualWidth, int actualHeight)
+    {
+        if (CustomRegion == null) return null;
+
+        var reference = ReferenceResolution;
+        if (reference == null || reference.Width <= 0 || reference.Height <= 0
+            || (reference.Width == actualWidth && reference.Height == actualHeight))
+        {
+            return CustomRegion;
+        }
+
+        double scaleX = (double)actualWidth / reference.Width;
+        double scaleY = (double)actualHeight / reference.Height;
+
+        return new ScreenRegion(
+            (int)Math.Round(CustomRegion.X * scaleX),
+            (int)Math.Round(CustomRegion.Y * scaleY),
+            Math.Max(1, (int)Math.Round(CustomRegion.Width * scaleX)),
+            Math.Max(1, (int)Math.Round(CustomRegion.Height * scaleY)),
+            CustomRegion.Name);
+    }
 }
 
 /// <summary>

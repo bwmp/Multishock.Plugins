@@ -231,18 +231,33 @@ public class RecentDetectionsService : IDisposable
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
         var screenshotPath = Path.Combine(_screenshotsDir, $"detection_{eventId}_{timestamp}.png");
 
+        // Draw on a copy: the caller's Mat is the live capture frame shared by
+        // every target in the current loop iteration, so painting the match box
+        // directly onto it would corrupt later detections in the same pass.
+        using var annotated = screenshot.Clone();
+
+        // Custom-region matches are reported region-relative; map back to
+        // full-frame coordinates for the overlay and thumbnail crop.
+        int offsetX = 0, offsetY = 0;
+        if (result.Image?.Region is { Type: RegionType.Custom, CustomRegion: not null } regionConfig)
+        {
+            var region = regionConfig.GetCustomRegionFor(annotated.Width, annotated.Height)!;
+            offsetX = Math.Max(0, region.X);
+            offsetY = Math.Max(0, region.Y);
+        }
+
         if (result.MatchLocation.HasValue && result.MatchSize.HasValue)
         {
             var loc = result.MatchLocation.Value;
             var size = result.MatchSize.Value;
-            var rect = new System.Drawing.Rectangle(loc.X, loc.Y, size.Width, size.Height);
+            var rect = new System.Drawing.Rectangle(loc.X + offsetX, loc.Y + offsetY, size.Width, size.Height);
 
-            CvInvoke.Rectangle(screenshot, rect, new Emgu.CV.Structure.MCvScalar(0, 0, 255, 255), 3);
+            CvInvoke.Rectangle(annotated, rect, new Emgu.CV.Structure.MCvScalar(0, 0, 255, 255), 3);
         }
 
         await Task.Run(() =>
         {
-            screenshot.Save(screenshotPath);
+            annotated.Save(screenshotPath);
         });
 
         string? thumbnailPath = null;
@@ -253,12 +268,18 @@ public class RecentDetectionsService : IDisposable
             var size = result.MatchSize.Value;
 
             var padding = 20;
-            var x = Math.Max(0, loc.X - padding);
-            var y = Math.Max(0, loc.Y - padding);
-            var width = Math.Min(screenshot.Width - x, size.Width + padding * 2);
-            var height = Math.Min(screenshot.Height - y, size.Height + padding * 2);
+            var x = Math.Max(0, loc.X + offsetX - padding);
+            var y = Math.Max(0, loc.Y + offsetY - padding);
+            var width = Math.Min(annotated.Width - x, size.Width + padding * 2);
+            var height = Math.Min(annotated.Height - y, size.Height + padding * 2);
 
-            using var roi = new Mat(screenshot, new System.Drawing.Rectangle(x, y, width, height));
+            if (width <= 0 || height <= 0)
+            {
+                EnforceScreenshotLimit();
+                return (screenshotPath, null);
+            }
+
+            using var roi = new Mat(annotated, new System.Drawing.Rectangle(x, y, width, height));
             thumbnailPath = Path.Combine(_screenshotsDir, $"thumb_{eventId}_{timestamp}.png");
 
             using var resized = new Mat();

@@ -31,10 +31,28 @@
                    @onchange="OnCaptureDelayChanged" />
             <span class="text-xs text-zinc-500">ms</span>
         </div>
+        <div class="flex items-center gap-2">
+            <label class="text-sm text-zinc-400">Backend:</label>
+            <select class="px-3 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                    value="@SelectedBackend"
+                    @onchange="OnBackendChanged"
+                    title="Windows Graphics Capture works with hardware-accelerated/fullscreen games. Legacy GDI has no capture border but sees black frames in many games.">
+                <option value="@CaptureBackendType.Auto">Auto (recommended)</option>
+                <option value="@CaptureBackendType.WindowsGraphicsCapture">Windows Graphics Capture</option>
+                <option value="@CaptureBackendType.LegacyGdi">Legacy GDI</option>
+            </select>
+        </div>
         <div class="ml-auto text-sm text-zinc-400">
             <span class="text-zinc-500">Detections:</span> @DetectionService.Stats.SuccessfulDetections / @DetectionService.Stats.TotalDetections
         </div>
     </div>
+
+    @if (!string.IsNullOrEmpty(CaptureService.DpiWarning))
+    {
+        <div class="mb-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/40 text-sm text-amber-300">
+            <span class="font-medium">Display scaling warning:</span> @CaptureService.DpiWarning
+        </div>
+    }
 
     <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-zinc-300">Modules</h2>
@@ -172,6 +190,7 @@
     private List<MonitorInfo> Monitors = [];
     private int SelectedMonitor = 1;
     private int CaptureDelayMs = 100;
+    private CaptureBackendType SelectedBackend = CaptureBackendType.Auto;
     private Dictionary<string, DetectionModule> Modules = [];
 
     private bool ShowNewModuleDialog;
@@ -198,6 +217,7 @@
         Monitors = CaptureService.GetMonitors();
         SelectedMonitor = ConfigService.CaptureConfig.MonitorIndex;
         CaptureDelayMs = ConfigService.CaptureConfig.CaptureDelayMs;
+        SelectedBackend = ConfigService.CaptureConfig.Backend;
         Modules = new Dictionary<string, DetectionModule>(ConfigService.Modules);
     }
 
@@ -220,6 +240,16 @@
         SelectedMonitor = index;
         var config = ConfigService.CaptureConfig;
         config.MonitorIndex = index;
+        ConfigService.CaptureConfig = config;
+    }
+
+    private void OnBackendChanged(ChangeEventArgs e)
+    {
+        if (!Enum.TryParse<CaptureBackendType>(e.Value?.ToString(), out var backend)) return;
+
+        SelectedBackend = backend;
+        var config = ConfigService.CaptureConfig;
+        config.Backend = backend;
         ConfigService.CaptureConfig = config;
     }
 

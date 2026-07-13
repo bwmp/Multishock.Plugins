@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/bwmp/Multishock.Plugins/compare/ThroneIntegration-v1.2.0...ThroneIntegration-v1.3.0) (2026-07-13)
+
+
+### Features
+
+* **RandomNodes:** Add utility nodes for random choices, numbers, text checks, and current time ([9999d23](https://github.com/bwmp/Multishock.Plugins/commit/9999d233a1e7bd372c6a929e7a3d40555633f7e2))
+
 ## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/ThroneIntegration-v1.1.1...ThroneIntegration-v1.2.0) (2026-02-01)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.2.0...TwitchIntegration-v1.3.0) (2026-07-13)
+
+
+### Features
+
+* Add Warning Vibrate option for various Twitch events ([71fed2c](https://github.com/bwmp/Multishock.Plugins/commit/71fed2c9b5e43a168ed8c7edf954004832a67f7c))
+
 ## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/TwitchIntegration-v1.1.1...TwitchIntegration-v1.2.0) (2026-03-24)
 
 

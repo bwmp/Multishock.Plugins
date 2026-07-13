@@ -32,7 +32,7 @@ Scripts for creating, building, and managing MultiShock plugins.
 
 This will:
 1. Create the plugin folder with all necessary files
-2. Add the plugin to `release-please-config.json`
+2. Create `plugin.json` and register its version with `release-please-config.json`
 3. Add the plugin to `.release-please-manifest.json`
 
 ### Build Plugins

@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 2,
+  "id": "{{PLUGIN_ID}}",
+  "name": "{{DISPLAY_NAME}}",
+  "version": "1.0.0",
+  "entryPoint": "{{PLUGIN_FOLDER}}.dll",
+  "description": "{{DESCRIPTION}}",
+  "sdkVersion": "1.13.0",
+  "platforms": ["win-x64"]
+}

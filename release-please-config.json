@@ -15,7 +15,12 @@
             "component": "TwitchIntegration",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "TwitchIntegration.csproj"
+                "TwitchIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         },
         "Plugins/ImageDetection": {
@@ -23,7 +28,12 @@
             "component": "ImageDetection",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "ImageDetection.csproj"
+                "ImageDetection.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         },
         "Plugins/OBSIntegration": {
@@ -31,7 +41,12 @@
             "component": "OBSIntegration",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "OBSIntegration.csproj"
+                "OBSIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         },
         "Plugins/ThroneIntegration": {
@@ -39,7 +54,12 @@
             "component": "ThroneIntegration",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "ThroneIntegration.csproj"
+                "ThroneIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         },
         "Plugins/SpeechToText": {
@@ -47,7 +67,12 @@
             "component": "SpeechToText",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "SpeechToText.csproj"
+                "SpeechToText.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         },
         "Plugins/VRChatOSC": {
@@ -55,7 +80,12 @@
             "component": "VRChatOSC",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "VRChatOSC.csproj"
+                "VRChatOSC.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         },
         "Plugins/RandomNodes": {
@@ -63,7 +93,12 @@
             "component": "RandomNodes",
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
-                "RandomNodes.csproj"
+                "RandomNodes.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
             ]
         }
     },

@@ -153,6 +153,7 @@ foreach ($dir in $directories) {
 # Template mapping: template file -> output file
 $templateMappings = @{
     "Plugin.csproj.template" = "$PluginFolder.csproj"
+    "plugin.json.template" = "plugin.json"
     "Plugin.cs.template" = "Plugin.cs"
     "_Imports.razor.template" = "_Imports.razor"
     "HomePage.razor.template" = "HomePage.razor"
@@ -230,6 +231,11 @@ if (Test-Path $releasePleaseConfigPath) {
             "changelog-path" = "CHANGELOG.md"
             "extra-files" = @(
                 "$PluginFolder.csproj"
+                [PSCustomObject]@{
+                    "type" = "json"
+                    "path" = "plugin.json"
+                    "jsonpath" = '$.version'
+                }
             )
         }
         
@@ -287,6 +293,7 @@ Write-Header "Structure:"
 Write-Host @"
   $PluginFolder/
   ├── $PluginFolder.csproj   # Project file
+  ├── plugin.json            # Manifest versioned by release-please
   ├── Plugin.cs              # Main plugin class
   ├── _Imports.razor         # Razor imports
   ├── HomePage.razor         # Main page

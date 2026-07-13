@@ -14,6 +14,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # Reads a property value out of a .csproj (first match wins).
 function Get-CsprojProperty {
@@ -60,7 +61,7 @@ function New-PluginManifestV2 {
         $manifest.authors = if ($authors -is [string]) {
             @($authors -split ';' | ForEach-Object { $_.Trim() })
         } else {
-            @($authors)
+            @($authors | Where-Object { $_ })
         }
     }
     if ($sourceUrl)   { $manifest.sourceUrl = $sourceUrl }
@@ -68,8 +69,12 @@ function New-PluginManifestV2 {
     elseif ($existing.minAppVersion) { $manifest.minAppVersion = $existing.minAppVersion }
     if ($SdkVersion)  { $manifest.sdkVersion = $SdkVersion }
     elseif ($existing.sdkVersion) { $manifest.sdkVersion = $existing.sdkVersion }
-    $manifest.tags = @($existing.tags)
-    $manifest.platforms = if ($existing.platforms) { @($existing.platforms) } else { @("win-x64") }
+    $manifest.tags = @($existing.tags | Where-Object { $_ })
+    $platforms = @($existing.platforms | Where-Object { $_ })
+    if ($platforms.Count -eq 0) { $platforms = @("win-x64") }
+    # Assign the array outside an `if` expression. PowerShell enumerates a single-item
+    # array emitted by an expression, which previously serialized this as a JSON string.
+    $manifest.platforms = $platforms
 
     return $manifest
 }
@@ -177,12 +182,23 @@ foreach ($folder in $PluginFolders) {
 
         # Build
         Write-Host "  → Building..." -ForegroundColor Yellow
-        dotnet build $csprojPath -c Release --nologo -v q
+        # Some plugin projects create a developer package after every build. Redirect
+        # that target away from the user's real MultiShock plugin directory in local runs.
+        $localBuildPluginDir = Join-Path $folder.FullName "bin\CatalogBuildInstall"
+        dotnet build $csprojPath -c Release --nologo -v q -property:LocalPluginDir=$localBuildPluginDir
 
         if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
-        # Copy files
-        $buildOutput = Join-Path $folder.FullName "bin\Release\net10.0"
+        # Resolve the actual TargetDir instead of assuming net10.0. Windows-specific
+        # plugins use TFMs such as net10.0-windows10.0.22621.0 and otherwise produced
+        # manifest-only packages from a stale/empty net10.0 directory.
+        $targetDirOutput = dotnet msbuild $csprojPath -nologo -getProperty:TargetDir -property:Configuration=Release
+        if ($LASTEXITCODE -ne 0) { throw "Could not resolve the build output directory" }
+        $buildOutput = ($targetDirOutput | Where-Object { $_ -and (Test-Path $_ -PathType Container) } | Select-Object -Last 1)
+        if (-not $buildOutput) { throw "Build output directory could not be resolved for $pluginName" }
+        $entryAssembly = Join-Path $buildOutput "$pluginName.dll"
+        if (-not (Test-Path $entryAssembly -PathType Leaf)) { throw "Built entry assembly not found: $entryAssembly" }
+
         $tempDir = Join-Path $folder.FullName "bin\Publish"
 
         if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
@@ -191,8 +207,11 @@ foreach ($folder in $PluginFolders) {
         # Include the plugin's own assemblies plus any dependency/native files, so the
         # .msplugin package is self-contained (excluding the SDK, which the host provides).
         Get-ChildItem -Path $buildOutput -Recurse -File | Where-Object {
-            $_.Name -ne "MultiShock.PluginSdk.dll" -and
-            $_.Extension -in @(".dll", ".pdb", ".json") -or $_.Directory.Name -eq "native" -or $_.Directory.Parent.Name -eq "runtimes"
+            $_.Name -notin @("MultiShock.PluginSdk.dll", "PiShock.MultiShock.PluginSdk.dll") -and (
+                $_.Extension -in @(".dll", ".pdb", ".json") -or
+                $_.Directory.Name -eq "native" -or
+                $_.FullName -match '[\\/]runtimes[\\/]'
+            )
         } | ForEach-Object {
             $relative = $_.FullName.Substring($buildOutput.Length).TrimStart('\', '/')
             $dest = Join-Path $tempDir $relative
@@ -218,9 +237,34 @@ foreach ($folder in $PluginFolders) {
         # Create the .msplugin package (zip)
         $packageName = "$pluginName-$version.msplugin"
         $packagePath = Join-Path $ReleaseOutputDir $packageName
+        $zipStagingPath = "$packagePath.zip"
 
         if (Test-Path $packagePath) { Remove-Item $packagePath }
-        Compress-Archive -Path "$tempDir\*" -DestinationPath $packagePath -CompressionLevel Optimal
+        if (Test-Path $zipStagingPath) { Remove-Item $zipStagingPath }
+        Compress-Archive -Path "$tempDir\*" -DestinationPath $zipStagingPath -CompressionLevel Optimal
+        Move-Item -Path $zipStagingPath -Destination $packagePath
+
+        # Re-open the exact artifact that will be published. This catches packaging and
+        # JSON-shape regressions before a broken package can replace the live catalog asset.
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
+        try {
+            $manifestEntry = $archive.Entries | Where-Object { $_.FullName -eq "plugin.json" } | Select-Object -First 1
+            if (-not $manifestEntry) { throw "Published package is missing plugin.json" }
+
+            $manifestReader = [System.IO.StreamReader]::new($manifestEntry.Open())
+            try { $packagedManifest = $manifestReader.ReadToEnd() | ConvertFrom-Json }
+            finally { $manifestReader.Dispose() }
+
+            if ($packagedManifest.platforms -is [string]) {
+                throw "Published package manifest 'platforms' must be a JSON array"
+            }
+            if (-not ($archive.Entries | Where-Object { $_.FullName -eq $packagedManifest.entryPoint })) {
+                throw "Published package is missing entry point '$($packagedManifest.entryPoint)'"
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
 
         # Compute SHA-256 checksum for the plugin index / updater verification
         $hash = (Get-FileHash -Path $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -236,8 +280,8 @@ foreach ($folder in $PluginFolders) {
             Id = $pluginId
             Version = $version
             Description = $manifest.description
-            Authors = @($manifest.authors)
-            Tags = @($manifest.tags)
+            Authors = @($manifest.authors | Where-Object { $_ })
+            Tags = @($manifest.tags | Where-Object { $_ })
             MinAppVersion = $manifest.minAppVersion
             SdkVersion = $manifest.sdkVersion
             Platforms = @($manifest.platforms)
@@ -249,6 +293,7 @@ foreach ($folder in $PluginFolders) {
 
         # Cleanup temp dir
         Remove-Item -Recurse -Force $tempDir
+        if (Test-Path $localBuildPluginDir) { Remove-Item -Recurse -Force $localBuildPluginDir }
     }
     catch {
         Write-Host "  ✗ Failed: $_" -ForegroundColor Red

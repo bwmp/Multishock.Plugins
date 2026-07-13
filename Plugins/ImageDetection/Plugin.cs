@@ -24,7 +24,7 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     public string Id => PluginId;
     public string Name => "Image Detection";
-    public string Version => $"1.0.0+{BuildStamp.Stamp}";
+    public string Version => BuildStamp.Version;
     public string Description => "Detects images on screen and triggers actions when found.";
 
     // ========== DEPENDENCY INJECTION ==========

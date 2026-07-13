@@ -13,6 +13,9 @@
         
         <RazorLangVersion>Latest</RazorLangVersion>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
+        <PluginVersion>1.3.0</PluginVersion> <!-- x-release-please-version -->
+        <Version>$(PluginVersion)</Version>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
         <!-- Copy all NuGet dependency DLLs to output so the .msplugin package can include them -->
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -34,9 +37,12 @@
         <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" />
     </ItemGroup>
 
-    <!-- Version with build stamp -->
-    <PropertyGroup>
-        <AssemblyInformationalVersion>1.0.0+$(PluginBuildStamp)</AssemblyInformationalVersion>
+    <!-- Version with a build stamp for local builds and stable metadata for releases -->
+    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <InformationalVersion>$(PluginVersion)+$(PluginBuildStamp)</InformationalVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <InformationalVersion>$(PluginVersion)</InformationalVersion>
     </PropertyGroup>
 
     <!-- Exclude generated file from default compilation -->
@@ -47,12 +53,17 @@
     <!-- Generate build stamp for runtime version display -->
     <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
         <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
+        <PropertyGroup>
+            <VersionOutput Condition="'$(Configuration)'=='Debug'">$(PluginVersion)+$(PluginBuildStamp)</VersionOutput>
+            <VersionOutput Condition="'$(Configuration)'=='Release'">$(PluginVersion)</VersionOutput>
+        </PropertyGroup>
         <ItemGroup>
         <StampLines Include="namespace ImageDetection%3B" />
         <StampLines Include=" " />
         <StampLines Include="public static class BuildStamp" />
         <StampLines Include="{" />
         <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+        <StampLines Include="    public const string Version = &quot;$(VersionOutput)&quot;%3B" />
         <StampLines Include="}" />
         </ItemGroup>
         <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />

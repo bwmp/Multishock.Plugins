@@ -9,6 +9,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
@@ -69,98 +73,61 @@ jobs:
         shell: pwsh
         run: |
           $path = "${{ matrix.plugin.path }}"
-          Write-Host "Processing path: $path"
-          
-          # Extract plugin name from path like "Plugins/PluginName"
           $pluginName = Split-Path -Leaf $path
-          Write-Host "Plugin name: $pluginName"
-          
-          $csprojPath = "$path/$pluginName.csproj"
-          Write-Host "Csproj path: $csprojPath"
-          
-          if (-not (Test-Path $csprojPath)) {
-            Write-Error "Csproj file not found at: $csprojPath"
+          $versions = Get-Content .release-please-manifest.json -Raw | ConvertFrom-Json
+          $version = $versions.$path
+
+          if (-not $version) {
+            Write-Error "Version for '$path' was not found in .release-please-manifest.json"
             exit 1
           }
-          
-          # Read version from csproj
-          $content = Get-Content $csprojPath -Raw
-          $versionMatch = [regex]::Match($content, '<AssemblyInformationalVersion>([^<+]+)')
-          $version = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "1.0.0" }
-          Write-Host "Version: $version"
-          
+
           echo "plugin_name=$pluginName" >> $env:GITHUB_OUTPUT
           echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "csproj_path=$csprojPath" >> $env:GITHUB_OUTPUT
 
-      - name: Build plugin
+      - name: Build validated release package
         shell: pwsh
-        run: |
-          $csprojPath = "${{ steps.plugin-info.outputs.csproj_path }}"
-          Write-Host "Building: $csprojPath"
-          dotnet build "$csprojPath" -c Release
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Build failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
-          }
-
-      - name: Create release archive
-        id: archive
-        shell: pwsh
-        run: |
-          $pluginName = "${{ steps.plugin-info.outputs.plugin_name }}"
-          $version = "${{ steps.plugin-info.outputs.version }}"
-          $buildOutput = "${{ matrix.plugin.path }}/bin/Release/net10.0"
-          $tempDir = "${{ matrix.plugin.path }}/bin/Publish"
-          
-          Write-Host "Creating archive for $pluginName v$version"
-          Write-Host "Build output: $buildOutput"
-          
-          if (-not (Test-Path $buildOutput)) {
-            Write-Error "Build output directory not found: $buildOutput"
-            exit 1
-          }
-          
-          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-          
-          $files = Get-ChildItem -Path $buildOutput -Filter "$pluginName.*" | Where-Object {
-              $_.Extension -in @(".dll", ".pdb")
-          }
-          
-          if ($files.Count -eq 0) {
-            Write-Error "No DLL or PDB files found for $pluginName in $buildOutput"
-            exit 1
-          }
-          
-          Write-Host "Copying $($files.Count) files:"
-          $files | ForEach-Object {
-              Write-Host "  - $($_.Name)"
-              Copy-Item $_.FullName -Destination $tempDir
-          }
-          
-          $zipName = "$pluginName-$version.zip"
-          $zipPath = "${{ github.workspace }}/releases/$zipName"
-          
-          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/releases" | Out-Null
-          Compress-Archive -Path "$tempDir/*" -DestinationPath $zipPath -CompressionLevel Optimal
-          
-          Write-Host "Created archive: $zipPath"
-          
-          echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
-          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+        run: ./scripts/release-plugins.ps1 -Plugin "${{ steps.plugin-info.outputs.plugin_name }}"
 
       - name: Upload release asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.plugin-info.outputs.plugin_name }}-v${{ steps.plugin-info.outputs.version }}
-          files: ${{ steps.archive.outputs.zip_path }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            releases/${{ steps.plugin-info.outputs.plugin_name }}-${{ steps.plugin-info.outputs.version }}.msplugin
+            releases/${{ steps.plugin-info.outputs.plugin_name }}-${{ steps.plugin-info.outputs.version }}.msplugin.sha256
+          fail_on_unmatched_files: true
 
-      - name: Verify upload
+  publish-catalog:
+    needs:
+      - release-please
+      - build-releases
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && needs.build-releases.result == 'success' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build installable packages and catalog
         shell: pwsh
-        run: |
-          $pluginName = "${{ steps.plugin-info.outputs.plugin_name }}"
-          $version = "${{ steps.plugin-info.outputs.version }}"
-          $tagName = "$pluginName-v$version"
-          Write-Host "Successfully uploaded ${{ steps.archive.outputs.zip_name }} to release $tagName"
+        run: ./scripts/release-plugins.ps1
+
+      - name: Publish installable catalog release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: plugin-catalog
+          name: MultiShock Plugin Catalog
+          body: |
+            Installable packages consumed by MultiShock's built-in plugin repository.
+            Assets are generated only after a Release Please release PR is merged.
+          make_latest: false
+          prerelease: false
+          files: |
+            releases/*.msplugin
+            releases/*.msplugin.sha256
+            releases/plugin-index.json
+          fail_on_unmatched_files: true

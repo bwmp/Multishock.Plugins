@@ -2,9 +2,11 @@
   "manifestVersion": 2,
   "id": "com.multishock.randomnodes",
   "name": "Random Nodes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "entryPoint": "RandomNodes.dll",
   "description": "A grab bag of random utility nodes for MultiShock",
   "sdkVersion": "1.13.0",
-  "platforms": ["win-x64"]
+  "platforms": [
+    "win-x64"
+  ]
 }

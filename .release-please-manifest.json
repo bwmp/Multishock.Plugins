@@ -1,9 +1,9 @@
 {
-    "Plugins/TwitchIntegration": "1.3.0",
-    "Plugins/ImageDetection": "1.3.0",
-    "Plugins/OBSIntegration": "1.2.0",
-    "Plugins/ThroneIntegration": "1.3.0",
-    "Plugins/SpeechToText": "1.2.0",
-    "Plugins/VRChatOSC": "1.2.0",
-    "Plugins/RandomNodes": "1.1.0"
+    "Plugins/TwitchIntegration": "1.4.0",
+    "Plugins/ImageDetection": "1.4.0",
+    "Plugins/OBSIntegration": "1.3.0",
+    "Plugins/ThroneIntegration": "1.4.0",
+    "Plugins/SpeechToText": "1.3.0",
+    "Plugins/VRChatOSC": "1.3.0",
+    "Plugins/RandomNodes": "1.2.0"
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/bwmp/Multishock.Plugins/compare/VRChatOSC-v1.2.0...VRChatOSC-v1.3.0) (2026-07-26)
+
+
+### Features
+
+* update plugin versions and SDK to 1.13.0 across multiple plugins; add plugin.json template ([f120202](https://github.com/bwmp/Multishock.Plugins/commit/f120202ffdbce976a071688b3aa642cf6079d773))
+* **VRChatOSC:** add AvatarParameterTriggerNode and ContactPhysboneTriggerNode for handling avatar parameter changes and contact events ([979b7ae](https://github.com/bwmp/Multishock.Plugins/commit/979b7aed23c3b2309adae378a66e510e46ba488f))
+
 ## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/VRChatOSC-v1.1.0...VRChatOSC-v1.2.0) (2026-07-13)
 
 

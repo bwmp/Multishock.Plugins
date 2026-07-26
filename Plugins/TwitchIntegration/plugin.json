@@ -2,9 +2,11 @@
   "manifestVersion": 2,
   "id": "com.multishock.twitchintegration",
   "name": "Twitch Integration",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "entryPoint": "TwitchIntegration.dll",
   "description": "Twitch EventSub integration for channel events like cheers, subs, follows, raids, and more",
   "sdkVersion": "1.13.0",
-  "platforms": ["win-x64"]
+  "platforms": [
+    "win-x64"
+  ]
 }

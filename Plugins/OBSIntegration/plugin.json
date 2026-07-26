@@ -2,9 +2,11 @@
   "manifestVersion": 2,
   "id": "com.multishock.obsintegration",
   "name": "OBS Integration",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "entryPoint": "OBSIntegration.dll",
   "description": "Control OBS Studio through MultiShock - toggle sources, switch scenes, and more",
   "sdkVersion": "1.13.0",
-  "platforms": ["win-x64"]
+  "platforms": [
+    "win-x64"
+  ]
 }

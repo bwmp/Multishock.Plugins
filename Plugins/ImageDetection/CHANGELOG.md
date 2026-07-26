@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/bwmp/Multishock.Plugins/compare/ImageDetection-v1.3.0...ImageDetection-v1.4.0) (2026-07-26)
+
+
+### Features
+
+* update plugin version to 1.3.0 and adjust build metadata ([608a879](https://github.com/bwmp/Multishock.Plugins/commit/608a8797b135494a4f2c3cc3e885f63cc8e6a702))
+
 ## [1.3.0](https://github.com/bwmp/Multishock.Plugins/compare/ImageDetection-v1.2.0...ImageDetection-v1.3.0) (2026-07-13)
 
 

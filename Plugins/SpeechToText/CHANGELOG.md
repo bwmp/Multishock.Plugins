@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/bwmp/Multishock.Plugins/compare/SpeechToText-v1.2.0...SpeechToText-v1.3.0) (2026-07-26)
+
+
+### Features
+
+* update plugin versions and SDK to 1.13.0 across multiple plugins; add plugin.json template ([f120202](https://github.com/bwmp/Multishock.Plugins/commit/f120202ffdbce976a071688b3aa642cf6079d773))
+
 ## [1.2.0](https://github.com/bwmp/Multishock.Plugins/compare/SpeechToText-v1.1.0...SpeechToText-v1.2.0) (2026-07-13)
 
 

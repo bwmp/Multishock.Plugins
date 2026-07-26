@@ -2,9 +2,11 @@
   "manifestVersion": 2,
   "id": "com.multishock.vrchatosc",
   "name": "VRChatOSC",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "entryPoint": "VRChatOSC.dll",
   "description": "OSC send/receive integration for VRChat using FastOSC.",
   "sdkVersion": "1.13.0",
-  "platforms": ["win-x64"]
+  "platforms": [
+    "win-x64"
+  ]
 }

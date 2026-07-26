@@ -124,6 +124,8 @@ public class VRChatOSCPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvide
     public IEnumerable<IFlowNode> GetNodeTypes()
     {
         yield return new OscMessageReceivedTriggerNode();
+        yield return new AvatarParameterTriggerNode();
+        yield return new ContactPhysboneTriggerNode();
         yield return new SendOscMessageActionNode();
         yield return new SendChatboxMessageActionNode();
     }

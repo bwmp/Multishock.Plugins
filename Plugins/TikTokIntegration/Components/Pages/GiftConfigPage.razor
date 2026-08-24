@@ -1,0 +1,155 @@
+@page "/plugins/com-multishock-tiktokintegration/gift-config"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@implements IDisposable
+
+<div class="p-4 mx-auto space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Gift Brackets</h1>
+            <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">
+                Map gift coin value to intensity and duration. Applies to any gift not handled by an
+                <a href="/plugins/com-multishock-tiktokintegration/individual-gifts" style="color: #fe2c55;">individual
+                    gift rule</a>.
+            </p>
+        </div>
+        <Toggle Label="@(Service.Config.Enabled ? "Enabled" : "Disabled")" Value="Service.Config.Enabled"
+            ValueChanged="@(v => Service.SetEnabled(v))" />
+    </div>
+
+    <div class="tiktok-card">
+        <div class="tiktok-card-header">
+            <span>Action Settings</span>
+        </div>
+        <div class="tiktok-card-body space-y-4">
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="grow min-w-[16rem]">
+                    <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                    <ShockerSelect Label="" MultiSelect="true" SelectedIds="Service.Config.SelectedShockerIds"
+                        SelectedIdsChanged="@(ids => UpdateShockers(ids))" />
+                </div>
+                <div class="w-40">
+                    <Select TValue="string" Label="Device Command" Value="@Service.Config.CommandType"
+                        ValueChanged="@(v => Service.SetCommandType(v ?? "Vibrate"))" Options="@CommandTypeOptions" />
+                </div>
+                @if (Service.Config.CommandType == "Shock")
+                {
+                    <div>
+                        <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Warning
+                            Vibrate</label>
+                        <Toggle Value="Service.Config.WarningVibrate" ValueChanged="@(v => Service.SetWarningVibrate(v))" />
+                    </div>
+                }
+            </div>
+
+            <div class="flex flex-wrap gap-4">
+                <Toggle Label="Exact coin match (instead of round down)" Value="Service.Config.FixedAmount"
+                    ValueChanged="@(v => Service.SetFixedAmount(v))" />
+                <Toggle Label="Trigger on every combo tick" Value="Service.Config.TriggerDuringStreaks"
+                    ValueChanged="@(v => Service.SetTriggerDuringStreaks(v))" />
+            </div>
+            <p class="text-xs" style="color: var(--app-muted, #adb5bd);">
+                <strong>Combo tick:</strong> streakable gifts (like Roses) send repeated events while the sender taps.
+                Off (default): a 50x combo fires once for the full 50-coin value. On: each tap triggers separately using
+                the single-gift value — use with care, it can mean many rapid actions.
+            </p>
+        </div>
+    </div>
+
+    <div class="tiktok-card">
+        <div class="tiktok-card-header">
+            <span>Coin Brackets</span>
+            <Button Text="Add Bracket" Variant="secondary" Size="sm" OnClick="@(() => Service.AddBracket())" />
+        </div>
+        <div class="tiktok-card-body">
+            @if (Service.Config.Brackets.Count == 0)
+            {
+                <div class="tiktok-empty">
+                    <p>No brackets yet. Add one to react to gifts by coin value.</p>
+                </div>
+            }
+            else
+            {
+                <div class="tiktok-bracket-header">
+                    <span style="width: 6rem;">Min Coins</span>
+                    <span class="flex-1">Intensity</span>
+                    <span class="flex-1">Duration</span>
+                    <span style="width: 7rem;">Selection</span>
+                    <span style="width: 2rem;"></span>
+                </div>
+                @foreach (var bracket in Service.Config.Brackets.OrderBy(b => b.CoinAmount))
+                {
+                    <div class="tiktok-bracket" @key="bracket.Id">
+                        <div style="width: 6rem;">
+                            <NumberInput Value="@((double)bracket.CoinAmount)" Min="1" Max="1000000"
+                                ValueChanged="@(v => UpdateBracket(bracket, b => b.CoinAmount = (int)Math.Clamp(v ?? 1, 1, 1000000)))" />
+                        </div>
+                        <div class="flex-1 flex items-center gap-2">
+                            <Slider Min="1" Max="100" Value="bracket.Intensity"
+                                ValueChanged="@(v => UpdateBracket(bracket, b => b.Intensity = (int)v))" Class="flex-1"
+                                ShowValue="false" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd); width: 2.5rem;">@bracket.Intensity%</span>
+                        </div>
+                        <div class="flex-1 flex items-center gap-2">
+                            <Slider Min="0.1" Max="15" Step="0.1" Value="bracket.Duration"
+                                ValueChanged="@(v => UpdateBracket(bracket, b => b.Duration = Math.Round(v, 1)))"
+                                Class="flex-1" ShowValue="false" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd); width: 2.5rem;">@bracket.Duration.ToString("0.0")s</span>
+                        </div>
+                        <div style="width: 7rem;">
+                            <Select TValue="string" Value="@bracket.Mode.ToString()"
+                                ValueChanged="@(v => UpdateBracket(bracket, b => b.Mode = ParseMode(v)))"
+                                Options="@SelectionModeOptions" />
+                        </div>
+                        <button class="tiktok-toolbar-btn-sm danger" @onclick="@(() => Service.RemoveBracket(bracket.Id))"
+                            title="Remove bracket">
+                            <LucideIcon Name="trash-2" Class="w-4 h-4" />
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = TikTokIntegrationPlugin.PluginId;
+    private GiftConfigService Service => PluginServiceLocator.GetRequiredService<GiftConfigService>(PluginId);
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> CommandTypeOptions =
+    [
+        new("Shock", "Shock"),
+        new("Vibrate", "Vibrate"),
+        new("Beep", "Beep"),
+    ];
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions =
+    [
+        new("All", "All"),
+        new("Random", "Random"),
+        new("RoundRobin", "Round Robin"),
+    ];
+
+    protected override void OnInitialized()
+    {
+        Service.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void UpdateShockers(List<string> ids) => Service.SetSelectedShockers(ids);
+
+    private void UpdateBracket(GiftBracket bracket, Action<GiftBracket> mutate)
+    {
+        mutate(bracket);
+        Service.UpdateBracket(bracket);
+    }
+
+    private static SelectionMode ParseMode(string? value) =>
+        Enum.TryParse<SelectionMode>(value, out var mode) ? mode : SelectionMode.All;
+
+    public void Dispose()
+    {
+        Service.ConfigChanged -= OnConfigChanged;
+    }
+}

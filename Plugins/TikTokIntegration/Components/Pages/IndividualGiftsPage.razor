@@ -1,0 +1,228 @@
+@page "/plugins/com-multishock-tiktokintegration/individual-gifts"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using TikTokIntegration.Protocol
+@implements IDisposable
+
+<div class="p-4 mx-auto space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Individual Gifts</h1>
+            <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">
+                Give specific gifts their own intensity, duration, and settings — separate from the coin brackets.
+            </p>
+        </div>
+        <Toggle Label="@(Service.Config.Enabled ? "Enabled" : "Disabled")" Value="Service.Config.Enabled"
+            ValueChanged="@(v => Service.SetEnabled(v))" />
+    </div>
+
+    <div class="tiktok-card">
+        <div class="tiktok-card-body flex flex-wrap items-center justify-between gap-3">
+            <Toggle Label="Matching gifts skip the coin brackets" Value="Service.Config.RulesOverrideBrackets"
+                ValueChanged="@(v => Service.SetRulesOverrideBrackets(v))" />
+            <div class="flex items-center gap-2">
+                @if (AvailableGifts.Count > 0)
+                {
+                    <div class="w-64">
+                        <Select TValue="string" Placeholder="Add from live gift catalog..." Value="@_selectedCatalogId"
+                            ValueChanged="@(v => AddFromCatalog(v))" Options="@CatalogOptions" />
+                    </div>
+                }
+                <Button Text="Add Blank Rule" Variant="secondary" Size="sm" OnClick="AddBlankRule" />
+            </div>
+        </div>
+    </div>
+
+    @if (AvailableGifts.Count == 0)
+    {
+        <div class="text-xs px-3 py-2 rounded"
+            style="background: rgba(255, 196, 0, 0.08); color: #d1a000; border: 1px solid rgba(255, 196, 0, 0.2);">
+            Connect to a live stream to load the gift catalog and pick gifts by name/icon. You can still add rules
+            manually and match by gift name.
+        </div>
+    }
+
+    @if (Service.Config.Rules.Count == 0)
+    {
+        <div class="tiktok-card">
+            <div class="tiktok-card-body">
+                <div class="tiktok-empty">
+                    <LucideIcon Name="sparkles" Class="w-8 h-8" />
+                    <p>No individual gift rules yet. Add one to give a specific gift its own reaction.</p>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var rule in Service.Config.Rules)
+        {
+            <div class="tiktok-card" @key="rule.Id">
+                <div class="tiktok-card-header">
+                    <div class="flex items-center gap-2">
+                        @if (!string.IsNullOrEmpty(GetGiftImage(rule)))
+                        {
+                            <img src="@GetGiftImage(rule)" class="tiktok-gift-image" alt="" />
+                        }
+                        <span>@(string.IsNullOrWhiteSpace(rule.GiftName) ? "(unnamed gift)" : rule.GiftName)</span>
+                        @if (rule.GiftId > 0)
+                        {
+                            <span class="tiktok-badge">id @rule.GiftId</span>
+                        }
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Toggle Value="rule.Enabled" ValueChanged="@(v => UpdateRule(rule, r => r.Enabled = v))" />
+                        <button class="tiktok-toolbar-btn-sm danger" @onclick="@(() => Service.RemoveRule(rule.Id))"
+                            title="Remove rule">
+                            <LucideIcon Name="trash-2" Class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+                <div class="tiktok-card-body space-y-4">
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div class="grow min-w-[12rem]">
+                            <TextInput Label="Gift name" Value="@rule.GiftName"
+                                ValueChanged="@(v => UpdateRule(rule, r => r.GiftName = v ?? ""))" />
+                        </div>
+                        <div class="grow min-w-[16rem]">
+                            <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                            <ShockerSelect Label="" MultiSelect="true" SelectedIds="rule.SelectedShockerIds"
+                                SelectedIdsChanged="@(ids => UpdateRule(rule, r => r.SelectedShockerIds = ids))" />
+                        </div>
+                        <div class="w-36">
+                            <Select TValue="string" Label="Command" Value="@rule.CommandType"
+                                ValueChanged="@(v => UpdateRule(rule, r => r.CommandType = v ?? "Vibrate"))"
+                                Options="@CommandTypeOptions" />
+                        </div>
+                        <div class="w-36">
+                            <Select TValue="string" Label="Selection" Value="@rule.Mode.ToString()"
+                                ValueChanged="@(v => UpdateRule(rule, r => r.Mode = ParseMode(v)))"
+                                Options="@SelectionModeOptions" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Intensity</span>
+                            <Slider Min="1" Max="100" Value="rule.Intensity"
+                                ValueChanged="@(v => UpdateRule(rule, r => r.Intensity = (int)v))" Class="flex-1"
+                                ShowValue="false" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd); width: 3rem;">@rule.Intensity%</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Duration</span>
+                            <Slider Min="0.1" Max="15" Step="0.1" Value="rule.Duration"
+                                ValueChanged="@(v => UpdateRule(rule, r => r.Duration = Math.Round(v, 1)))" Class="flex-1"
+                                ShowValue="false" />
+                            <span class="text-xs" style="color: var(--app-muted, #adb5bd); width: 3rem;">@rule.Duration.ToString("0.0")s</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-4">
+                        @if (rule.CommandType == "Shock")
+                        {
+                            <Toggle Label="Warning vibrate" Value="rule.WarningVibrate"
+                                ValueChanged="@(v => UpdateRule(rule, r => r.WarningVibrate = v))" />
+                        }
+                        <Toggle Label="Scale duration with combo count" Value="rule.ScaleWithRepeatCount"
+                            ValueChanged="@(v => UpdateRule(rule, r => r.ScaleWithRepeatCount = v))" />
+                        @if (rule.ScaleWithRepeatCount)
+                        {
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs" style="color: var(--app-muted, #adb5bd);">Max duration</span>
+                                <NumberInput Value="rule.MaxDuration" Min="0.1" Max="60" Step="0.5" Class="w-20"
+                                    ValueChanged="@(v => UpdateRule(rule, r => r.MaxDuration = Math.Clamp(v ?? 15, 0.1, 60)))" />
+                                <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private static readonly string PluginId = TikTokIntegrationPlugin.PluginId;
+    private GiftRulesConfigService Service => PluginServiceLocator.GetRequiredService<GiftRulesConfigService>(PluginId);
+    private TikTokConnectionService Connection => PluginServiceLocator.GetRequiredService<TikTokConnectionService>(PluginId);
+
+    private string? _selectedCatalogId;
+
+    private IReadOnlyList<TikTokGiftInfo> AvailableGifts => Connection.AvailableGifts;
+
+    private IEnumerable<Select<string>.SelectOption<string>> CatalogOptions =>
+        AvailableGifts.Select(g => new Select<string>.SelectOption<string>(
+            g.Id.ToString(), $"{g.Name} ({g.DiamondCount} coins)"));
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> CommandTypeOptions =
+    [
+        new("Shock", "Shock"),
+        new("Vibrate", "Vibrate"),
+        new("Beep", "Beep"),
+    ];
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions =
+    [
+        new("All", "All"),
+        new("Random", "Random"),
+        new("RoundRobin", "Round Robin"),
+    ];
+
+    protected override void OnInitialized()
+    {
+        Service.ConfigChanged += OnConfigChanged;
+        Connection.GiftCatalogUpdated += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void AddBlankRule()
+    {
+        Service.AddRule(new GiftRule());
+    }
+
+    private void AddFromCatalog(string? giftId)
+    {
+        _selectedCatalogId = null;
+        if (!int.TryParse(giftId, out var id)) return;
+
+        var gift = AvailableGifts.FirstOrDefault(g => g.Id == id);
+        if (gift == null) return;
+
+        // Suggest a starting intensity scaled loosely to the gift's coin value
+        var intensity = Math.Clamp(20 + gift.DiamondCount / 5, 10, 100);
+        Service.AddRule(new GiftRule
+        {
+            GiftId = gift.Id,
+            GiftName = gift.Name,
+            Intensity = intensity,
+        });
+    }
+
+    private void UpdateRule(GiftRule rule, Action<GiftRule> mutate)
+    {
+        mutate(rule);
+        Service.UpdateRule(rule);
+    }
+
+    private string GetGiftImage(GiftRule rule)
+    {
+        if (rule.GiftId > 0)
+        {
+            var gift = AvailableGifts.FirstOrDefault(g => g.Id == rule.GiftId);
+            if (gift != null) return gift.ImageUrl;
+        }
+        return AvailableGifts.FirstOrDefault(g =>
+            g.Name.Equals(rule.GiftName, StringComparison.OrdinalIgnoreCase))?.ImageUrl ?? "";
+    }
+
+    private static SelectionMode ParseMode(string? value) =>
+        Enum.TryParse<SelectionMode>(value, out var mode) ? mode : SelectionMode.All;
+
+    public void Dispose()
+    {
+        Service.ConfigChanged -= OnConfigChanged;
+        Connection.GiftCatalogUpdated -= OnConfigChanged;
+    }
+}

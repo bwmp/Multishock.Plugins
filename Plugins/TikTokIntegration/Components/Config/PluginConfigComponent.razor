@@ -1,0 +1,61 @@
+@using MultiShock.PluginSdk
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(Connection.IsConnected ? "bg-green-500" : "bg-gray-400")"></div>
+        <span class="text-sm font-medium">
+            @if (Connection.IsConnected)
+            {
+                <span>Connected to @@@Connection.ConnectedUsername</span>
+            }
+            else if (Connection.IsWaitingForLive)
+            {
+                <span>Waiting for streamer to go live...</span>
+            }
+            else
+            {
+                <span>Not connected</span>
+            }
+        </span>
+    </div>
+
+    <p class="text-sm text-gray-500">
+        Configure your TikTok connection on the
+        <a href="/plugins/com-multishock-tiktokintegration/tiktokintegration" class="text-pink-500 hover:underline">
+            TikTok Integration page
+        </a>.
+    </p>
+
+    <div class="text-xs text-gray-400 space-y-1">
+        <div><strong>Supported Events:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Gifts (coin-value brackets &amp; per-gift rules)</li>
+            <li>Chat messages</li>
+            <li>Likes</li>
+            <li>Follows &amp; Shares</li>
+            <li>Subscriptions</li>
+            <li>Viewer joins</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = TikTokIntegrationPlugin.PluginId;
+    private TikTokConnectionService Connection => PluginServiceLocator.GetRequiredService<TikTokConnectionService>(PluginId);
+
+    [Parameter]
+    public string? PluginId_ { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Connection.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnConnectionChanged(bool connected) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

@@ -1,0 +1,68 @@
+@page "/plugins/com-multishock-tiktokintegration/events-config"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using TikTokIntegration.Components.Config
+@implements IDisposable
+
+<div class="p-4 mx-auto space-y-4">
+    <div>
+        <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Follows, Shares &amp; Subs</h1>
+        <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">
+            Configure reactions for non-gift TikTok events. Each is off by default.
+        </p>
+    </div>
+
+    <SimpleActionCard Title="New Follower" Icon="user-plus" Config="Service.Config.Follow"
+        Description="Fires the first time each viewer follows during a stream."
+        OnChanged="Save" />
+
+    <SimpleActionCard Title="Stream Shared" Icon="share-2" Config="Service.Config.Share"
+        Description="Fires when a viewer shares the live stream."
+        OnChanged="Save" />
+
+    <SimpleActionCard Title="New Subscriber" Icon="star" Config="Service.Config.Subscribe"
+        Description="Fires when a viewer subscribes to the streamer."
+        OnChanged="Save" />
+
+    <SimpleActionCard Title="Viewer Joined" Icon="log-in" Config="Service.Config.Join"
+        Description="Fires when a viewer joins the room. Can be very frequent on busy streams."
+        OnChanged="Save" />
+
+    <SimpleActionCard Title="Likes" Icon="heart" Config="Service.Config.Likes"
+        Description="TikTok delivers likes in batches. Trigger once per threshold of accumulated likes."
+        OnChanged="Save">
+        <ExtraTop>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd);">Trigger every</span>
+                <NumberInput Value="@((double)Service.Config.Likes.EveryNLikes)" Min="1" Max="100000" Class="w-24"
+                    ValueChanged="@(v => UpdateLikeThreshold(v))" />
+                <span class="text-xs" style="color: var(--app-muted, #adb5bd);">likes</span>
+            </div>
+        </ExtraTop>
+    </SimpleActionCard>
+</div>
+
+@code {
+    private static readonly string PluginId = TikTokIntegrationPlugin.PluginId;
+    private EventsConfigService Service => PluginServiceLocator.GetRequiredService<EventsConfigService>(PluginId);
+
+    protected override void OnInitialized()
+    {
+        Service.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void Save() => Service.SaveConfig();
+
+    private void UpdateLikeThreshold(double? value)
+    {
+        Service.Config.Likes.EveryNLikes = (int)Math.Clamp(value ?? 100, 1, 100000);
+        Service.SaveConfig();
+    }
+
+    public void Dispose()
+    {
+        Service.ConfigChanged -= OnConfigChanged;
+    }
+}

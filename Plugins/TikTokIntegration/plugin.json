@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 2,
+  "id": "com.multishock.tiktokintegration",
+  "name": "TikTok Integration",
+  "version": "0.1.0",
+  "entryPoint": "TikTokIntegration.dll",
+  "description": "TikTok LIVE integration for gifts, chat, likes, follows, shares, and subscriptions",
+  "sdkVersion": "1.13.0",
+  "platforms": ["win-x64"]
+}

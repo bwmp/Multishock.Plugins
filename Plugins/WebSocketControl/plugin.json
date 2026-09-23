@@ -1,0 +1,11 @@
+{
+  "manifestVersion": 2,
+  "id": "com.multishock.websocketcontrol",
+  "name": "WebSocket Control",
+  "version": "0.1.0",
+  "entryPoint": "WebSocketControl.dll",
+  "description": "Local WebSocket command server for external applications.",
+  "sdkVersion": "1.13.0",
+  "platforms": ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
+  "tags": ["websocket", "automation", "api"]
+}

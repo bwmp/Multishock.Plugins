@@ -24,3 +24,6 @@ Thumbs.db
 
 # NuGet
 *.nupkg
+
+# Built by Plugins/ImageDetection/native/build-linux-cvextern.sh
+Plugins/ImageDetection/native/linux-x64/

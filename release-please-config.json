@@ -191,6 +191,19 @@
                     "jsonpath": "$.version"
                 }
             ]
+        },
+        "Plugins/WebSocketControl": {
+            "release-type": "simple",
+            "component": "WebSocketControl",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "WebSocketControl.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
         }
     },
     "changelog-sections": [

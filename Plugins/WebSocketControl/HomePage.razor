@@ -1,0 +1,113 @@
+@page "/plugins/com-multishock-websocketcontrol/websocket-control"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using WebSocketControl.Services
+@implements IDisposable
+
+<div class="max-w-3xl space-y-6">
+    <header>
+        <h1 class="text-xl font-semibold">WebSocket Control</h1>
+        <p class="mt-1 text-sm text-app-muted">Let local applications send device commands to MultiShock.</p>
+    </header>
+
+    <section class="space-y-3 border-b border-app-border pb-5" aria-label="Server status">
+        <p class="text-sm" role="status">
+            <span class="font-medium">@(Server.IsRunning ? "Listening" : "Stopped")</span>
+            @if (Server.IsRunning)
+            {
+                <span class="text-app-muted"> at @Endpoint · @Server.ClientCount connected client@(Server.ClientCount == 1 ? "" : "s")</span>
+            }
+        </p>
+        @if (Server.LastError is { } error)
+        {
+            <p class="text-sm text-app-danger" role="alert">@error</p>
+        }
+    </section>
+
+    <section class="space-y-4" aria-label="Connection settings">
+        <Toggle Label="Enable WebSocket server" Value="Enabled" ValueChanged="OnEnabledChanged" />
+
+        <div class="w-48">
+            <NumberInput Label="Local port" Min="1" Max="65535" Step="1"
+                         Value="@((double)Port)" ValueChanged="OnPortChanged" />
+        </div>
+
+        <div class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="min-w-0 flex-1">
+                    <TextInput Label="Authentication key" InputType="password" Value="@AuthKey"
+                               ValueChanged="@(value => AuthKey = value ?? string.Empty)"
+                               autocomplete="off" spellcheck="false" />
+                </div>
+                <Button Text="Generate new key" Variant="secondary" OnClick="GenerateKey" />
+            </div>
+            <p class="text-xs text-app-muted">Changing the key disconnects clients when you save. Keep it private.</p>
+        </div>
+
+        <Button Text="Save settings" OnClick="Save" />
+        @if (Message is not null)
+        {
+            <p class="text-sm @(MessageIsError ? "text-app-danger" : "text-app-muted")" role="status">@Message</p>
+        }
+    </section>
+
+    <section class="space-y-2 border-t border-app-border pt-5" aria-label="Connect a client">
+        <h2 class="font-semibold">Connect a client</h2>
+        <p class="text-sm">Use <code>@Endpoint</code> and include <code>auth_key</code> in every JSON message.</p>
+        <pre class="overflow-x-auto rounded-md bg-app-surface-2 p-3 text-xs"><code>{"cmd":"get_devices","auth_key":"YOUR_KEY"}</code></pre>
+        <p class="text-xs text-app-muted">The server listens on this computer only. See the plugin README for commands and migration details.</p>
+    </section>
+</div>
+
+@code {
+    private WebSocketControlServer Server => PluginServiceLocator.GetRequiredService<WebSocketControlServer>(WebSocketControlPlugin.PluginId);
+    private bool Enabled;
+    private int Port;
+    private string AuthKey = "";
+    private string? Message;
+    private bool MessageIsError;
+    private string Endpoint => $"ws://localhost:{Server.Settings.Port}/";
+
+    protected override void OnInitialized()
+    {
+        Enabled = Server.Settings.Enabled;
+        Port = Server.Settings.Port;
+        AuthKey = Server.Settings.AuthKey;
+        Server.StateChanged += OnServerStateChanged;
+    }
+
+    private Task OnEnabledChanged(bool value)
+    {
+        Enabled = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnPortChanged(double? value)
+    {
+        Port = (int)Math.Clamp(value ?? 8765, 1, 65535);
+        return Task.CompletedTask;
+    }
+
+    private Task GenerateKey() { AuthKey = WebSocketControlSettings.CreateKey(); return Task.CompletedTask; }
+
+    private Task Save()
+    {
+        try
+        {
+            Server.Settings.Update(Enabled, Port, AuthKey);
+            Server.Restart();
+            MessageIsError = Server.LastError is not null;
+            Message = Server.LastError ?? "Settings saved.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            MessageIsError = true;
+            Message = ex.Message;
+        }
+        return Task.CompletedTask;
+    }
+
+    private void OnServerStateChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Server.StateChanged -= OnServerStateChanged;
+}

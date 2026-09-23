@@ -12,5 +12,6 @@
     "Plugins/StreamElementsIntegration": "0.1.0",
     "Plugins/StreamlabsIntegration": "0.1.0",
     "Plugins/HeartRateIntegration": "0.1.0",
-    "Plugins/SteamVROverlay": "0.1.0"
+    "Plugins/SteamVROverlay": "0.1.0",
+    "Plugins/WebSocketControl": "0.1.0"
 }

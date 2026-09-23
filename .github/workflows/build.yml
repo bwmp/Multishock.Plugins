@@ -8,6 +8,7 @@ on:
       - 'Plugins/**'
       - 'Tests/HeartRateIntegration.Tests/**'
       - 'Tests/SteamVROverlay.Tests/**'
+      - 'Tests/WebSocketControl.Tests/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - 'Plugins/**'
       - 'Tests/HeartRateIntegration.Tests/**'
       - 'Tests/SteamVROverlay.Tests/**'
+      - 'Tests/WebSocketControl.Tests/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
@@ -76,6 +78,10 @@ jobs:
       - name: Test SteamVR overlay
         if: ${{ matrix.plugin == 'SteamVROverlay' }}
         run: dotnet test Tests/SteamVROverlay.Tests/SteamVROverlay.Tests.csproj -c Release --nologo
+
+      - name: Test WebSocket control
+        if: ${{ matrix.plugin == 'WebSocketControl' }}
+        run: dotnet test Tests/WebSocketControl.Tests/WebSocketControl.Tests.csproj -c Release --nologo
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

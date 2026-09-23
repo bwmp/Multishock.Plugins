@@ -43,10 +43,12 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         // Core services - use simple registration for Blazor DI compatibility
 #if WINDOWS
         services.AddSingleton<IScreenCaptureService, WindowsScreenCaptureService>();
+#elif MACCATALYST
+        services.AddSingleton<IScreenCaptureService, DesktopScreenCaptureService>();
 #else
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            services.AddSingleton<IScreenCaptureService, DesktopScreenCaptureService>();
+            services.AddSingleton<IScreenCaptureService, LinuxScreenCaptureService>();
         }
         else
         {

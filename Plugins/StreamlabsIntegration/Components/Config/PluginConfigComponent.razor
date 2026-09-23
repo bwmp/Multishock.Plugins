@@ -1,0 +1,58 @@
+@using MultiShock.PluginSdk
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(Connection.IsConnected ? "bg-app-success" : "bg-app-subtle")"></div>
+        <span class="text-sm font-medium">
+            @if (Connection.IsConnected)
+            {
+                <span>Connected to Streamlabs</span>
+            }
+            else if (Connection.IsConnecting)
+            {
+                <span>Connecting...</span>
+            }
+            else
+            {
+                <span>Not connected</span>
+            }
+        </span>
+    </div>
+
+    <p class="text-sm text-app-subtle">
+        Set up your socket token and connection on the
+        <a href="/plugins/com-multishock-streamlabsintegration/streamlabsintegration" class="sl-brand hover:underline">
+            Streamlabs page
+        </a>.
+    </p>
+
+    <div class="text-xs text-app-muted space-y-1">
+        <div><strong>Supported Events:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Donations (with minimum amount)</li>
+            <li>Subscriptions &amp; resubs</li>
+            <li>Follows</li>
+            <li>Bits / cheers (with minimum)</li>
+            <li>Hosts &amp; raids</li>
+            <li>YouTube super chats</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = StreamlabsIntegrationPlugin.PluginId;
+    private StreamlabsConnectionService Connection => PluginServiceLocator.GetRequiredService<StreamlabsConnectionService>(PluginId);
+
+    protected override void OnInitialized()
+    {
+        Connection.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnConnectionChanged(bool connected) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

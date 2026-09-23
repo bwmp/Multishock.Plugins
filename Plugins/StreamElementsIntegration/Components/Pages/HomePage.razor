@@ -1,0 +1,197 @@
+@page "/plugins/com-multishock-streamelementsintegration/streamelementsintegration"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using StreamElementsIntegration.Models
+@implements IDisposable
+
+@* Shared page header: same title, status and action band as every host screen. *@
+<PageHeader Title="StreamElements"
+            Icon="radio"
+            Description="React to tips, cheers, subscriptions, follows, raids and redemptions from a flow.">
+    <Meta>
+        @if (Connection.IsConnected)
+        {
+            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
+        }
+        else if (Connection.IsConnecting)
+        {
+            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
+        }
+        else
+        {
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
+        }
+    </Meta>
+    <Actions>
+        @if (Connection.IsConnected)
+        {
+            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
+        }
+        else
+        {
+            <Button Variant="primary" Icon="plug" Text="Connect"
+                    Disabled="@(Connection.IsConnecting)" OnClick="Connect" />
+        }
+    </Actions>
+</PageHeader>
+
+<div class="max-w-4xl space-y-4">
+
+    <div class="space-y-4">
+        <div class="se-card">
+            <div class="se-card-header">
+                <span>Connection</span>
+            </div>
+            <div class="se-card-body space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-app-text">
+                        JWT Token
+                    </label>
+                    <p class="text-xs mb-2 text-app-muted">
+                        Open <strong>StreamElements Dashboard → Account → Channels</strong>, reveal your account's
+                        <strong>JWT Token</strong>, and paste it below. Keep this token secret — it grants access to your account.
+                    </p>
+                    <div class="flex gap-2">
+                        <TextInput InputType="password" Placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." Value="@Token"
+                                   ValueChanged="@(v => UpdateToken(v))" Class="flex-1" />
+                        <Button Text="Open Account Settings" Variant="secondary" OnClick="OpenSettings" />
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    @if (!Connection.IsConnected)
+                    {
+                        <Button Text="@(Connection.IsConnecting ? "Connecting..." : "Connect")" Variant="primary"
+                                Disabled="@(Connection.IsConnecting || !Settings.HasToken)" OnClick="Connect" />
+                    }
+                    else
+                    {
+                        <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
+                    }
+                </div>
+
+                <p class="text-xs text-app-muted">
+                    Tip: use the <strong>Test</strong> buttons on your StreamElements overlay/alerts page to fire sample
+                    events and confirm they appear in the log below.
+                </p>
+
+                <div class="flex flex-col gap-2 pt-3 border-t border-app-border">
+                    <Toggle Label="Auto-connect on startup" Value="Settings.AutoConnect"
+                            ValueChanged="@(v => SetAutoConnect(v))" />
+                    <Toggle Label="Auto-reconnect if the connection drops" Value="Settings.AutoReconnect"
+                            ValueChanged="@(v => SetAutoReconnect(v))" />
+                </div>
+            </div>
+        </div>
+
+        <div class="se-card">
+            <div class="se-card-header">
+                <span>Configure Events</span>
+            </div>
+            <div class="se-card-body space-y-3">
+                <p class="text-sm text-app-muted">
+                    Choose which StreamElements events trigger your shockers and how hard they hit.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var info in StreamElementsEventCatalog.All)
+                    {
+                        <a href="@($"/plugins/com-multishock-streamelementsintegration/streamelements-{info.Type}")"
+                           class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
+                            <LucideIcon Name="@info.Icon" Size="16" />
+                            <span>@info.DisplayName</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="se-card">
+            <div class="se-card-header">
+                <span>Event Log</span>
+                <Button Text="Clear" Variant="secondary" Size="sm" OnClick="@(() => Log.Clear())" />
+            </div>
+            <div class="se-card-body">
+                <div class="space-y-1 max-h-64 overflow-y-auto">
+                    @if (Log.Count == 0)
+                    {
+                        <p class="text-sm text-app-muted">
+                            No events yet. Fire a test alert from StreamElements to verify.
+                        </p>
+                    }
+                    else
+                    {
+                        @foreach (var entry in Log.Entries.TakeLast(50).Reverse())
+                        {
+                            <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
+                                 style="background: rgba(255, 255, 255, 0.02);">
+                                <span class="text-app-muted">[@entry.Time.ToString("HH:mm:ss")]</span>
+                                <span style="color: @(entry.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">@entry.Message</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="se-card">
+            <div class="se-card-header">
+                <span>Available Flow Triggers</span>
+            </div>
+            <div class="se-card-body">
+                <div class="grid gap-2 text-sm">
+                    @foreach (var info in StreamElementsEventCatalog.All)
+                    {
+                        <div class="flex items-center gap-2">
+                            <span class="se-status-dot" style="color: #2e97ff;"></span>
+                            <span><strong class="text-app-text">@info.DisplayName</strong></span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = StreamElementsIntegrationPlugin.PluginId;
+    private StreamElementsSettingsService Settings => PluginServiceLocator.GetRequiredService<StreamElementsSettingsService>(PluginId);
+    private StreamElementsConnectionService Connection => PluginServiceLocator.GetRequiredService<StreamElementsConnectionService>(PluginId);
+    private EventLogService Log => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private string Token = "";
+
+    protected override void OnInitialized()
+    {
+        Token = Settings.JwtToken;
+        Connection.ConnectionStateChanged += OnStateChanged;
+        Log.LogChanged += OnLogChanged;
+    }
+
+    private void UpdateToken(string? v)
+    {
+        Token = v ?? "";
+        Settings.JwtToken = Token;
+    }
+
+    private void SetAutoConnect(bool v) => Settings.AutoConnect = v;
+    private void SetAutoReconnect(bool v) => Settings.AutoReconnect = v;
+
+    private void OnStateChanged(bool _) => InvokeAsync(StateHasChanged);
+    private void OnLogChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task Connect() => await Connection.ConnectAsync();
+    private async Task Disconnect() => await Connection.DisconnectAsync();
+
+    private async Task OpenSettings()
+    {
+        try { await JS.InvokeVoidAsync("open", StreamElementsConstants.TokenSettingsUrl, "_blank"); } catch { }
+    }
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnStateChanged;
+        Log.LogChanged -= OnLogChanged;
+    }
+}

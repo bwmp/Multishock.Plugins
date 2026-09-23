@@ -1,0 +1,62 @@
+@using MultiShock.PluginSdk
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(Connection.IsConnected ? "bg-app-success" : "bg-app-subtle")"></div>
+        <span class="text-sm font-medium">
+            @if (Connection.IsConnected)
+            {
+                <span>Connected to Joystick.tv</span>
+            }
+            else if (Connection.IsConnecting)
+            {
+                <span>Connecting...</span>
+            }
+            else
+            {
+                <span>Not connected</span>
+            }
+        </span>
+    </div>
+
+    <p class="text-sm text-app-subtle">
+        Set up your bot and connection on the
+        <a href="/plugins/com-multishock-joystickintegration/joystickintegration" class="jtv-brand hover:underline">
+            Joystick.tv page
+        </a>.
+    </p>
+
+    <div class="text-xs text-app-muted space-y-1">
+        <div><strong>Supported Events:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Tips (with token minimums)</li>
+            <li>Tip-menu items (per-item)</li>
+            <li>Tip goal met</li>
+            <li>Follows &amp; subscriptions</li>
+            <li>Wheel-spin claims</li>
+            <li>Chat messages &amp; viewer enter/leave</li>
+            <li>Stream state changes</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = JoystickIntegrationPlugin.PluginId;
+    private JoystickConnectionService Connection => PluginServiceLocator.GetRequiredService<JoystickConnectionService>(PluginId);
+
+    [Parameter]
+    public string? PluginId_ { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Connection.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnConnectionChanged(bool connected) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

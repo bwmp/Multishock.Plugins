@@ -41,14 +41,18 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         });
 
         // Core services - use simple registration for Blazor DI compatibility
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+#if WINDOWS
+        services.AddSingleton<IScreenCaptureService, WindowsScreenCaptureService>();
+#else
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            services.AddSingleton<IScreenCaptureService, WindowsScreenCaptureService>();
+            services.AddSingleton<IScreenCaptureService, DesktopScreenCaptureService>();
         }
         else
         {
             services.AddSingleton<IScreenCaptureService, NoopScreenCaptureService>();
         }
+#endif
         services.AddSingleton<CooldownManager>();
         services.AddSingleton<DetectionTriggerManager>();
         services.AddSingleton<RecentDetectionsService>(sp =>
@@ -58,14 +62,10 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         });
 
         // Global hotkey service for region picker
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            services.AddSingleton<IGlobalHotkeyService, WindowsGlobalHotkeyService>();
-        }
-        else
-        {
-            services.AddSingleton<IGlobalHotkeyService, NoopGlobalHotkeyService>();
-        }
+        services.AddSingleton<IGlobalHotkeyService>(sp =>
+            sp.GetService<IHostGlobalHotkeyService>() is { } hostHotkeys
+                ? new HostGlobalHotkeyService(hostHotkeys)
+                : new NoopGlobalHotkeyService());
 
         // Config service depends on IPluginHost
         services.AddSingleton<ImageConfigService>(sp =>

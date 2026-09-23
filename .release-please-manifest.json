@@ -5,5 +5,12 @@
     "Plugins/ThroneIntegration": "1.3.0",
     "Plugins/SpeechToText": "1.2.0",
     "Plugins/VRChatOSC": "1.2.0",
-    "Plugins/RandomNodes": "1.1.0"
+    "Plugins/RandomNodes": "1.1.0",
+    "Plugins/TikTokIntegration": "0.1.0",
+    "Plugins/FanslyIntegration": "0.1.0",
+    "Plugins/JoystickIntegration": "0.1.0",
+    "Plugins/StreamElementsIntegration": "0.1.0",
+    "Plugins/StreamlabsIntegration": "0.1.0",
+    "Plugins/HeartRateIntegration": "0.1.0",
+    "Plugins/SteamVROverlay": "0.1.0"
 }

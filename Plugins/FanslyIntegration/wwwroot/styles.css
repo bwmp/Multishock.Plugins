@@ -1,0 +1,126 @@
+/* Fansly Integration plugin styles */
+.fsl-brand { color: #1683fb; }
+
+.fsl-step {
+    border: 1px solid rgba(22, 131, 251, 0.25);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: rgba(22, 131, 251, 0.05);
+}
+
+.fsl-step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background: var(--ms-primary);
+    color: var(--ms-on-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+}
+
+.fsl-status-dot {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 9999px;
+    margin-right: 0.4rem;
+}
+.fsl-status-dot.connected { background: rgb(var(--ms-success-rgb)); }
+.fsl-status-dot.disconnected { background: rgb(var(--ms-danger-rgb)); }
+.fsl-status-dot.connecting { background: rgb(var(--ms-warning-rgb)); }
+
+/* ========== Card Styles ========== */
+.fsl-card {
+    background: var(--ms-surface);
+    border: 1px solid var(--ms-border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+.fsl-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ms-text);
+    border-bottom: 1px solid var(--ms-border);
+}
+.fsl-card-body {
+    padding: 1rem;
+}
+
+/* ========== Bracket / Rule Row ========== */
+.fsl-bracket {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--ms-surface-2);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+.fsl-bracket:hover {
+    background: var(--ms-surface-2);
+}
+.fsl-bracket-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ms-muted);
+    border-bottom: 1px solid var(--ms-border);
+}
+
+/* ========== Toolbar Buttons ========== */
+.fsl-toolbar-btn-sm {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: var(--ms-surface-2);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--ms-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.fsl-toolbar-btn-sm:hover {
+    background: var(--ms-surface-3);
+    color: var(--ms-text);
+}
+.fsl-toolbar-btn-sm.danger:hover {
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    border-color: rgb(var(--ms-danger-rgb));
+    color: rgb(var(--ms-danger-rgb));
+}
+
+/* ========== Empty State ========== */
+.fsl-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    color: var(--ms-muted);
+    text-align: center;
+    gap: 0.5rem;
+}
+.fsl-empty p {
+    font-size: 0.875rem;
+    margin: 0;
+}

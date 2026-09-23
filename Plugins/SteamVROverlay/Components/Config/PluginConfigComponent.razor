@@ -1,0 +1,353 @@
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using SteamVROverlay.Services
+@implements IDisposable
+
+<div class="space-y-5">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @StatusDotClass"></div>
+        <span class="text-sm font-medium">@StatusText</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Overlay.LastError))
+    {
+        <Alert Variant="danger" Title="SteamVR error">@Overlay.LastError</Alert>
+    }
+
+    <Toggle Label="Enable plugin" Value="Enabled" ValueChanged="ToggleEnabled" />
+    <Toggle Label="Start the overlay with MultiShock" Value="AutoStart" ValueChanged="ToggleAutoStart" />
+
+    <section class="space-y-3">
+        <h3 class="text-sm font-semibold text-app-text">Placement</h3>
+
+        <div class="w-56">
+            <Select TValue="string"
+                    Label="Attach to"
+                    Options="HandOptions"
+                    Value="@HandValue"
+                    ValueChanged="OnHandChanged" />
+        </div>
+
+        <Slider Label="Panel width (cm)"
+                Min="5" Max="60" Step="1"
+                Value="@(WidthMeters * 100)"
+                ValueChanged="@(v => WidthMeters = (float)(v / 100))" />
+
+        <div class="grid grid-cols-3 gap-3">
+            <NumberInput Label="Offset X (cm)" Step="0.5" Min="-50" Max="50"
+                         Value="@((double)(OffsetX * 100))"
+                         ValueChanged="@(v => OffsetX = (float)((v ?? 0) / 100))" />
+            <NumberInput Label="Offset Y (cm)" Step="0.5" Min="-50" Max="50"
+                         Value="@((double)(OffsetY * 100))"
+                         ValueChanged="@(v => OffsetY = (float)((v ?? 0) / 100))" />
+            <NumberInput Label="Offset Z (cm)" Step="0.5" Min="-50" Max="50"
+                         Value="@((double)(OffsetZ * 100))"
+                         ValueChanged="@(v => OffsetZ = (float)((v ?? 0) / 100))" />
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+            <NumberInput Label="Pitch (°)" Step="5" Min="-180" Max="180"
+                         Value="@((double)PitchDegrees)"
+                         ValueChanged="@(v => PitchDegrees = (float)(v ?? 0))" />
+            <NumberInput Label="Yaw (°)" Step="5" Min="-180" Max="180"
+                         Value="@((double)YawDegrees)"
+                         ValueChanged="@(v => YawDegrees = (float)(v ?? 0))" />
+            <NumberInput Label="Roll (°)" Step="5" Min="-180" Max="180"
+                         Value="@((double)RollDegrees)"
+                         ValueChanged="@(v => RollDegrees = (float)(v ?? 0))" />
+        </div>
+
+        <p class="text-xs text-app-subtle">
+            Offsets are in left-controller space: +X points right, +Y up, and +Z back toward your elbow.
+            The right hand uses the mirror image. Adjust while SteamVR is running to see the panel move.
+        </p>
+
+        <Slider Label="Opacity" Min="10" Max="100" Step="5"
+                Value="@(Opacity * 100)"
+                ValueChanged="@(v => Opacity = (float)(v / 100))" />
+
+        <Slider Label="Curvature" Min="0" Max="100" Step="5"
+                Value="@(Curvature * 100)"
+                ValueChanged="@(v => Curvature = (float)(v / 100))" />
+    </section>
+
+    <section class="space-y-3">
+        <h3 class="text-sm font-semibold text-app-text">Visibility</h3>
+
+        <Toggle Label="Only show when you turn your wrist toward you"
+                Value="GazeActivation"
+                ValueChanged="ToggleGazeActivation" />
+
+        @if (GazeActivation)
+        {
+            <Slider Label="Activation angle (°)" Min="10" Max="90" Step="5"
+                    Value="@((double)GazeAngleDegrees)"
+                    ValueChanged="@(v => GazeAngleDegrees = (float)v)" />
+
+            <div class="w-56">
+                <NumberInput Label="Hide delay (ms)" Step="50" Min="0" Max="5000"
+                             Value="@((double)HideDelayMs)"
+                             ValueChanged="@(v => HideDelayMs = (int)Math.Clamp(v ?? 400, 0, 5000))" />
+            </div>
+        }
+    </section>
+
+    <section class="space-y-3">
+        <h3 class="text-sm font-semibold text-app-text">Limits and safety</h3>
+
+        <Slider Label="Maximum intensity" Min="1" Max="100" Step="1"
+                Value="@((double)MaxIntensity)"
+                ValueChanged="@(v => MaxIntensity = (int)v)" />
+
+        <Slider Label="Maximum duration (seconds)" Min="0.1" Max="15" Step="0.1"
+                Value="@MaxDurationSeconds"
+                ValueChanged="@(v => MaxDurationSeconds = v)" />
+
+        <Slider Label="Starting intensity" Min="1" Max="@MaxIntensity" Step="1"
+                Value="@((double)DefaultIntensity)"
+                ValueChanged="@(v => DefaultIntensity = (int)v)" />
+
+        <Slider Label="Starting duration (seconds)" Min="0.1" Max="@MaxDurationSeconds" Step="0.1"
+                Value="@DefaultDurationSeconds"
+                ValueChanged="@(v => DefaultDurationSeconds = v)" />
+
+        <Toggle Label="Require press-and-hold on the shock button"
+                Value="HoldToShock"
+                ValueChanged="ToggleHoldToShock" />
+
+        @if (HoldToShock)
+        {
+            <div class="w-56">
+                <NumberInput Label="Hold time (ms)" Step="50" Min="200" Max="3000"
+                             Value="@((double)ShockHoldMs)"
+                             ValueChanged="@(v => ShockHoldMs = (int)Math.Clamp(v ?? 600, 200, 3000))" />
+            </div>
+        }
+
+        <Toggle Label="Send a warning vibration before each shock"
+                Value="WarnBeforeShock"
+                ValueChanged="ToggleWarnBeforeShock" />
+    </section>
+
+    <div class="flex gap-2">
+        @if (Overlay.IsRunning)
+        {
+            <Button Text="Stop overlay" Variant="danger" OnClick="StopOverlay" />
+        }
+        else
+        {
+            <Button Text="Start overlay" Variant="primary" Disabled="@(!Enabled)" OnClick="StartOverlay" />
+        }
+    </div>
+
+    <p class="text-xs text-app-subtle">
+        The overlay attaches once SteamVR is running. It never launches SteamVR itself.
+    </p>
+</div>
+
+@code {
+    private static readonly string PluginIdValue = SteamVROverlayPlugin.PluginId;
+
+    private static readonly IEnumerable<Select<string>.SelectOption<string>> HandOptions =
+    [
+        new("left", "Left controller"),
+        new("right", "Right controller"),
+    ];
+
+    private OverlaySettingsService Settings =>
+        PluginServiceLocator.GetRequiredService<OverlaySettingsService>(PluginIdValue);
+
+    private WristOverlayService Overlay =>
+        PluginServiceLocator.GetRequiredService<WristOverlayService>(PluginIdValue);
+
+    [Parameter]
+    public string? PluginId { get; set; }
+
+    private bool Enabled;
+    private bool AutoStart;
+
+    protected override void OnInitialized()
+    {
+        Enabled = Settings.Enabled;
+        AutoStart = Settings.AutoStart;
+        Overlay.StateChanged += OnStateChanged;
+    }
+
+    private string HandValue => Settings.Hand == OverlayHand.Right ? "right" : "left";
+
+    private float WidthMeters
+    {
+        get => Settings.WidthMeters;
+        set => Settings.WidthMeters = value;
+    }
+
+    private float OffsetX
+    {
+        get => Settings.OffsetX;
+        set => Settings.OffsetX = value;
+    }
+
+    private float OffsetY
+    {
+        get => Settings.OffsetY;
+        set => Settings.OffsetY = value;
+    }
+
+    private float OffsetZ
+    {
+        get => Settings.OffsetZ;
+        set => Settings.OffsetZ = value;
+    }
+
+    private float PitchDegrees
+    {
+        get => Settings.PitchDegrees;
+        set => Settings.PitchDegrees = value;
+    }
+
+    private float YawDegrees
+    {
+        get => Settings.YawDegrees;
+        set => Settings.YawDegrees = value;
+    }
+
+    private float RollDegrees
+    {
+        get => Settings.RollDegrees;
+        set => Settings.RollDegrees = value;
+    }
+
+    private float Opacity
+    {
+        get => Settings.Opacity;
+        set => Settings.Opacity = value;
+    }
+
+    private float Curvature
+    {
+        get => Settings.Curvature;
+        set => Settings.Curvature = value;
+    }
+
+    private bool GazeActivation => Settings.GazeActivation;
+
+    private float GazeAngleDegrees
+    {
+        get => Settings.GazeAngleDegrees;
+        set => Settings.GazeAngleDegrees = value;
+    }
+
+    private int HideDelayMs
+    {
+        get => Settings.HideDelayMs;
+        set => Settings.HideDelayMs = value;
+    }
+
+    private int MaxIntensity
+    {
+        get => Settings.MaxIntensity;
+        set => Settings.MaxIntensity = value;
+    }
+
+    private double MaxDurationSeconds
+    {
+        get => Settings.MaxDurationSeconds;
+        set => Settings.MaxDurationSeconds = value;
+    }
+
+    private int DefaultIntensity
+    {
+        get => Settings.DefaultIntensity;
+        set => Settings.DefaultIntensity = value;
+    }
+
+    private double DefaultDurationSeconds
+    {
+        get => Settings.DefaultDurationSeconds;
+        set => Settings.DefaultDurationSeconds = value;
+    }
+
+    private bool HoldToShock => Settings.HoldToShock;
+
+    private int ShockHoldMs
+    {
+        get => Settings.ShockHoldMs;
+        set => Settings.ShockHoldMs = value;
+    }
+
+    private bool WarnBeforeShock => Settings.WarnBeforeShock;
+
+    private string StatusText => Overlay.State switch
+    {
+        OverlayRuntimeState.Running when Overlay.IsOverlayVisible => "Connected — panel visible",
+        OverlayRuntimeState.Running => "Connected — panel hidden",
+        OverlayRuntimeState.WaitingForSteamVr => "Waiting for SteamVR",
+        OverlayRuntimeState.RuntimeNotInstalled => "SteamVR is not installed",
+        OverlayRuntimeState.Error => "Error",
+        _ => "Stopped"
+    };
+
+    private string StatusDotClass => Overlay.State switch
+    {
+        OverlayRuntimeState.Running => "bg-app-success",
+        OverlayRuntimeState.WaitingForSteamVr => "bg-app-warning",
+        OverlayRuntimeState.Error or OverlayRuntimeState.RuntimeNotInstalled => "bg-app-danger",
+        _ => "bg-app-subtle"
+    };
+
+    private void OnHandChanged(string? value)
+    {
+        Settings.Hand = string.Equals(value, "right", StringComparison.OrdinalIgnoreCase)
+            ? OverlayHand.Right
+            : OverlayHand.Left;
+    }
+
+    private Task ToggleEnabled(bool enabled)
+    {
+        Enabled = enabled;
+        Settings.Enabled = enabled;
+
+        if (!enabled)
+        {
+            Overlay.Stop();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleAutoStart(bool enabled)
+    {
+        AutoStart = enabled;
+        Settings.AutoStart = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleGazeActivation(bool enabled)
+    {
+        Settings.GazeActivation = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleHoldToShock(bool enabled)
+    {
+        Settings.HoldToShock = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleWarnBeforeShock(bool enabled)
+    {
+        Settings.WarnBeforeShock = enabled;
+        return Task.CompletedTask;
+    }
+
+    private void StartOverlay() => Overlay.Start();
+
+    private void StopOverlay() => Overlay.Stop();
+
+    private void OnStateChanged(OverlayRuntimeState state) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Overlay.StateChanged -= OnStateChanged;
+    }
+}

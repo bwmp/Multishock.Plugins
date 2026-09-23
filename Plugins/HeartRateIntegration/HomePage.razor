@@ -1,0 +1,227 @@
+@page "/plugins/com-multishock-heartrateintegration/heart-rate"
+@using Microsoft.Extensions.Logging
+@using Microsoft.Extensions.Logging.Abstractions
+@implements IAsyncDisposable
+
+<div class="max-w-4xl space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-xl font-semibold">Heart Rate</h1>
+            <p class="text-sm text-app-muted">COOSPO H808S and standard BLE heart-rate monitors</p>
+        </div>
+        <span class="text-sm text-app-muted" role="status">@Snapshot.State</span>
+    </div>
+
+    <section aria-label="Live heart rate" class="border-b border-app-border pb-6">
+        <div class="flex flex-wrap items-baseline gap-2">
+            <span class="text-4xl font-semibold tabular-nums">@(Snapshot.HasFreshReading(DateTimeOffset.UtcNow) ? Snapshot.Latest!.BeatsPerMinute.ToString() : "—")</span>
+            <span class="text-app-muted">BPM</span>
+        </div>
+        <p class="mt-2 text-sm text-app-muted">@ReadingStatus</p>
+        @if (Snapshot.Device is { } activeDevice)
+        {
+            <p class="mt-1 text-sm break-all">@activeDevice.Name</p>
+        }
+        @if (Snapshot.HasFreshReading(DateTimeOffset.UtcNow) && Snapshot.Latest is { } reading)
+        {
+            <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <div><dt class="text-app-muted">Sensor contact</dt><dd>@ContactText(reading)</dd></div>
+                @if (reading.RrIntervalsMilliseconds.Count > 0)
+                {
+                    <div><dt class="text-app-muted">Last RR interval</dt><dd>@reading.RrIntervalsMilliseconds[^1].ToString("0.0") ms</dd></div>
+                }
+                @if (reading.EnergyExpendedKilojoules is { } energy)
+                {
+                    <div><dt class="text-app-muted">Energy expended</dt><dd>@energy kJ</dd></div>
+                }
+            </dl>
+        }
+    </section>
+
+    @if (Snapshot.Error is { } error)
+    {
+        <p class="text-sm text-app-danger" role="alert">@error</p>
+    }
+    @if (Message is not null)
+    {
+        <p class="text-sm text-app-danger" role="alert">@Message</p>
+    }
+
+    <section aria-labelledby="monitors-heading" class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="monitors-heading" class="font-semibold">Monitor connection</h2>
+            <div class="flex flex-wrap gap-2">
+                @if (Scanning)
+                {
+                    <Button Text="Cancel scan" Variant="secondary" OnClick="CancelScan" />
+                }
+                else
+                {
+                    <Button Text="Scan for monitors" Icon="bluetooth" Disabled="Busy" OnClick="ScanAsync" />
+                }
+                @if (Snapshot.State != HeartRateConnectionState.Disconnected)
+                {
+                    <Button Text="Disconnect" Variant="secondary" Disabled="Busy" OnClick="DisconnectAsync" />
+                }
+            </div>
+        </div>
+        <p class="text-sm text-app-muted">Wear the H808S with its electrodes moistened to wake it. Enable Bluetooth in Windows and disconnect the strap from other Bluetooth apps before connecting here.</p>
+        @if (Scanning)
+        {
+            <p class="text-sm text-app-muted" role="status">Scanning for nearby heart-rate monitors for 10 seconds…</p>
+        }
+        else if (Scanned && Devices.Count == 0)
+        {
+            <p class="text-sm text-app-muted" role="status">No monitors found. Check that the strap is awake and nearby, then scan again.</p>
+        }
+        <ul class="divide-y divide-app-border">
+            @foreach (var device in Devices)
+            {
+                <li @key="device.Address" class="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div class="min-w-0">
+                        <div class="font-medium break-all">@device.Name</div>
+                        <div class="text-xs text-app-muted">@device.Address.ToString("X12") · @device.SignalStrength dBm</div>
+                    </div>
+                    <Button Text="Connect" Variant="secondary" Disabled="@(Busy || Scanning || (Snapshot.Device?.Address == device.Address && Snapshot.State != HeartRateConnectionState.Disconnected))"
+                            AriaLabel="@($"Connect to {device.Name}")" OnClick="@(() => ConnectAsync(device))" />
+                </li>
+            }
+        </ul>
+    </section>
+
+    <section aria-labelledby="readings-heading" class="space-y-3">
+        <h2 id="readings-heading" class="font-semibold">Recent readings</h2>
+        @if (History.Count == 0)
+        {
+            <p class="text-sm text-app-muted">Readings appear after connecting. History is kept in memory for this session.</p>
+        }
+        else
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead><tr class="border-b border-app-border text-app-muted"><th scope="col" class="py-2 pr-4">Time</th><th scope="col" class="py-2 pr-4">BPM</th><th scope="col" class="py-2">Contact</th></tr></thead>
+                    <tbody>
+                        @foreach (var previousReading in History.Take(10))
+                        {
+                            <tr class="border-b border-app-border"><td class="py-2 pr-4 tabular-nums">@previousReading.TimestampUtc.ToLocalTime().ToString("HH:mm:ss")</td><td class="py-2 pr-4 tabular-nums">@previousReading.BeatsPerMinute</td><td class="py-2">@ContactText(previousReading)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <p class="text-sm text-app-muted">Use “Heart Rate Received” or “Get Heart Rate” in the flow editor. Readings expire after 10 seconds without an update.</p>
+    </section>
+</div>
+
+@code {
+    private HeartRateMonitor Monitor = null!;
+    private ILogger Logger = NullLogger.Instance;
+    private HeartRateSnapshot Snapshot = new(HeartRateConnectionState.Disconnected, null, null, null);
+    private IReadOnlyList<HeartRateDevice> Devices = [];
+    private IReadOnlyList<HeartRateMeasurement> History = [];
+    private readonly CancellationTokenSource Lifetime = new();
+    private CancellationTokenSource? ScanCancellation;
+    private Task RefreshTask = Task.CompletedTask;
+    private bool Scanning;
+    private bool Scanned;
+    private bool Busy;
+    private string? Message;
+
+    private string ReadingStatus => Snapshot.State switch
+    {
+        HeartRateConnectionState.Disconnected => "Connect a monitor to start tracking.",
+        HeartRateConnectionState.Connecting => "Connecting to the monitor…",
+        HeartRateConnectionState.Reconnecting => "Waiting to reconnect…",
+        _ when Snapshot.Latest is null => "Connected. Waiting for the first reading…",
+        _ when Snapshot.Latest.SensorContactDetected == false => "Poor sensor contact. Adjust the strap and moisten the electrodes.",
+        _ when !Snapshot.HasFreshReading(DateTimeOffset.UtcNow) => "No fresh heart-rate reading. Check the strap and connection.",
+        _ => $"Updated {Snapshot.Latest.TimestampUtc.ToLocalTime():HH:mm:ss}"
+    };
+
+    private static string ContactText(HeartRateMeasurement reading) => reading.SensorContactDetected switch
+    {
+        true => "Detected", false => "Poor / no contact", null => "Not reported"
+    };
+
+    protected override void OnInitialized()
+    {
+        Monitor = PluginServiceLocator.GetRequiredService<HeartRateMonitor>(HeartRatePlugin.PluginId);
+        Logger = PluginServiceLocator.GetService<IPluginHost>(HeartRatePlugin.PluginId)
+            ?.CreateLogger("HeartRateIntegration.Plugin") ?? NullLogger.Instance;
+        Snapshot = Monitor.Snapshot;
+        History = Monitor.History;
+        RefreshTask = RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(Lifetime.Token))
+                await InvokeAsync(() =>
+                {
+                    Snapshot = Monitor.Snapshot;
+                    History = Monitor.History;
+                    StateHasChanged();
+                });
+        }
+        catch (OperationCanceledException) when (Lifetime.IsCancellationRequested) { }
+    }
+
+    private async Task ScanAsync()
+    {
+        Scanning = true;
+        Message = null;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Lifetime.Token);
+        ScanCancellation = cancellation;
+        try
+        {
+            Devices = await Monitor.ScanAsync(cancellation.Token);
+            Scanned = true;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Heart-rate scan failed");
+            Message = ex is InvalidOperationException ? ex.Message : "Scanning failed. Check your Bluetooth adapter and Windows permissions.";
+        }
+        finally
+        {
+            ScanCancellation = null;
+            Scanning = false;
+        }
+    }
+
+    private void CancelScan() => ScanCancellation?.Cancel();
+
+    private async Task ConnectAsync(HeartRateDevice device)
+    {
+        Busy = true;
+        try
+        {
+            await Monitor.ConnectAsync(device);
+            Snapshot = Monitor.Snapshot;
+            History = Monitor.History;
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        Busy = true;
+        try
+        {
+            await Monitor.DisconnectAsync();
+            Snapshot = Monitor.Snapshot;
+        }
+        finally { Busy = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Lifetime.CancelAsync();
+        await RefreshTask;
+        Lifetime.Dispose();
+    }
+}

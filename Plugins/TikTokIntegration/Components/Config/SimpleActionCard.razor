@@ -18,14 +18,14 @@
         <div class="tiktok-card-body space-y-4">
             @if (Description != null)
             {
-                <p class="text-xs" style="color: var(--app-muted, #adb5bd);">@Description</p>
+                <p class="text-xs text-app-muted">@Description</p>
             }
 
             @ExtraTop
 
             <div class="flex flex-wrap items-end gap-3">
                 <div class="grow min-w-[16rem]">
-                    <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                    <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
                     <ShockerSelect Label="" MultiSelect="true" SelectedIds="Config.SelectedShockerIds"
                         SelectedIdsChanged="@(ids => Update(c => c.SelectedShockerIds = ids))" />
                 </div>
@@ -40,7 +40,7 @@
                 @if (Config.CommandType == "Shock")
                 {
                     <div>
-                        <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Warning</label>
+                        <label class="block text-xs font-medium mb-1 text-app-muted">Warning</label>
                         <Toggle Value="Config.WarningVibrate" ValueChanged="@(v => Update(c => c.WarningVibrate = v))" />
                     </div>
                 }
@@ -48,16 +48,16 @@
 
             <div class="space-y-2">
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Intensity</span>
+                    <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
                     <Slider Min="1" Max="100" Value="Config.Intensity"
                         ValueChanged="@(v => Update(c => c.Intensity = (int)v))" Class="flex-1" ShowValue="false" />
-                    <span class="text-xs" style="color: var(--app-muted, #adb5bd); width: 3rem;">@Config.Intensity%</span>
+                    <span class="text-xs text-app-muted w-12">@Config.Intensity%</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Duration</span>
+                    <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
                     <Slider Min="0.1" Max="15" Step="0.1" Value="Config.Duration"
                         ValueChanged="@(v => Update(c => c.Duration = Math.Round(v, 1)))" Class="flex-1" ShowValue="false" />
-                    <span class="text-xs" style="color: var(--app-muted, #adb5bd); width: 3rem;">@Config.Duration.ToString("0.0")s</span>
+                    <span class="text-xs text-app-muted w-12">@Config.Duration.ToString("0.0")s</span>
                 </div>
             </div>
         </div>

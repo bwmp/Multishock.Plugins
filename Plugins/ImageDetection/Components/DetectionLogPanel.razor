@@ -95,9 +95,9 @@
     {
         return log.Type switch
         {
-            LogType.Detection => "bg-green-500/10 text-green-500",
-            LogType.Error => "bg-red-500/10 text-red-500",
-            _ => "bg-blue-500/10 text-blue-500"
+            LogType.Detection => "bg-app-success/10 text-app-success",
+            LogType.Error => "bg-app-danger/10 text-app-danger",
+            _ => "bg-app-info/10 text-app-info"
         };
     }
 

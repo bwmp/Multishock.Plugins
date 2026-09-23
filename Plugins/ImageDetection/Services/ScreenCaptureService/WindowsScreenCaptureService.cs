@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Runtime.InteropServices;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
@@ -845,3 +846,4 @@ public class WindowsScreenCaptureService(ILogger? logger = null) : IScreenCaptur
 
     #endregion
 }
+#endif

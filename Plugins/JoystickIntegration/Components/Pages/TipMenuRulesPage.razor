@@ -1,0 +1,151 @@
+@page "/plugins/com-multishock-joystickintegration/tip-menu-rules"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@implements IDisposable
+
+<div class="max-w-4xl space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-app-text">Individual Tip-Menu Items</h1>
+            <p class="text-sm mt-1 text-app-muted">
+                Give specific tip-menu items their own reaction. A matching rule takes priority over
+                <a href="/plugins/com-multishock-joystickintegration/tip-brackets" class="jtv-brand">tip brackets</a>.
+            </p>
+        </div>
+        <Toggle Label="@(Service.Config.Enabled ? "Enabled" : "Disabled")" Value="Service.Config.Enabled"
+            ValueChanged="@(v => Service.SetEnabled(v))" />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-4">
+        <Toggle Label="Matching rule skips tip brackets" Value="Service.Config.RulesOverrideBrackets"
+            ValueChanged="@(v => Service.SetRulesOverrideBrackets(v))" />
+        <div style="flex: 1;"></div>
+        <Button Text="Add Rule" Variant="secondary" Size="sm" OnClick="AddRule" />
+    </div>
+
+    @if (Service.Config.Rules.Count == 0)
+    {
+        <div class="jtv-card"><div class="jtv-empty">
+            <p>No rules yet. Add one and set the tip-menu item name it should match.</p>
+        </div></div>
+    }
+    else
+    {
+        @foreach (var rule in Service.Config.Rules)
+        {
+            <div class="jtv-card" @key="rule.Id">
+                <div class="jtv-card-header">
+                    <div class="flex items-center gap-2" style="flex: 1;">
+                        <Toggle Value="rule.Enabled" ValueChanged="@(v => Update(rule, r => r.Enabled = v))" />
+                        <TextInput Placeholder="tip-menu item name (e.g. Spank)" Value="@rule.ItemName"
+                            ValueChanged="@(v => Update(rule, r => r.ItemName = v ?? ""))" Class="flex-1" />
+                    </div>
+                    <button class="jtv-toolbar-btn-sm danger" @onclick="@(() => Service.RemoveRule(rule.Id))" title="Remove rule">
+                        <LucideIcon Name="trash-2" Class="w-4 h-4" />
+                    </button>
+                </div>
+                @if (rule.Enabled)
+                {
+                    <div class="jtv-card-body space-y-4">
+                        <div class="flex flex-wrap items-end gap-3">
+                            <div class="grow min-w-[16rem]">
+                                <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
+                                <ShockerSelect Label="" MultiSelect="true" SelectedIds="rule.SelectedShockerIds"
+                                    SelectedIdsChanged="@(ids => Update(rule, r => r.SelectedShockerIds = ids))" />
+                            </div>
+                            <div class="w-36">
+                                <Select TValue="string" Label="Command" Value="@rule.CommandType"
+                                    ValueChanged="@(v => Update(rule, r => r.CommandType = v ?? "Vibrate"))" Options="@CommandTypeOptions" />
+                            </div>
+                            <div class="w-36">
+                                <Select TValue="string" Label="Selection" Value="@rule.Mode.ToString()"
+                                    ValueChanged="@(v => Update(rule, r => r.Mode = ParseMode(v)))" Options="@SelectionModeOptions" />
+                            </div>
+                            @if (rule.CommandType == "Shock")
+                            {
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-app-muted">Warning</label>
+                                    <Toggle Value="rule.WarningVibrate" ValueChanged="@(v => Update(rule, r => r.WarningVibrate = v))" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
+                                <Slider Min="1" Max="100" Value="rule.Intensity"
+                                    ValueChanged="@(v => Update(rule, r => r.Intensity = (int)v))" Class="flex-1" ShowValue="false" />
+                                <span class="text-xs text-app-muted w-12">@rule.Intensity%</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
+                                <Slider Min="0.1" Max="15" Step="0.1" Value="rule.Duration"
+                                    ValueChanged="@(v => Update(rule, r => r.Duration = Math.Round(v, 1)))" Class="flex-1" ShowValue="false" />
+                                <span class="text-xs text-app-muted w-12">@rule.Duration.ToString("0.0")s</span>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-3">
+                            <Toggle Label="Scale duration with tokens" Value="rule.ScaleWithTokens"
+                                ValueChanged="@(v => Update(rule, r => r.ScaleWithTokens = v))" />
+                            @if (rule.ScaleWithTokens)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-app-muted">per</span>
+                                    <NumberInput Value="@((double)rule.ScaleTokenUnit)" Min="1" Max="100000" Class="w-24"
+                                        ValueChanged="@(v => Update(rule, r => r.ScaleTokenUnit = (int)Math.Clamp(v ?? 1, 1, 100000)))" />
+                                    <span class="text-xs text-app-muted">tokens, max</span>
+                                    <NumberInput Value="@rule.MaxDuration" Min="0.1" Max="60" Class="w-24"
+                                        ValueChanged="@(v => Update(rule, r => r.MaxDuration = Math.Clamp(v ?? 15, 0.1, 60)))" />
+                                    <span class="text-xs text-app-muted">s</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private static readonly string PluginId = JoystickIntegrationPlugin.PluginId;
+    private TipRulesConfigService Service => PluginServiceLocator.GetRequiredService<TipRulesConfigService>(PluginId);
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> CommandTypeOptions =
+    [
+        new("Shock", "Shock"),
+        new("Vibrate", "Vibrate"),
+        new("Beep", "Beep"),
+    ];
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions =
+    [
+        new("All", "All"),
+        new("Random", "Random"),
+        new("RoundRobin", "Round Robin"),
+    ];
+
+    protected override void OnInitialized()
+    {
+        Service.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void AddRule() => Service.AddRule(new TipRule());
+
+    private void Update(TipRule rule, Action<TipRule> mutate)
+    {
+        mutate(rule);
+        Service.UpdateRule(rule);
+    }
+
+    private static SelectionMode ParseMode(string? value) =>
+        Enum.TryParse<SelectionMode>(value, out var mode) ? mode : SelectionMode.All;
+
+    public void Dispose()
+    {
+        Service.ConfigChanged -= OnConfigChanged;
+    }
+}

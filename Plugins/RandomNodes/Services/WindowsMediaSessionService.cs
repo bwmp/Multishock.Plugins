@@ -1,21 +1,9 @@
+#if WINDOWS
 using Windows.Media.Control;
 
 namespace RandomNodes.Services;
 
-public sealed record MediaSessionSnapshot(
-    bool Found,
-    string SourceAppUserModelId,
-    string Title,
-    string Artist,
-    string AlbumTitle,
-    string PlaybackStatus,
-    bool IsPlaying,
-    double CurrentSeconds,
-    double LengthSeconds,
-    double ProgressPercent,
-    string Error);
-
-public sealed class WindowsMediaSessionService
+public sealed class WindowsMediaSessionService : ISystemMediaSessionService
 {
     public async Task<MediaSessionSnapshot> GetSessionAsync(bool preferSpotify, CancellationToken cancellationToken)
     {
@@ -66,16 +54,6 @@ public sealed class WindowsMediaSessionService
         return session.SourceAppUserModelId?.Contains("spotify", StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    private static MediaSessionSnapshot Empty(string error) => new(
-        false,
-        string.Empty,
-        string.Empty,
-        string.Empty,
-        string.Empty,
-        string.Empty,
-        false,
-        0,
-        0,
-        0,
-        error);
+    private static MediaSessionSnapshot Empty(string error) => MediaSessionSnapshot.Empty(error);
 }
+#endif

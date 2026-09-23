@@ -1,0 +1,114 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <AssemblyName>SteamVROverlay</AssemblyName>
+        <RootNamespace>SteamVROverlay</RootNamespace>
+
+        <RazorLangVersion>Latest</RazorLangVersion>
+        <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
+        <PluginVersion>0.1.0</PluginVersion> <!-- x-release-please-version -->
+
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <!-- Release optimizations -->
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+    <!-- Dependencies -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+        <PackageReference Include="SkiaSharp" Version="3.119.0" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0" />
+        <PackageReference Include="VolcanicArts.Libs.OpenVR" Version="2.5.1" />
+        <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
+        <!-- Coordinated development against the sibling SDK. Restore the PackageReference
+             below once the matching SDK version is published. -->
+        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" /> -->
+        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
+    </ItemGroup>
+
+    <!-- Version with conditional build stamp -->
+    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <AssemblyInformationalVersion>$(PluginVersion)+$(PluginBuildStamp)</AssemblyInformationalVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <AssemblyInformationalVersion>$(PluginVersion)</AssemblyInformationalVersion>
+    </PropertyGroup>
+
+    <!-- Exclude generated file from default compilation -->
+    <ItemGroup>
+        <Compile Remove="Generated\BuildStamp.g.cs" />
+    </ItemGroup>
+
+    <!-- Generate build stamp and version for runtime display -->
+    <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile">
+        <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
+        <PropertyGroup>
+            <VersionOutput Condition="'$(Configuration)'=='Debug'">$(PluginVersion)+$(PluginBuildStamp)</VersionOutput>
+            <VersionOutput Condition="'$(Configuration)'=='Release'">$(PluginVersion)</VersionOutput>
+        </PropertyGroup>
+        <ItemGroup>
+            <StampLines Include="namespace SteamVROverlay%3B" />
+            <StampLines Include=" " />
+            <StampLines Include="public static class BuildStamp" />
+            <StampLines Include="{" />
+            <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+            <StampLines Include="    public const string Version = &quot;$(VersionOutput)&quot;%3B" />
+            <StampLines Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />
+        <ItemGroup>
+            <Compile Include="Generated\BuildStamp.g.cs" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="PackPluginPackage" AfterTargets="Build" Condition="'$(SkipPluginPackaging)' != 'true'">
+        <PropertyGroup>
+            <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+            <PluginStagingDir>$(IntermediateOutputPath)msplugin-staging</PluginStagingDir>
+            <PluginPackagePath>$(LocalPluginDir)\$(AssemblyName).msplugin</PluginPackagePath>
+        </PropertyGroup>
+
+        <RemoveDir Directories="$(PluginStagingDir)" />
+        <MakeDir Directories="$(PluginStagingDir)" />
+        <MakeDir Directories="$(LocalPluginDir)" />
+
+        <Copy SourceFiles="$(MSBuildProjectDirectory)\plugin.json" DestinationFolder="$(PluginStagingDir)" />
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginStagingDir)" />
+        <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginStagingDir)" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+        <Copy SourceFiles="$(TargetDir)$(TargetName).deps.json" DestinationFolder="$(PluginStagingDir)" Condition="Exists('$(TargetDir)$(TargetName).deps.json')" />
+
+        <!--
+            Native libraries ship in the package root, beside the managed assemblies that P/Invoke them.
+            Production plugins load into the default context, where the host's native resolver covers only
+            the plugin assembly itself; OpenVR.dll and SkiaSharp.dll fall back to searching their own folder.
+        -->
+        <ItemGroup>
+            <ManagedDeps Include="$(TargetDir)*.dll"
+                         Exclude="$(TargetPath);$(TargetDir)MultiShock.PluginSdk.dll;$(TargetDir)PiShock.MultiShock.PluginSdk.dll;$(TargetDir)Microsoft.*.dll;$(TargetDir)System.*.dll;$(TargetDir)openvr_api.dll" />
+            <RootNativeLibs Include="$(TargetDir)openvr_api.dll;$(TargetDir)runtimes\win-x64\native\libSkiaSharp.dll" />
+        </ItemGroup>
+        <Copy SourceFiles="@(ManagedDeps)" DestinationFolder="$(PluginStagingDir)" Condition="'@(ManagedDeps)' != ''" />
+        <Copy SourceFiles="@(RootNativeLibs)" DestinationFolder="$(PluginStagingDir)" />
+
+        <Delete Files="$(PluginPackagePath)" Condition="Exists('$(PluginPackagePath)')" />
+        <ZipDirectory SourceDirectory="$(PluginStagingDir)" DestinationFile="$(PluginPackagePath)" Overwrite="true" />
+
+        <Delete Files="$(LocalPluginDir)\$(AssemblyName).dll" Condition="Exists('$(LocalPluginDir)\$(AssemblyName).dll')" />
+        <Delete Files="$(LocalPluginDir)\$(AssemblyName).deps.json" Condition="Exists('$(LocalPluginDir)\$(AssemblyName).deps.json')" />
+        <ItemGroup>
+            <DeployedManagedDeps Include="@(ManagedDeps->'$(LocalPluginDir)\%(Filename)%(Extension)')" />
+        </ItemGroup>
+        <Delete Files="@(DeployedManagedDeps)" Condition="'@(DeployedManagedDeps)' != ''" />
+
+        <Message Importance="High" Text="Created plugin package: $(PluginPackagePath)" />
+    </Target>
+</Project>

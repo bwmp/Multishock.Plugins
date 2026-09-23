@@ -1,0 +1,10 @@
+@page "/plugins/com-multishock-streamelementsintegration/streamelements-follow"
+@using StreamElementsIntegration.Models
+
+<EventActionEditor Info="Info"
+    Description="Configure how new followers trigger your shockers." />
+
+@code {
+    private static readonly EventTypeInfo Info =
+        StreamElementsEventCatalog.All.First(i => i.Type == StreamElementsEventType.Follow);
+}

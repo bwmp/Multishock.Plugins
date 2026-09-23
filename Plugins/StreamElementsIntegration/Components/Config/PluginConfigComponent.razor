@@ -1,0 +1,58 @@
+@using MultiShock.PluginSdk
+@implements IDisposable
+
+<div class="space-y-4">
+    <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full @(Connection.IsConnected ? "bg-app-success" : "bg-app-subtle")"></div>
+        <span class="text-sm font-medium">
+            @if (Connection.IsConnected)
+            {
+                <span>Connected to StreamElements</span>
+            }
+            else if (Connection.IsConnecting)
+            {
+                <span>Connecting...</span>
+            }
+            else
+            {
+                <span>Not connected</span>
+            }
+        </span>
+    </div>
+
+    <p class="text-sm text-app-subtle">
+        Set up your JWT token and connection on the
+        <a href="/plugins/com-multishock-streamelementsintegration/streamelementsintegration" class="se-brand hover:underline">
+            StreamElements page
+        </a>.
+    </p>
+
+    <div class="text-xs text-app-muted space-y-1">
+        <div><strong>Supported Events:</strong></div>
+        <ul class="list-disc list-inside ml-2">
+            <li>Tips (with minimum amount)</li>
+            <li>Cheers / bits (with minimum)</li>
+            <li>Follows</li>
+            <li>Subscribers &amp; gifted subs</li>
+            <li>Hosts &amp; raids</li>
+            <li>Loyalty store redemptions</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = StreamElementsIntegrationPlugin.PluginId;
+    private StreamElementsConnectionService Connection => PluginServiceLocator.GetRequiredService<StreamElementsConnectionService>(PluginId);
+
+    protected override void OnInitialized()
+    {
+        Connection.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnConnectionChanged(bool connected) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

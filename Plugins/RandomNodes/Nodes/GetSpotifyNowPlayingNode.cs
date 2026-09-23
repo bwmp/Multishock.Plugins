@@ -8,7 +8,7 @@ public sealed class GetSpotifyNowPlayingNode : IFlowProcessNode
     public string TypeId => "randomnodes.spotify_now_playing";
     public string DisplayName => "Spotify Now Playing";
     public string Category => "Random / Media";
-    public string? Description => "Reads the current Spotify track using the Windows media session API";
+    public string? Description => "Reads the current Spotify track from the operating system media session";
     public string Icon => "music";
     public string? Color => "#1DB954";
 
@@ -34,9 +34,9 @@ public sealed class GetSpotifyNowPlayingNode : IFlowProcessNode
 
     public async Task<FlowNodeResult> ExecuteAsync(IFlowNodeInstance instance, FlowExecutionContext context, CancellationToken cancellationToken)
     {
-        if (context.Services.GetService(typeof(WindowsMediaSessionService)) is not WindowsMediaSessionService mediaService)
+        if (context.Services.GetService(typeof(ISystemMediaSessionService)) is not ISystemMediaSessionService mediaService)
         {
-            return Result(WindowsMediaSessionFallback("Windows media service is not available"));
+            return Result(MediaSessionSnapshot.Empty("The system media service is not available"));
         }
 
         return Result(await mediaService.GetSessionAsync(preferSpotify: true, cancellationToken));
@@ -59,5 +59,4 @@ public sealed class GetSpotifyNowPlayingNode : IFlowProcessNode
         ["error"] = snapshot.Error,
     });
 
-    private static MediaSessionSnapshot WindowsMediaSessionFallback(string error) => new(false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, false, 0, 0, 0, error);
 }

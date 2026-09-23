@@ -1,0 +1,10 @@
+@page "/plugins/com-multishock-streamlabsintegration/streamlabs-host"
+@using StreamlabsIntegration.Models
+
+<EventActionEditor Info="Info"
+    Description="Configure how incoming hosts trigger your shockers. Brackets match on the host's viewer count." />
+
+@code {
+    private static readonly EventTypeInfo Info =
+        StreamlabsEventCatalog.All.First(i => i.Type == StreamlabsEventType.Host);
+}

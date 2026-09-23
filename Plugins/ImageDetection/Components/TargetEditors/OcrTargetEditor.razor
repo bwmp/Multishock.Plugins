@@ -13,14 +13,14 @@
 
 @if (!regionConfigured)
 {
-    <div class="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+    <div class="p-4 rounded-lg bg-app-warning/10 border border-app-warning/30">
         <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-yellow-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-app-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <div>
-                <p class="text-sm font-medium text-yellow-300">Setup required: Select your OCR region</p>
-                <p class="text-xs text-yellow-400/80 mt-1">
+                <p class="text-sm font-medium text-app-warning">Setup required: Select your OCR region</p>
+                <p class="text-xs text-app-warning/80 mt-1">
                     Use the region picker below to select where text/numbers appear on screen.
                     OCR works best with a tight box around the text.
                 </p>
@@ -39,7 +39,7 @@
             <span class="text-xs text-app-muted font-medium uppercase tracking-wide">Live OCR</span>
             @if (numberToShow.HasValue)
             {
-                <span class="text-sm font-mono font-bold text-amber-400">@numberToShow.Value.ToString("F2")</span>
+                <span class="text-sm font-mono font-bold text-app-warning">@numberToShow.Value.ToString("F2")</span>
             }
             else
             {
@@ -48,10 +48,10 @@
         </div>
 
         <div class="text-xs text-app-muted">
-            <span class="text-zinc-300">Text:</span>
+            <span class="text-app-muted">Text:</span>
             @if (!string.IsNullOrWhiteSpace(ocrReading?.RawText))
             {
-                <span class="text-zinc-100 ml-1">@ocrReading?.RawText</span>
+                <span class="text-app-text ml-1">@ocrReading?.RawText</span>
             }
             else
             {
@@ -62,8 +62,8 @@
         @if (!string.IsNullOrWhiteSpace(ocrReading?.MatchedKeyword))
         {
             <div class="text-xs text-app-muted">
-                <span class="text-zinc-300">Keyword:</span>
-                <span class="text-green-300 ml-1">@ocrReading?.MatchedKeyword</span>
+                <span class="text-app-muted">Keyword:</span>
+                <span class="text-app-success ml-1">@ocrReading?.MatchedKeyword</span>
             </div>
         }
     </div>
@@ -90,7 +90,7 @@
         <RegionPickerControls ModuleId="@ModuleId" TargetId="@Image.Id" OnCaptureRequested="OnPickRegion" />
 
         <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
-            <summary class="cursor-pointer text-sm text-zinc-400">Manual coordinates</summary>
+            <summary class="cursor-pointer text-sm text-app-muted">Manual coordinates</summary>
             <div class="mt-3">
                 <ManualRegionInputs ModuleId="@ModuleId" Image="Image" />
             </div>

@@ -1,0 +1,39 @@
+@page "/plugins/com-multishock-fanslyintegration/events-config"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using FanslyIntegration.Components.Config
+@implements IDisposable
+
+<div class="max-w-4xl space-y-4">
+    <div>
+        <h1 class="text-xl font-bold text-app-text">Follows &amp; Subscriptions</h1>
+        <p class="text-sm mt-1 text-app-muted">
+            Configure reactions for non-tip events — no flow editor needed. Each is off by default.
+        </p>
+    </div>
+
+    <SimpleActionCard Title="New Follower" Icon="user-plus" Config="Events.Config.Follow"
+        Description="Fires when a viewer follows the streamer." OnChanged="SaveEvents" />
+
+    <SimpleActionCard Title="New Subscriber" Icon="star" Config="Events.Config.Subscribe"
+        Description="Fires on a new or gifted subscription." OnChanged="SaveEvents" />
+</div>
+
+@code {
+    private static readonly string PluginId = FanslyIntegrationPlugin.PluginId;
+    private EventsConfigService Events => PluginServiceLocator.GetRequiredService<EventsConfigService>(PluginId);
+
+    protected override void OnInitialized()
+    {
+        Events.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void SaveEvents() => Events.SaveConfig();
+
+    public void Dispose()
+    {
+        Events.ConfigChanged -= OnConfigChanged;
+    }
+}

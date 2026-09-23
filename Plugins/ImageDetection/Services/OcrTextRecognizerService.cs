@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Emgu.CV;
@@ -131,3 +132,4 @@ public sealed class OcrTextRecognizerService(ILogger? logger = null)
             height);
     }
 }
+#endif

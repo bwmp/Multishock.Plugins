@@ -10,6 +10,19 @@
     "include-v-in-tag": true,
     "tag-separator": "-",
     "packages": {
+        "Plugins/HeartRateIntegration": {
+            "release-type": "simple",
+            "component": "HeartRateIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "HeartRateIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
         "Plugins/TwitchIntegration": {
             "release-type": "simple",
             "component": "TwitchIntegration",
@@ -94,6 +107,84 @@
             "changelog-path": "CHANGELOG.md",
             "extra-files": [
                 "RandomNodes.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
+        "Plugins/TikTokIntegration": {
+            "release-type": "simple",
+            "component": "TikTokIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "TikTokIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
+        "Plugins/FanslyIntegration": {
+            "release-type": "simple",
+            "component": "FanslyIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "FanslyIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
+        "Plugins/JoystickIntegration": {
+            "release-type": "simple",
+            "component": "JoystickIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "JoystickIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
+        "Plugins/StreamElementsIntegration": {
+            "release-type": "simple",
+            "component": "StreamElementsIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "StreamElementsIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
+        "Plugins/StreamlabsIntegration": {
+            "release-type": "simple",
+            "component": "StreamlabsIntegration",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "StreamlabsIntegration.csproj",
+                {
+                    "type": "json",
+                    "path": "plugin.json",
+                    "jsonpath": "$.version"
+                }
+            ]
+        },
+        "Plugins/SteamVROverlay": {
+            "release-type": "simple",
+            "component": "SteamVROverlay",
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                "SteamVROverlay.csproj",
                 {
                     "type": "json",
                     "path": "plugin.json",

@@ -5,7 +5,7 @@
 
 <div class="space-y-4">
     <div class="flex items-center gap-2">
-        <div class="w-3 h-3 rounded-full @(RecognitionService.IsListening ? "bg-green-500" : "bg-gray-400")"></div>
+        <div class="w-3 h-3 rounded-full @(RecognitionService.IsListening ? "bg-app-success" : "bg-app-subtle")"></div>
         <span class="text-sm font-medium">
             @(RecognitionService.IsListening ? "Listening" : "Idle")
         </span>
@@ -109,10 +109,10 @@
 
     @if (!string.IsNullOrWhiteSpace(StatusMessage))
     {
-        <div class="text-xs @(StatusIsError ? "text-red-400" : "text-gray-400")">@StatusMessage</div>
+        <div class="text-xs @(StatusIsError ? "text-app-danger" : "text-app-muted")">@StatusMessage</div>
     }
 
-    <p class="text-xs text-gray-500">
+    <p class="text-xs text-app-subtle">
         Triggers: <code>speechtotext.sentence</code> and <code>speechtotext.word</code>
     </p>
 </div>

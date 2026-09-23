@@ -1,0 +1,10 @@
+@page "/plugins/com-multishock-streamlabsintegration/streamlabs-superchat"
+@using StreamlabsIntegration.Models
+
+<EventActionEditor Info="Info"
+    Description="Configure how YouTube Super Chats trigger your shockers. Add brackets so larger amounts hit harder." />
+
+@code {
+    private static readonly EventTypeInfo Info =
+        StreamlabsEventCatalog.All.First(i => i.Type == StreamlabsEventType.SuperChat);
+}

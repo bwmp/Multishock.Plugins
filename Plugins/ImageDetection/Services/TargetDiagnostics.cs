@@ -92,7 +92,7 @@ public static class TargetValidator
 
         if (image.TargetType == DetectionTargetType.Ocr && !ocrAvailable)
         {
-            issues.Add("Windows OCR is unavailable on this system");
+            issues.Add("OCR is unavailable on this system");
         }
 
         if (image.Action.Enabled && image.Action.ShockerIds.Count == 0)

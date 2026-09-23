@@ -1,0 +1,10 @@
+@page "/plugins/com-multishock-streamlabsintegration/streamlabs-raid"
+@using StreamlabsIntegration.Models
+
+<EventActionEditor Info="Info"
+    Description="Configure how incoming raids trigger your shockers. Brackets match on the raider count." />
+
+@code {
+    private static readonly EventTypeInfo Info =
+        StreamlabsEventCatalog.All.First(i => i.Type == StreamlabsEventType.Raid);
+}

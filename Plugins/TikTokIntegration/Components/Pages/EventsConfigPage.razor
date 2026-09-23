@@ -4,10 +4,10 @@
 @using TikTokIntegration.Components.Config
 @implements IDisposable
 
-<div class="p-4 mx-auto space-y-4">
+<div class="max-w-4xl space-y-4">
     <div>
-        <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Follows, Shares &amp; Subs</h1>
-        <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">
+        <h1 class="text-xl font-bold text-app-text">Follows, Shares &amp; Subs</h1>
+        <p class="text-sm mt-1 text-app-muted">
             Configure reactions for non-gift TikTok events. Each is off by default.
         </p>
     </div>
@@ -33,10 +33,10 @@
         OnChanged="Save">
         <ExtraTop>
             <div class="flex items-center gap-2">
-                <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd);">Trigger every</span>
+                <span class="text-xs font-medium text-app-muted">Trigger every</span>
                 <NumberInput Value="@((double)Service.Config.Likes.EveryNLikes)" Min="1" Max="100000" Class="w-24"
                     ValueChanged="@(v => UpdateLikeThreshold(v))" />
-                <span class="text-xs" style="color: var(--app-muted, #adb5bd);">likes</span>
+                <span class="text-xs text-app-muted">likes</span>
             </div>
         </ExtraTop>
     </SimpleActionCard>

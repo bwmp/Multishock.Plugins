@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Runtime.InteropServices;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
@@ -373,3 +374,4 @@ internal sealed class WgcCaptureSession : IDisposable
         IntPtr GetInterface([In] in Guid iid);
     }
 }
+#endif

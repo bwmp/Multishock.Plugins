@@ -9,11 +9,11 @@
     <div class="fixed inset-0 z-[1000] flex items-center justify-center p-5">
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @onclick="Cancel"></div>
 
-        <div class="relative bg-zinc-800 border border-zinc-700 rounded-xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-            <div class="flex justify-between items-center px-5 py-4 border-b border-zinc-700 bg-zinc-800">
+        <div class="relative bg-app-surface-2 border border-app-border rounded-xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="flex justify-between items-center px-5 py-4 border-b border-app-border bg-app-surface-2">
                 <div>
                     <h4 class="m-0 text-lg font-semibold">Select Region</h4>
-                    <span class="block text-xs text-zinc-400 mt-1">
+                    <span class="block text-xs text-app-muted mt-1">
                         @_actualResolution
                         @if (!string.IsNullOrEmpty(TargetName))
                         {
@@ -24,17 +24,17 @@
                 <div class="flex items-center gap-3">
                     @if (_hasSelection)
                     {
-                        <span class="text-xs px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 font-medium">
+                        <span class="text-xs px-3 py-1 rounded-full bg-app-info/20 text-app-info font-medium">
                             @(_selX)x@(_selY) &mdash; @(_selW)&times;@(_selH)
                         </span>
                     }
                     else
                     {
-                        <span class="text-xs px-3 py-1 rounded-full bg-zinc-700/50 text-zinc-400">
+                        <span class="text-xs px-3 py-1 rounded-full bg-app-surface-3/50 text-app-muted">
                             Click and drag to select a region
                         </span>
                     }
-                    <button class="bg-transparent border-none text-zinc-400 cursor-pointer w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 hover:text-zinc-100 transition-all text-xl"
+                    <button class="bg-transparent border-none text-app-muted cursor-pointer w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 hover:text-app-text transition-all text-xl"
                             @onclick="Cancel">&times;</button>
                 </div>
             </div>
@@ -65,52 +65,52 @@
                         <div class="absolute bg-black/50 pointer-events-none"
                              style="top: @(_displaySelY)px; left: @(_displaySelX + _displaySelW)px; right: 0; height: @(_displaySelH)px;"></div>
 
-                        <div class="absolute border-2 border-blue-400 pointer-events-none"
+                        <div class="absolute border-2 border-app-info pointer-events-none"
                              style="left: @(_displaySelX)px; top: @(_displaySelY)px; width: @(_displaySelW)px; height: @(_displaySelH)px;">
-                            <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
-                            <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
-                            <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
-                            <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-blue-400 rounded-sm"></div>
+                            <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
+                            <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
+                            <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
+                            <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
                         </div>
                     }
                 </div>
 
                 <div class="flex gap-3 justify-center items-end">
                     <div>
-                        <label class="block text-xs text-zinc-500 mb-1">X</label>
+                        <label class="block text-xs text-app-subtle mb-1">X</label>
                         <input type="number" min="0" max="@(_screenshotWidth)"
-                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
                                value="@_selX"
                                @onchange="@(e => UpdateManualCoord(x: ParseCoord(e.Value)))" />
                     </div>
                     <div>
-                        <label class="block text-xs text-zinc-500 mb-1">Y</label>
+                        <label class="block text-xs text-app-subtle mb-1">Y</label>
                         <input type="number" min="0" max="@(_screenshotHeight)"
-                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
                                value="@_selY"
                                @onchange="@(e => UpdateManualCoord(y: ParseCoord(e.Value)))" />
                     </div>
                     <div>
-                        <label class="block text-xs text-zinc-500 mb-1">Width</label>
+                        <label class="block text-xs text-app-subtle mb-1">Width</label>
                         <input type="number" min="1" max="@(_screenshotWidth)"
-                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
                                value="@_selW"
                                @onchange="@(e => UpdateManualCoord(w: ParseCoord(e.Value)))" />
                     </div>
                     <div>
-                        <label class="block text-xs text-zinc-500 mb-1">Height</label>
+                        <label class="block text-xs text-app-subtle mb-1">Height</label>
                         <input type="number" min="1" max="@(_screenshotHeight)"
-                               class="w-20 px-2 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm text-center"
+                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
                                value="@_selH"
                                @onchange="@(e => UpdateManualCoord(h: ParseCoord(e.Value)))" />
                     </div>
-                    <button class="px-3 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 transition-colors text-zinc-300"
+                    <button class="px-3 py-1.5 text-xs rounded bg-app-surface-3 hover:bg-app-surface-3 transition-colors text-app-muted"
                             @onclick="ClearSelection">Clear</button>
                 </div>
             </div>
 
-            <div class="flex justify-between items-center px-5 py-4 border-t border-zinc-700 bg-zinc-800 gap-4">
-                <p class="text-sm text-zinc-400 m-0">
+            <div class="flex justify-between items-center px-5 py-4 border-t border-app-border bg-app-surface-2 gap-4">
+                <p class="text-sm text-app-muted m-0">
                     Click and drag on the screenshot to select the region.
                     Coordinates are mapped to actual screen pixels.
                 </p>

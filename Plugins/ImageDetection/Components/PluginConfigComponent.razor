@@ -33,12 +33,12 @@
                 ValueChanged="@OnDebugModeChanged" />
     </div>
 
-    <div class="border-t border-zinc-700 pt-4 mt-4">
-        <h3 class="text-sm font-semibold text-zinc-300 mb-3">Region Picker Hotkey</h3>
+    <div class="border-t border-app-border pt-4 mt-4">
+        <h3 class="text-sm font-semibold text-app-muted mb-3">Region Picker Hotkey</h3>
 
         @if (!HotkeyService.IsSupported)
         {
-            <div class="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-2 mb-3">
+            <div class="text-xs text-app-warning bg-app-warning/10 border border-app-warning/30 rounded px-3 py-2 mb-3">
                 @(HotkeyService.UnsupportedReason ?? "Global hotkeys are not supported on this platform.")
             </div>
         }
@@ -52,25 +52,25 @@
             {
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-2">
-                        <label class="text-xs text-zinc-400">Ctrl</label>
+                        <label class="text-xs text-app-muted">Ctrl</label>
                         <input type="checkbox" checked="@HotkeyCtrl"
                                @onchange="@(e => OnHotkeyModifierChanged("ctrl", (bool)(e.Value ?? false)))"
                                class="accent-blue-500" />
                     </div>
                     <div class="flex items-center gap-2">
-                        <label class="text-xs text-zinc-400">Alt</label>
+                        <label class="text-xs text-app-muted">Alt</label>
                         <input type="checkbox" checked="@HotkeyAlt"
                                @onchange="@(e => OnHotkeyModifierChanged("alt", (bool)(e.Value ?? false)))"
                                class="accent-blue-500" />
                     </div>
                     <div class="flex items-center gap-2">
-                        <label class="text-xs text-zinc-400">Shift</label>
+                        <label class="text-xs text-app-muted">Shift</label>
                         <input type="checkbox" checked="@HotkeyShift"
                                @onchange="@(e => OnHotkeyModifierChanged("shift", (bool)(e.Value ?? false)))"
                                class="accent-blue-500" />
                     </div>
                     <div>
-                        <select class="px-3 py-1.5 rounded bg-zinc-700 border border-zinc-600 text-sm"
+                        <select class="px-3 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm"
                                 value="@HotkeyKey"
                                 @onchange="OnHotkeyKeyChanged">
                             @foreach (var key in HotkeyBinding.SupportedKeys)
@@ -82,23 +82,23 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-zinc-500">Current binding:</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-zinc-700 text-zinc-300 font-mono">
+                    <span class="text-xs text-app-subtle">Current binding:</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-app-surface-3 text-app-muted font-mono">
                         @GetHotkeyDisplayString()
                     </span>
                     @if (HotkeyService.IsRegistered)
                     {
-                        <span class="text-xs text-green-400">Active</span>
+                        <span class="text-xs text-app-success">Active</span>
                     }
                     else if (HotkeyEnabled)
                     {
-                        <span class="text-xs text-yellow-400">@(HotkeyService.IsSupported ? "Not registered" : "Unsupported")</span>
+                        <span class="text-xs text-app-warning">@(HotkeyService.IsSupported ? "Not registered" : "Unsupported")</span>
                     }
                 </div>
 
                 @if (!string.IsNullOrEmpty(HotkeyError))
                 {
-                    <div class="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
+                    <div class="text-xs text-app-danger bg-app-danger/10 border border-app-danger/30 rounded px-3 py-2">
                         @HotkeyError
                     </div>
                 }

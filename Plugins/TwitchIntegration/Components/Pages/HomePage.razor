@@ -5,73 +5,50 @@
 @inject IPluginHost Host
 @implements IDisposable
 
-<div class="p-4">
-    <div class="flex items-center gap-2 mb-4 p-2 rounded-md"
-        style="background: var(--app-surface, #1e1e1e); border: 1px solid var(--app-border, #343a40);">
-        @if (!TwitchService.IsConnected)
-        {
-            @if (!string.IsNullOrWhiteSpace(SavedToken))
-            {
-                <Button Variant="outline" Size="sm" Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
-                    OnClick="ConnectWithSavedToken" Class="w-8 h-8 p-0 flex items-center justify-center">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
-                    </svg>
-                </Button>
-            }
-            else
-            {
-                <Button Variant="outline" Size="sm" Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
-                    OnClick="LoginWithTwitch" Class="w-8 h-8 p-0 flex items-center justify-center">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                </Button>
-            }
-        }
-        else
-        {
-            <Button Variant="danger" Size="sm" OnClick="Disconnect" Class="w-8 h-8 p-0 flex items-center justify-center">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-            </Button>
-        }
-
-        <div class="twitch-separator"></div>
-
+@* The host page header carries title, status and primary action, so this page
+   uses the same band as every MultiShock screen instead of a bespoke toolbar.
+   The Twitch mark stays as identity only. *@
+<PageHeader Title="Twitch Integration"
+            Description="React to cheers, subscriptions, follows, hype trains and channel point redeems from a flow.">
+    <Meta>
         @if (TwitchService.IsConnected)
         {
-            <div class="twitch-status twitch-status-connected">
-                <span class="twitch-status-dot"></span>
-                Connected as @TwitchService.CurrentUserName
-            </div>
+            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
+            <span class="text-xs text-app-subtle">@TwitchService.CurrentUserName</span>
         }
         else if (TwitchService.IsConnecting || IsAuthenticating)
         {
-            <span class="text-sm" style="color: var(--app-muted, #adb5bd);">
-                @(IsAuthenticating ? "Waiting for login..." : "Connecting...")
+            <span class="chip chip-warn">
+                <span class="status-dot bg-app-warning"></span>
+                @(IsAuthenticating ? "Waiting for login" : "Connecting")
             </span>
         }
         else
         {
-            <div class="twitch-status twitch-status-disconnected">
-                <span class="twitch-status-dot"></span>
-                Disconnected
-            </div>
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
         }
+    </Meta>
+    <Actions>
+        @if (TwitchService.IsConnected)
+        {
+            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
+        }
+        else if (!string.IsNullOrWhiteSpace(SavedToken))
+        {
+            <Button Variant="primary" Icon="plug" Text="Connect"
+                    Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
+                    OnClick="ConnectWithSavedToken" />
+        }
+        else
+        {
+            <Button Variant="primary" Icon="log-in" Text="Sign in with Twitch"
+                    Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
+                    OnClick="LoginWithTwitch" />
+        }
+    </Actions>
+</PageHeader>
 
-        <div style="flex: 1;"></div>
-
-        <div class="flex items-center gap-2">
-            <svg class="w-5 h-5" style="color: #9146FF;" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-            </svg>
-            <span class="text-sm font-semibold" style="color: var(--app-text, #e9ecef);">Twitch Integration</span>
-        </div>
-    </div>
+<div class="max-w-4xl space-y-4">
 
     <div class="space-y-4">
         <div class="twitch-card" data-guided-setup="twitch-home-connection">
@@ -137,11 +114,11 @@
 
                         @if (!string.IsNullOrEmpty(AuthStatus))
                         {
-                            <p class="text-sm" style="color: var(--app-muted, #adb5bd);">@AuthStatus</p>
+                            <p class="text-sm text-app-muted">@AuthStatus</p>
                         }
                     </div>
-                    <details class="mt-4 pt-4" style="border-top: 1px solid var(--app-border, #343a40);">
-                        <summary class="text-sm cursor-pointer" style="color: var(--app-muted, #adb5bd);">
+                    <details class="mt-4 pt-4 border-t border-app-border">
+                        <summary class="text-sm cursor-pointer text-app-muted">
                             Or enter token manually
                         </summary>
                         <div class="mt-4 space-y-3">
@@ -154,10 +131,9 @@
                                 <Button Text="Clear" Variant="secondary" Disabled="@(string.IsNullOrWhiteSpace(OAuthToken))"
                                     OnClick="ClearToken" />
                             </div>
-                            <p class="text-xs" style="color: var(--app-muted, #adb5bd);">
+                            <p class="text-xs text-app-muted">
                                 Get your token from
-                                <a href="https://twitchtokengenerator.com/" target="_blank"
-                                    style="color: var(--app-primary, #4a9eff);">
+                                <a class="text-app-primary" href="https://twitchtokengenerator.com/" target="_blank">
                                     TwitchTokenGenerator.com
                                 </a>
                             </p>
@@ -190,8 +166,8 @@
                     </div>
                 }
 
-                <details class="mt-4 pt-4" style="border-top: 1px solid var(--app-border, #343a40);">
-                    <summary class="text-sm cursor-pointer" style="color: var(--app-muted, #adb5bd);">
+                <details class="mt-4 pt-4 border-t border-app-border">
+                    <summary class="text-sm cursor-pointer text-app-muted">
                         Required OAuth Scopes
                     </summary>
                     <div class="mt-2 flex flex-wrap gap-2">
@@ -209,22 +185,20 @@
                 <span>Setup Path</span>
             </div>
             <div class="twitch-card-body space-y-3">
-                <p class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                <p class="text-sm text-app-muted">
                     Use these shortcuts when you are walking through first-time setup for cheers and subscriptions.
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <Button Text="Start Guided Setup" Variant="primary"
                         OnClick="@(() => Host.StartPluginGuidedSetup(TwitchIntegrationPlugin.PluginId))" />
                     <a href="/plugins/com-multishock-twitchintegration/cheer-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
-                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);"
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface"
                         data-guided-setup="twitch-home-open-cheers">
                         <LucideIcon Name="coins" Size="16" />
                         <span>Open Bits/Cheers</span>
                     </a>
                     <a href="/plugins/com-multishock-twitchintegration/sub-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
-                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
                         <LucideIcon Name="user-plus" Size="16" />
                         <span>Open Subs / Gifted Subs</span>
                     </a>
@@ -237,7 +211,7 @@
                 <span>Legacy Import</span>
             </div>
             <div class="twitch-card-body space-y-3">
-                <p class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                <p class="text-sm text-app-muted">
                     Import Twitch cheer, redeem, sub, hype train, and follow settings from the legacy MultiShock
                     `config.json` format.
                 </p>
@@ -262,7 +236,7 @@
                 @if (!string.IsNullOrEmpty(LegacyImportMessage))
                 {
                     <div class="text-sm px-4 py-3 rounded"
-                        style="background: @(LegacyImportSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(LegacyImportSuccess ? "#4a9eff" : "#f87171");">
+                        style="background: @(LegacyImportSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(LegacyImportSuccess ? "rgb(var(--ms-primary-rgb))" : "rgb(var(--ms-danger-rgb))");">
                         <div>@LegacyImportMessage</div>
                         @if (!string.IsNullOrWhiteSpace(LegacyImportDetails))
                         {
@@ -275,9 +249,9 @@
 
         @if (!string.IsNullOrEmpty(ErrorMessage))
         {
-            <div class="twitch-card" style="border-color: #f85149;">
+            <div class="twitch-card" style="border-color: rgb(var(--ms-danger-rgb));">
                 <div class="twitch-card-body">
-                    <div class="flex items-center gap-2" style="color: #f85149;">
+                    <div class="flex items-center gap-2" style="color: rgb(var(--ms-danger-rgb));">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -299,7 +273,7 @@
                     <div class="space-y-1 max-h-64 overflow-y-auto">
                         @if (EventLogService.Count == 0)
                         {
-                            <p class="text-sm" style="color: var(--app-muted, #adb5bd);">No events yet. Waiting for Twitch
+                            <p class="text-sm text-app-muted">No events yet. Waiting for Twitch
                                 events...</p>
                         }
                         else
@@ -308,9 +282,9 @@
                             {
                                 <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
                                     style="background: rgba(255, 255, 255, 0.02);">
-                                    <span style="color: var(--app-muted, #adb5bd);">[@log.Time.ToString("HH:mm:ss")]</span>
+                                    <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
                                     <span
-                                        style="color: @(log.IsError ? "#f85149" : "var(--app-text, #e9ecef)");">@log.Message</span>
+                                        style="color: @(log.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">@log.Message</span>
                                 </div>
                             }
                         }
@@ -328,9 +302,9 @@
                     @foreach (var trigger in FlowTriggers)
                     {
                         <div class="flex items-center gap-2">
-                            <span class="twitch-status-dot" style="background: var(--app-primary, #4a9eff);"></span>
-                            <span><strong style="color: var(--app-text, #e9ecef);">@trigger.Name</strong></span>
-                            <span style="color: var(--app-muted, #adb5bd);">- @trigger.Description</span>
+                            <span class="twitch-status-dot bg-app-primary"></span>
+                            <span><strong class="text-app-text">@trigger.Name</strong></span>
+                            <span class="text-app-muted">- @trigger.Description</span>
                         </div>
                     }
                 </div>

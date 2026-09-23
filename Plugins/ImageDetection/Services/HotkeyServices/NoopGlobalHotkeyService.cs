@@ -12,7 +12,7 @@ public class NoopGlobalHotkeyService : IGlobalHotkeyService
 
     public bool IsSupported => false;
 
-    public string? UnsupportedReason => "Global hotkeys are only implemented for Windows in this plugin build.";
+    public string? UnsupportedReason => "The host does not provide global hotkeys on this platform.";
 
     public TimeSpan ThrottleInterval { get; set; } = TimeSpan.FromMilliseconds(300);
 

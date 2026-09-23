@@ -6,5 +6,5 @@
   "entryPoint": "RandomNodes.dll",
   "description": "A grab bag of random utility nodes for MultiShock",
   "sdkVersion": "1.13.0",
-  "platforms": ["win-x64"]
+  "platforms": ["win-x64", "osx-x64", "osx-arm64", "linux-x64", "linux-arm64"]
 }

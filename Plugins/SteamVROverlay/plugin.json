@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 2,
+  "id": "com.multishock.steamvroverlay",
+  "name": "SteamVROverlay",
+  "version": "0.1.0",
+  "entryPoint": "SteamVROverlay.dll",
+  "description": "In-VR wrist overlay for controlling shockers from inside SteamVR.",
+  "sdkVersion": "1.13.0",
+  "platforms": ["win-x64"]
+}

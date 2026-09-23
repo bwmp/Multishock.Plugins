@@ -1,0 +1,94 @@
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+
+<div class="fsl-card">
+    <div class="fsl-card-header">
+        <div class="flex items-center gap-2">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <LucideIcon Name="@Icon" Class="w-4 h-4" />
+            }
+            <span>@Title</span>
+        </div>
+        <Toggle Label="@(Config.Enabled ? "On" : "Off")" Value="Config.Enabled"
+            ValueChanged="@(v => Update(c => c.Enabled = v))" />
+    </div>
+    @if (Config.Enabled)
+    {
+        <div class="fsl-card-body space-y-4">
+            @if (Description != null)
+            {
+                <p class="text-xs text-app-muted">@Description</p>
+            }
+
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="grow min-w-[16rem]">
+                    <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
+                    <ShockerSelect Label="" MultiSelect="true" SelectedIds="Config.SelectedShockerIds"
+                        SelectedIdsChanged="@(ids => Update(c => c.SelectedShockerIds = ids))" />
+                </div>
+                <div class="w-36">
+                    <Select TValue="string" Label="Command" Value="@Config.CommandType"
+                        ValueChanged="@(v => Update(c => c.CommandType = v ?? "Vibrate"))" Options="@CommandTypeOptions" />
+                </div>
+                <div class="w-36">
+                    <Select TValue="string" Label="Selection" Value="@Config.Mode.ToString()"
+                        ValueChanged="@(v => Update(c => c.Mode = ParseMode(v)))" Options="@SelectionModeOptions" />
+                </div>
+                @if (Config.CommandType == "Shock")
+                {
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-app-muted">Warning</label>
+                        <Toggle Value="Config.WarningVibrate" ValueChanged="@(v => Update(c => c.WarningVibrate = v))" />
+                    </div>
+                }
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
+                    <Slider Min="1" Max="100" Value="Config.Intensity"
+                        ValueChanged="@(v => Update(c => c.Intensity = (int)v))" Class="flex-1" ShowValue="false" />
+                    <span class="text-xs text-app-muted w-12">@Config.Intensity%</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
+                    <Slider Min="0.1" Max="15" Step="0.1" Value="Config.Duration"
+                        ValueChanged="@(v => Update(c => c.Duration = Math.Round(v, 1)))" Class="flex-1" ShowValue="false" />
+                    <span class="text-xs text-app-muted w-12">@Config.Duration.ToString("0.0")s</span>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter, EditorRequired] public SimpleActionConfig Config { get; set; } = new();
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> CommandTypeOptions =
+    [
+        new("Shock", "Shock"),
+        new("Vibrate", "Vibrate"),
+        new("Beep", "Beep"),
+    ];
+
+    private readonly IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions =
+    [
+        new("All", "All"),
+        new("Random", "Random"),
+        new("RoundRobin", "Round Robin"),
+    ];
+
+    private async Task Update(Action<SimpleActionConfig> mutate)
+    {
+        mutate(Config);
+        await OnChanged.InvokeAsync();
+    }
+
+    private static SelectionMode ParseMode(string? value) =>
+        Enum.TryParse<SelectionMode>(value, out var mode) ? mode : SelectionMode.All;
+}

@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 2,
+  "id": "com.multishock.joystickintegration",
+  "name": "Joystick.tv Integration",
+  "version": "0.1.0",
+  "entryPoint": "JoystickIntegration.dll",
+  "description": "Joystick.tv integration for tips, tip-menu items, follows, subscriptions, chat, wheel spins, and stream events",
+  "sdkVersion": "1.13.0",
+  "platforms": ["win-x64"]
+}

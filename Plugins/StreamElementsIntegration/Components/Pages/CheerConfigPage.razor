@@ -1,0 +1,10 @@
+@page "/plugins/com-multishock-streamelementsintegration/streamelements-cheer"
+@using StreamElementsIntegration.Models
+
+<EventActionEditor Info="Info"
+    Description="Configure how bit cheers trigger your shockers. Brackets match on the number of bits." />
+
+@code {
+    private static readonly EventTypeInfo Info =
+        StreamElementsEventCatalog.All.First(i => i.Type == StreamElementsEventType.Cheer);
+}

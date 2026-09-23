@@ -1,0 +1,165 @@
+@page "/plugins/com-multishock-steamvroverlay/steamvroverlay"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using SteamVROverlay.Services
+@implements IDisposable
+
+<div class="max-w-5xl space-y-5">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full @StatusDotClass"></div>
+        <span class="font-semibold">SteamVR Wrist Overlay</span>
+        <span class="text-sm text-app-subtle">@StatusText</span>
+        <div class="flex-1"></div>
+        @if (Overlay.IsRunning)
+        {
+            <Button Text="Stop" Variant="danger" Size="sm" OnClick="Stop" />
+        }
+        else
+        {
+            <Button Text="Start" Variant="primary" Size="sm" OnClick="Start" />
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Overlay.LastError))
+    {
+        <Alert Variant="danger" Title="SteamVR error">@Overlay.LastError</Alert>
+    }
+    else if (Overlay.State == OverlayRuntimeState.RuntimeNotInstalled)
+    {
+        <Alert Variant="warning" Title="SteamVR not found">
+            Install SteamVR through Steam, then start the overlay again.
+        </Alert>
+    }
+    else if (Overlay.State == OverlayRuntimeState.WaitingForSteamVr)
+    {
+        <Alert Variant="info" Title="Waiting for SteamVR">
+            The overlay attaches automatically once SteamVR is running. It will not launch SteamVR for you.
+        </Alert>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+        <div class="space-y-2">
+            <h2 class="text-sm font-semibold text-app-text">Panel preview</h2>
+            @if (PreviewDataUrl is not null)
+            {
+                <img src="@PreviewDataUrl"
+                     alt="Preview of the wrist panel as it appears in SteamVR"
+                     width="320" height="320"
+                     class="rounded-lg border border-app-border bg-app-bg" />
+            }
+            else
+            {
+                <div class="w-80 h-80 rounded-lg border border-app-border grid place-items-center text-sm text-app-subtle">
+                    Preview unavailable
+                </div>
+            }
+            <Button Text="Refresh preview" Variant="secondary" Size="sm" Icon="refresh-cw" OnClick="RefreshPreview" />
+        </div>
+
+        <div class="space-y-4 text-sm">
+            <div>
+                <h2 class="text-sm font-semibold text-app-text mb-2">Status</h2>
+                <dl class="space-y-1">
+                    <div class="flex gap-2">
+                        <dt class="text-app-muted w-40">Attached to</dt>
+                        <dd>@(Settings.Hand == OverlayHand.Right ? "Right controller" : "Left controller")</dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-app-muted w-40">Panel visible</dt>
+                        <dd>@(Overlay.IsOverlayVisible ? "Yes" : "No")</dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-app-muted w-40">Activation</dt>
+                        <dd>@(Settings.GazeActivation ? $"Wrist turned within {Settings.GazeAngleDegrees:0}°" : "Always visible")</dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-app-muted w-40">Panel width</dt>
+                        <dd>@($"{Settings.WidthMeters * 100:0.#} cm")</dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-app-muted w-40">Shock button</dt>
+                        <dd>@(Settings.HoldToShock ? $"Hold {Settings.ShockHoldMs / 1000.0:0.#}s" : "Single press")</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div>
+                <h2 class="text-sm font-semibold text-app-text mb-2">Using the panel</h2>
+                <ul class="space-y-1 text-app-muted list-disc pl-5">
+                    <li>Turn the wrist wearing the panel toward your face to reveal it.</li>
+                    <li>Point the other controller at it and use the trigger to click.</li>
+                    <li>Tap shocker names to target them. With none selected, actions apply to every shocker.</li>
+                    <li>Drag the intensity and duration sliders, then choose Vibrate, Shock, or Beep.</li>
+                </ul>
+            </div>
+
+            <p class="text-app-subtle">
+                Placement, limits, and the hold-to-shock guard are configured in
+                Settings &rarr; Plugins &rarr; SteamVROverlay.
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginIdValue = SteamVROverlayPlugin.PluginId;
+
+    private OverlaySettingsService Settings =>
+        PluginServiceLocator.GetRequiredService<OverlaySettingsService>(PluginIdValue);
+
+    private WristOverlayService Overlay =>
+        PluginServiceLocator.GetRequiredService<WristOverlayService>(PluginIdValue);
+
+    private string? PreviewDataUrl;
+
+    protected override void OnInitialized()
+    {
+        Overlay.StateChanged += OnStateChanged;
+        RefreshPreview();
+    }
+
+    private string StatusText => Overlay.State switch
+    {
+        OverlayRuntimeState.Running when Overlay.IsOverlayVisible => "Connected — panel visible",
+        OverlayRuntimeState.Running => "Connected — panel hidden",
+        OverlayRuntimeState.WaitingForSteamVr => "Waiting for SteamVR",
+        OverlayRuntimeState.RuntimeNotInstalled => "SteamVR is not installed",
+        OverlayRuntimeState.Error => "Error",
+        _ => "Stopped"
+    };
+
+    private string StatusDotClass => Overlay.State switch
+    {
+        OverlayRuntimeState.Running => "bg-app-success",
+        OverlayRuntimeState.WaitingForSteamVr => "bg-app-warning",
+        OverlayRuntimeState.Error or OverlayRuntimeState.RuntimeNotInstalled => "bg-app-danger",
+        _ => "bg-app-subtle"
+    };
+
+    private void RefreshPreview()
+    {
+        try
+        {
+            PreviewDataUrl = "data:image/png;base64," + Convert.ToBase64String(Overlay.RenderPreviewPng());
+        }
+        catch
+        {
+            PreviewDataUrl = null;
+        }
+    }
+
+    private void Start()
+    {
+        Overlay.Start();
+        RefreshPreview();
+    }
+
+    private void Stop() => Overlay.Stop();
+
+    private void OnStateChanged(OverlayRuntimeState state) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Overlay.StateChanged -= OnStateChanged;
+    }
+}

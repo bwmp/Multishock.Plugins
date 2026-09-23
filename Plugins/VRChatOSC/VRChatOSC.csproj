@@ -27,7 +27,10 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
         <PackageReference Include="MeaMod.DNS" Version="1.0.70" />
         <PackageReference Include="VolcanicArts.FastOSC" Version="2.0.0" />
-        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" />
+        <!-- Coordinated development against the sibling SDK. Restore the PackageReference
+             below once the matching SDK version is published. -->
+        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" /> -->
+        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <!-- Version with conditional build stamp -->

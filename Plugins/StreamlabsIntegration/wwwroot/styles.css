@@ -1,0 +1,116 @@
+/* Streamlabs Integration plugin styles */
+.sl-brand { color: #31c3a2; }
+
+/* ===== Status pill (matches Twitch home) ===== */
+.sl-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+}
+.sl-status-connected { background: rgb(var(--ms-success-rgb) / 0.2); color: rgb(var(--ms-success-rgb)); }
+.sl-status-disconnected { background: rgb(var(--ms-danger-rgb) / 0.2); color: rgb(var(--ms-danger-rgb)); }
+.sl-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.sl-separator {
+    width: 1px;
+    height: 24px;
+    background: var(--ms-border);
+    margin: 0 0.5rem;
+}
+
+/* ===== Actions config cards (matches Twitch) ===== */
+.sl-card {
+    background: var(--ms-surface);
+    border: 1px solid var(--ms-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.sl-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ms-text);
+    border-bottom: 1px solid var(--ms-border);
+}
+.sl-card-body { padding: 1rem; }
+
+/* ===== Badge ===== */
+.sl-badge {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 500;
+    border-radius: 3px;
+    background: var(--ms-surface-3);
+    color: var(--ms-muted);
+}
+
+/* ===== Nav link chip ===== */
+.sl-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 6px;
+    border: 1px solid var(--ms-border);
+    color: var(--ms-text);
+    background: var(--ms-surface);
+    transition: all 0.15s;
+}
+.sl-nav-link:hover { background: var(--ms-surface-2); }
+.sl-nav-link.active {
+    border-color: #31c3a2;
+    color: #31c3a2;
+    background: rgba(49, 195, 162, 0.1);
+}
+
+/* ===== Bracket table (matches Twitch) ===== */
+.sl-bracket-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ms-muted);
+    border-bottom: 1px solid var(--ms-border);
+}
+.sl-bracket {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--ms-surface-2);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+.sl-bracket:hover { background: var(--ms-surface-2); }
+.sl-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
+    gap: 0.25rem;
+    color: var(--ms-muted);
+    border: 1px dashed var(--ms-border);
+    border-radius: 0.5rem;
+}

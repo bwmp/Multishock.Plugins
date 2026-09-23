@@ -34,7 +34,11 @@ public class RandomNodesPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvi
 
     public void ConfigureServices(IServiceCollection services)
     {
-        services.AddSingleton<WindowsMediaSessionService>();
+#if WINDOWS
+        services.AddSingleton<ISystemMediaSessionService, WindowsMediaSessionService>();
+#else
+        services.AddSingleton<ISystemMediaSessionService, ProcessMediaSessionService>();
+#endif
     }
 
     public void Initialize(IServiceProvider sp)

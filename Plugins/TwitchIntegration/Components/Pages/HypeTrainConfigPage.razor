@@ -1,11 +1,11 @@
 @page "/plugins/com-multishock-twitchintegration/hype-train-config"
 @implements IDisposable
 
-<div class="p-4 mx-auto space-y-4">
+<div class="max-w-4xl space-y-4">
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Hype Train Configuration</h1>
-            <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">Configure reactions while a hype train is active and when it ends.</p>
+            <h1 class="text-xl font-bold text-app-text">Hype Train Configuration</h1>
+            <p class="text-sm mt-1 text-app-muted">Configure reactions while a hype train is active and when it ends.</p>
         </div>
         <Toggle Label="@(HypeTrainConfigService.Config.Enabled ? "Enabled" : "Disabled")"
             Value="HypeTrainConfigService.Config.Enabled" ValueChanged="ToggleEnabled" />
@@ -21,7 +21,7 @@
             <div class="twitch-card-body space-y-4">
                 <div class="flex flex-wrap items-end gap-3">
                     <div class="grow">
-                        <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                        <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
                         <ShockerSelect Label="" MultiSelect="true" SelectedIds="HypeTrainConfigService.Config.During.SelectedShockerIds"
                             SelectedIdsChanged="UpdateDuringShockers" />
                     </div>
@@ -36,8 +36,7 @@
                     @if (HypeTrainConfigService.Config.During.CommandType == "Shock")
                     {
                         <div>
-                            <label class="block text-xs font-medium mb-1"
-                                style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                            <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
                             <Toggle Value="HypeTrainConfigService.Config.During.WarningVibrate"
                                 ValueChanged="@(v => UpdateDuringWarningVibrate(v))" />
                         </div>
@@ -50,45 +49,45 @@
 
                 <div class="space-y-2">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Base Intensity</span>
+                        <span class="text-xs font-medium text-app-muted min-w-[5rem]">Base Intensity</span>
                         <Slider Min="1" Max="100" Value="HypeTrainConfigService.Config.During.Intensity"
                             ValueChanged="@((value) => UpdateDuringIntensity((int)value))" Class="flex-1" ShowValue="false" />
                         <NumberInput Value="@((double)HypeTrainConfigService.Config.During.Intensity)" Min="1" Max="100"
                             ValueChanged="@((value) => UpdateDuringIntensity((int)Math.Clamp(value ?? 50, 1, 100)))" Class="w-16" />
-                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                        <span class="text-xs text-app-muted">%</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Base Duration</span>
+                        <span class="text-xs font-medium text-app-muted min-w-[5rem]">Base Duration</span>
                         <Slider Min="0.1" Max="15" Step="0.1" Value="HypeTrainConfigService.Config.During.Duration"
                             ValueChanged="UpdateDuringDuration" Class="flex-1" ShowValue="false" />
                         <NumberInput Value="HypeTrainConfigService.Config.During.Duration" Min="0.1" Max="15" Step="0.1"
                             ValueChanged="@((value) => UpdateDuringDuration(Math.Clamp(value ?? 1.0, 0.1, 15.0)))" Class="w-16" />
-                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                        <span class="text-xs text-app-muted">s</span>
                     </div>
                 </div>
 
                 @if (HypeTrainConfigService.Config.During.ScalingMode == HypeTrainScalingMode.Incremental)
                 {
-                    <div class="space-y-2 pt-3" style="border-top: 1px solid var(--app-border, #343a40);">
+                    <div class="space-y-2 pt-3 border-t border-app-border">
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">+ Intensity</span>
+                            <span class="text-xs font-medium text-app-muted min-w-[5rem]">+ Intensity</span>
                             <NumberInput Value="@((double)HypeTrainConfigService.Config.During.IncrementIntensity)" Min="0" Max="100"
                                 ValueChanged="@((value) => UpdateDuringIncrementIntensity((int)Math.Clamp(value ?? 0, 0, 100)))" Class="w-16" />
-                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">per level</span>
-                            <span class="text-xs font-medium ml-4" style="color: var(--app-muted, #adb5bd);">Max</span>
+                            <span class="text-xs text-app-muted">per level</span>
+                            <span class="text-xs font-medium ml-4 text-app-muted">Max</span>
                             <NumberInput Value="@((double)HypeTrainConfigService.Config.During.MaxIntensity)" Min="1" Max="100"
                                 ValueChanged="@((value) => UpdateDuringMaxIntensity((int)Math.Clamp(value ?? 100, 1, 100)))" Class="w-16" />
-                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                            <span class="text-xs text-app-muted">%</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">+ Duration</span>
+                            <span class="text-xs font-medium text-app-muted min-w-[5rem]">+ Duration</span>
                             <NumberInput Value="HypeTrainConfigService.Config.During.IncrementDuration" Min="0" Max="15" Step="0.1"
                                 ValueChanged="@((value) => UpdateDuringIncrementDuration(Math.Clamp(value ?? 0.0, 0.0, 15.0)))" Class="w-16" />
-                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">per level</span>
-                            <span class="text-xs font-medium ml-4" style="color: var(--app-muted, #adb5bd);">Max</span>
+                            <span class="text-xs text-app-muted">per level</span>
+                            <span class="text-xs font-medium ml-4 text-app-muted">Max</span>
                             <NumberInput Value="HypeTrainConfigService.Config.During.MaxDuration" Min="0.1" Max="15" Step="0.1"
                                 ValueChanged="@((value) => UpdateDuringMaxDuration(Math.Clamp(value ?? 15.0, 0.1, 15.0)))" Class="w-16" />
-                            <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                            <span class="text-xs text-app-muted">s</span>
                         </div>
                     </div>
                 }
@@ -104,7 +103,7 @@
             <div class="twitch-card-body space-y-4">
                 <div class="flex flex-wrap items-end gap-3">
                     <div class="grow">
-                        <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                        <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
                         <ShockerSelect Label="" MultiSelect="true" SelectedIds="HypeTrainConfigService.Config.End.SelectedShockerIds"
                             SelectedIdsChanged="UpdateEndShockers" />
                     </div>
@@ -119,8 +118,7 @@
                     @if (HypeTrainConfigService.Config.End.CommandType == "Shock")
                     {
                         <div>
-                            <label class="block text-xs font-medium mb-1"
-                                style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                            <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
                             <Toggle Value="HypeTrainConfigService.Config.End.WarningVibrate"
                                 ValueChanged="@(v => UpdateEndWarningVibrate(v))" />
                         </div>
@@ -129,20 +127,20 @@
 
                 <div class="space-y-2">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Intensity</span>
+                        <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
                         <Slider Min="1" Max="100" Value="HypeTrainConfigService.Config.End.Intensity"
                             ValueChanged="@((value) => UpdateEndIntensity((int)value))" Class="flex-1" ShowValue="false" />
                         <NumberInput Value="@((double)HypeTrainConfigService.Config.End.Intensity)" Min="1" Max="100"
                             ValueChanged="@((value) => UpdateEndIntensity((int)Math.Clamp(value ?? 50, 1, 100)))" Class="w-16" />
-                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">%</span>
+                        <span class="text-xs text-app-muted">%</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium" style="color: var(--app-muted, #adb5bd); min-width: 5rem;">Duration</span>
+                        <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
                         <Slider Min="0.1" Max="15" Step="0.1" Value="HypeTrainConfigService.Config.End.Duration"
                             ValueChanged="UpdateEndDuration" Class="flex-1" ShowValue="false" />
                         <NumberInput Value="HypeTrainConfigService.Config.End.Duration" Min="0.1" Max="15" Step="0.1"
                             ValueChanged="@((value) => UpdateEndDuration(Math.Clamp(value ?? 1.0, 0.1, 15.0)))" Class="w-16" />
-                        <span class="text-xs" style="color: var(--app-muted, #adb5bd);">s</span>
+                        <span class="text-xs text-app-muted">s</span>
                     </div>
                 </div>
             </div>

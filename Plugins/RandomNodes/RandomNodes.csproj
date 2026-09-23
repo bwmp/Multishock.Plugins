@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
     <PropertyGroup>
-        <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework Condition="$([MSBuild]::IsOSPlatform('windows'))">net10.0-windows10.0.17763.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         
@@ -8,7 +9,7 @@
         <RootNamespace>RandomNodes</RootNamespace>
         
         <RazorLangVersion>Latest</RazorLangVersion>
-        <!-- Keep output compatible with existing plugin release scripts while targeting Windows APIs. -->
+        <!-- Keep output compatible with existing plugin release scripts. -->
         <OutputPath>bin\$(Configuration)\net10.0\</OutputPath>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
@@ -25,7 +26,10 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" />
+        <!-- Coordinated development against the sibling SDK. Restore the PackageReference
+             below once the matching SDK version is published. -->
+        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" /> -->
+        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <!-- Version with conditional build stamp -->
@@ -62,9 +66,11 @@
             <Compile Include="Generated\BuildStamp.g.cs" />
         </ItemGroup>
     </Target>
-    <Target Name="CopyPluginToLocalAppData" AfterTargets="Build">
+    <Target Name="CopyPluginToLocalAppData" AfterTargets="Build" Condition="'$(SkipPluginPackaging)' != 'true'">
         <PropertyGroup>
-        <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+        <LocalPluginDir Condition="$([MSBuild]::IsOSPlatform('windows'))">$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+        <LocalPluginDir Condition="$([MSBuild]::IsOSPlatform('osx'))">$(HOME)/Library/Application Support/PiShock/MultiShock/Plugins</LocalPluginDir>
+        <LocalPluginDir Condition="$([MSBuild]::IsOSPlatform('linux'))">$(HOME)/.local/share/PiShock/MultiShock/Plugins</LocalPluginDir>
         </PropertyGroup>
         <MakeDir Directories="$(LocalPluginDir)" />
         <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(LocalPluginDir)" />

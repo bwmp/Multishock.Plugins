@@ -7,10 +7,10 @@
 }
 @if (targetIssues.Count > 0)
 {
-    <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/40 space-y-1">
+    <div class="p-3 rounded-lg bg-app-warning/10 border border-app-warning/40 space-y-1">
         @foreach (var issue in targetIssues)
         {
-            <div class="flex items-center gap-2 text-sm text-amber-300">
+            <div class="flex items-center gap-2 text-sm text-app-warning">
                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -37,28 +37,28 @@
         }
         else
         {
-            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-app-muted">
                 @if (health.LastConfidence.HasValue)
                 {
-                    <span>Confidence: <span class="font-mono text-zinc-200">@health.LastConfidence.Value.ToString("P1")</span></span>
+                    <span>Confidence: <span class="font-mono text-app-text">@health.LastConfidence.Value.ToString("P1")</span></span>
                 }
                 @if (health.LastMeterPercent.HasValue)
                 {
-                    <span>Fill: <span class="font-mono text-zinc-200">@health.LastMeterPercent.Value.ToString("F1")%</span></span>
+                    <span>Fill: <span class="font-mono text-app-text">@health.LastMeterPercent.Value.ToString("F1")%</span></span>
                 }
                 @if (!string.IsNullOrEmpty(health.LastOcrText))
                 {
-                    <span>Last text: <span class="font-mono text-zinc-200">@EditorUi.TruncateText(health.LastOcrText, 40)</span></span>
+                    <span>Last text: <span class="font-mono text-app-text">@EditorUi.TruncateText(health.LastOcrText, 40)</span></span>
                 }
                 <span>Checked @EditorUi.FormatTimeAgo(health.LastCheckedUtc)</span>
                 <span>Last match: @(health.LastDetectedUtc.HasValue ? EditorUi.FormatTimeAgo(health.LastDetectedUtc.Value) : "never")</span>
                 @if (health.CooldownRemainingSeconds > 0.05)
                 {
-                    <span class="text-amber-300">Cooldown: @health.CooldownRemainingSeconds.ToString("F1")s</span>
+                    <span class="text-app-warning">Cooldown: @health.CooldownRemainingSeconds.ToString("F1")s</span>
                 }
                 @if (!string.IsNullOrEmpty(health.LastError))
                 {
-                    <span class="text-red-400">Error: @health.LastError</span>
+                    <span class="text-app-danger">Error: @health.LastError</span>
                 }
             </div>
         }
@@ -71,9 +71,9 @@
     @if (_testResult != null)
     {
         var testOk = _testResult.Success && (_testResult.Found || _testResult.MeterPercent.HasValue);
-        <div class="rounded-lg border p-3 space-y-2 @(testOk ? "border-green-500/40 bg-green-500/5" : "border-zinc-600 bg-black/10")">
+        <div class="rounded-lg border p-3 space-y-2 @(testOk ? "border-app-success/40 bg-app-success/5" : "border-app-border-strong bg-black/10")">
             <div class="flex items-center justify-between gap-3">
-                <span class="text-sm @(testOk ? "text-green-300" : _testResult.Success ? "text-zinc-300" : "text-red-400")">
+                <span class="text-sm @(testOk ? "text-app-success" : _testResult.Success ? "text-app-muted" : "text-app-danger")">
                     @_testResult.Message
                 </span>
                 <span class="text-xs text-app-muted whitespace-nowrap">@_testResult.Duration.TotalMilliseconds.ToString("F0") ms</span>

@@ -1,7 +1,7 @@
 /* ========== Card Styles ========== */
 .tiktok-card {
-    background: var(--app-surface, #1e1e1e);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface);
+    border: 1px solid var(--ms-border);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -12,8 +12,8 @@
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--app-text, #e9ecef);
-    border-bottom: 1px solid var(--app-border, #343a40);
+    color: var(--ms-text);
+    border-bottom: 1px solid var(--ms-border);
 }
 .tiktok-card-body {
     padding: 1rem;
@@ -25,20 +25,20 @@
     font-size: 0.625rem;
     font-weight: 500;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--app-muted, #adb5bd);
+    background: var(--ms-surface-3);
+    color: var(--ms-muted);
 }
 .tiktok-badge-primary {
     background: rgba(254, 44, 85, 0.2);
     color: #fe2c55;
 }
 .tiktok-badge-success {
-    background: rgba(46, 164, 79, 0.2);
-    color: #2ea44f;
+    background: rgb(var(--ms-success-rgb) / 0.2);
+    color: rgb(var(--ms-success-rgb));
 }
 .tiktok-badge-danger {
-    background: rgba(248, 81, 73, 0.2);
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    color: rgb(var(--ms-danger-rgb));
 }
 
 /* ========== Section/Bracket Row ========== */
@@ -48,13 +48,13 @@
     align-items: center;
     gap: 1rem;
     padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 6px;
     transition: all 0.15s;
 }
 .tiktok-bracket:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--ms-surface-2);
 }
 .tiktok-bracket-header {
     display: flex;
@@ -65,8 +65,8 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--app-muted, #adb5bd);
-    border-bottom: 1px solid var(--app-border, #343a40);
+    color: var(--ms-muted);
+    border-bottom: 1px solid var(--ms-border);
 }
 
 /* ========== Toolbar Buttons ========== */
@@ -77,21 +77,21 @@
     width: 24px;
     height: 24px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 4px;
-    color: var(--app-muted, #adb5bd);
+    color: var(--ms-muted);
     cursor: pointer;
     transition: all 0.15s;
 }
 .tiktok-toolbar-btn-sm:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--app-text, #e9ecef);
+    background: var(--ms-surface-3);
+    color: var(--ms-text);
 }
 .tiktok-toolbar-btn-sm.danger:hover {
-    background: rgba(248, 81, 73, 0.2);
-    border-color: #f85149;
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    border-color: rgb(var(--ms-danger-rgb));
+    color: rgb(var(--ms-danger-rgb));
 }
 
 /* ========== Status Indicator ========== */
@@ -105,16 +105,16 @@
     border-radius: 9999px;
 }
 .tiktok-status-connected {
-    background: rgba(46, 164, 79, 0.2);
-    color: #2ea44f;
+    background: rgb(var(--ms-success-rgb) / 0.2);
+    color: rgb(var(--ms-success-rgb));
 }
 .tiktok-status-disconnected {
-    background: rgba(248, 81, 73, 0.2);
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    color: rgb(var(--ms-danger-rgb));
 }
 .tiktok-status-waiting {
-    background: rgba(255, 196, 0, 0.15);
-    color: #ffc400;
+    background: rgb(var(--ms-warning-rgb) / 0.15);
+    color: rgb(var(--ms-warning-rgb));
 }
 .tiktok-status-dot {
     width: 8px;
@@ -127,7 +127,7 @@
 .tiktok-separator {
     width: 1px;
     height: 24px;
-    background: var(--app-border, #343a40);
+    background: var(--ms-border);
     margin: 0 0.5rem;
 }
 
@@ -138,7 +138,7 @@
     align-items: center;
     justify-content: center;
     padding: 2rem 1rem;
-    color: var(--app-muted, #adb5bd);
+    color: var(--ms-muted);
     text-align: center;
     gap: 0.5rem;
 }
@@ -154,18 +154,18 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 6px;
     transition: all 0.15s;
 }
 .tiktok-gift-row:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--ms-surface-2);
 }
 .tiktok-gift-image {
     width: 32px;
     height: 32px;
     border-radius: 4px;
     object-fit: contain;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
 }

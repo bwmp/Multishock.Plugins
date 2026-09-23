@@ -45,7 +45,7 @@
                 <NumberInput Value="@((double)IntensitySelector(bracket))" Min="1" Max="100"
                     ValueChanged="@(v => OnIntensityChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)Math.Clamp(v ?? 50, 1, 100))))"
                     Class="w-16" />
-                <span class="text-xs" style="color: var(--app-muted, #adb5bd); flex-shrink: 0;">%</span>
+                <span class="text-xs text-app-muted shrink-0">%</span>
             </div>
 
             <div class="flex items-center gap-2 flex-1">
@@ -55,7 +55,7 @@
                 <NumberInput Value="DurationSelector(bracket)" Min="0.1" Max="15" Step="0.1"
                     ValueChanged="@(v => OnDurationChanged.InvokeAsync(new BracketValueChange<TBracket, double>(bracket, Math.Clamp(v ?? 1.0, 0.1, 15.0))))"
                     Class="w-16" />
-                <span class="text-xs" style="color: var(--app-muted, #adb5bd); flex-shrink: 0;">s</span>
+                <span class="text-xs text-app-muted shrink-0">s</span>
             </div>
 
             <div class="w-28">

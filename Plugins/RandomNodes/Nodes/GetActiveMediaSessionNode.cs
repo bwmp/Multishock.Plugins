@@ -8,7 +8,7 @@ public sealed class GetActiveMediaSessionNode : IFlowProcessNode
     public string TypeId => "randomnodes.active_media_session";
     public string DisplayName => "Active Media Session";
     public string Category => "Random / Media";
-    public string? Description => "Reads the active Windows media session for any local player";
+    public string? Description => "Reads the active operating system media session for a local player";
     public string Icon => "radio";
     public string? Color => "#6366f1";
 
@@ -18,9 +18,9 @@ public sealed class GetActiveMediaSessionNode : IFlowProcessNode
 
     public async Task<FlowNodeResult> ExecuteAsync(IFlowNodeInstance instance, FlowExecutionContext context, CancellationToken cancellationToken)
     {
-        if (context.Services.GetService(typeof(WindowsMediaSessionService)) is not WindowsMediaSessionService mediaService)
+        if (context.Services.GetService(typeof(ISystemMediaSessionService)) is not ISystemMediaSessionService mediaService)
         {
-            return GetSpotifyNowPlayingNode.Result(new MediaSessionSnapshot(false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, false, 0, 0, 0, "Windows media service is not available"));
+            return GetSpotifyNowPlayingNode.Result(MediaSessionSnapshot.Empty("The system media service is not available"));
         }
 
         return GetSpotifyNowPlayingNode.Result(await mediaService.GetSessionAsync(preferSpotify: false, cancellationToken));

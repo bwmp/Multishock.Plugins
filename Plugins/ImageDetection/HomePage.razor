@@ -4,12 +4,12 @@
 @inject NavigationManager NavManager
 @implements IDisposable
 
-<div class="p-6 pb-0">
+<div class="max-w-5xl space-y-4">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3 min-w-0">
             @if (!string.IsNullOrEmpty(SelectedModule))
             {
-                <button class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                <button class="p-2 rounded-lg bg-app-surface-2 hover:bg-app-surface-3 transition-colors"
                         @onclick="GoBack"
                         title="Back to modules">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,9 +26,9 @@
                     Variant="secondary"
                     OnClick="OpenRecentDetections" />
 
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-green-500/20" : "bg-red-500/20")">
-                <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-green-500 animate-pulse" : "bg-red-500")"></span>
-                <span class="text-sm font-medium @(IsRunning ? "text-green-400" : "text-red-400")">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-app-success/20" : "bg-app-danger/20")">
+                <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-app-success animate-pulse" : "bg-app-danger")"></span>
+                <span class="text-sm font-medium @(IsRunning ? "text-app-success" : "text-app-danger")">
                     @(IsRunning ? "Running" : "Stopped")
                 </span>
             </div>
@@ -41,9 +41,9 @@
 
     @if (!string.IsNullOrWhiteSpace(ErrorMessage))
     {
-        <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between">
+        <div class="mb-4 p-3 rounded-lg bg-app-danger/10 border border-app-danger/30 text-app-danger flex items-center justify-between">
             <span>@ErrorMessage</span>
-            <button @onclick="ClearErrorMessage" class="text-red-400 hover:text-red-300" title="Dismiss error">
+            <button @onclick="ClearErrorMessage" class="text-app-danger hover:text-app-danger" title="Dismiss error">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>

@@ -1,0 +1,243 @@
+@page "/plugins/com-multishock-joystickintegration/joystickintegration"
+@using System.Net.Http
+@using System.Net.Http.Headers
+@using System.Text
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@implements IDisposable
+
+@* Shared page header: same title, status and action band as every host screen. *@
+<PageHeader Title="Joystick.tv"
+            Icon="gamepad-2"
+            Description="React to tips, tip menu selections and subscriptions from a flow.">
+    <Meta>
+        @if (Connection.IsConnected)
+        {
+            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
+        }
+        else if (Connection.IsConnecting)
+        {
+            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
+        }
+        else
+        {
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
+        }
+    </Meta>
+    <Actions>
+        @if (Connection.IsConnected)
+        {
+            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
+        }
+        else
+        {
+            <Button Variant="primary" Icon="plug" Text="Connect"
+                    Disabled="@(Connection.IsConnecting)" OnClick="Connect" />
+        }
+    </Actions>
+</PageHeader>
+
+<div class="max-w-4xl space-y-4">
+
+    @if (!Auth.IsInstalled)
+    {
+        <div class="jtv-step">
+            <div class="text-sm font-semibold mb-2"><span class="jtv-step-number">1</span>Create your bot on Joystick.tv</div>
+            <p class="text-xs mb-2 text-app-muted">
+                Open your Joystick.tv <strong>bot applications</strong> page and create a new <em>private</em> bot.
+                When it asks for a <strong>Redirect URL</strong>, paste exactly:
+            </p>
+            <div class="flex gap-2 items-center mb-2">
+                <code class="text-xs px-2 py-1 rounded bg-app-bg text-app-text">@RedirectUri</code>
+                <Button Text="Copy" Variant="secondary" OnClick="CopyRedirect" />
+            </div>
+            <p class="text-xs mb-2 text-app-muted">
+                Grant at least the <strong>ReadMessages</strong> and <strong>ReceiveStreamEvents</strong> permissions.
+            </p>
+            <Button Text="Open Joystick.tv" Variant="primary" OnClick="OpenBotsPage" />
+        </div>
+
+        <div class="jtv-step">
+            <div class="text-sm font-semibold mb-2"><span class="jtv-step-number">2</span>Paste your bot credentials</div>
+            <label class="block text-xs font-medium mb-1 text-app-muted">Client ID</label>
+            <TextInput Placeholder="00000000-0000-0000-0000-000000000000" Value="@ClientId"
+                       ValueChanged="@(v => UpdateClientId(v))" Class="mb-2" />
+            <label class="block text-xs font-medium mb-1 text-app-muted">Client Secret</label>
+            <TextInput InputType="password" Placeholder="your bot's client secret" Value="@ClientSecret"
+                       ValueChanged="@(v => UpdateClientSecret(v))" />
+        </div>
+
+        <div class="jtv-step">
+            <div class="text-sm font-semibold mb-2"><span class="jtv-step-number">3</span>Install the bot on your channel</div>
+            <p class="text-xs mb-2 text-app-muted">
+                This opens your browser to authorize the bot. After you approve, this window will confirm the install.
+            </p>
+            <Button Text="@InstallButtonText" Variant="primary"
+                    Disabled="@(!Settings.HasCredentials || Installing)" OnClick="Install" />
+        </div>
+    }
+    else
+    {
+        <div class="jtv-step">
+            <div class="flex items-center justify-between">
+                <div class="text-sm font-semibold">Bot installed ✓</div>
+                <Button Text="Remove install" Variant="danger" OnClick="RemoveInstall" />
+            </div>
+            <div class="flex gap-2 mt-3">
+                @if (!Connection.IsConnected)
+                {
+                    <Button Text="Connect" Variant="primary" Disabled="@Connection.IsConnecting" OnClick="Connect" />
+                }
+                else
+                {
+                    <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
+                }
+                <Button Text="Send test tip" Variant="secondary" Disabled="@(!Connection.IsConnected)" OnClick="SendTestTip" />
+            </div>
+
+            <label class="flex items-center gap-2 mt-3 text-xs text-app-muted">
+                <input type="checkbox" checked="@Settings.AutoConnect"
+                       @onchange="@(e => Settings.AutoConnect = (bool)(e.Value ?? false))" />
+                Auto-connect on startup
+            </label>
+            <label class="flex items-center gap-2 mt-1 text-xs text-app-muted">
+                <input type="checkbox" checked="@Settings.AutoReconnect"
+                       @onchange="@(e => Settings.AutoReconnect = (bool)(e.Value ?? false))" />
+                Auto-reconnect if the connection drops
+            </label>
+        </div>
+    }
+
+    <div class="jtv-step">
+        <div class="text-sm font-semibold mb-2">Event Log</div>
+        <div class="text-xs" style="max-height: 220px; overflow-y: auto; font-family: monospace;">
+            @if (Log.Count == 0)
+            {
+                <div class="text-app-muted">No events yet.</div>
+            }
+            else
+            {
+                @foreach (var entry in Log.Entries.Reverse())
+                {
+                    <div style="color: @(entry.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">
+                        <span class="text-app-muted">@entry.Time.ToString("HH:mm:ss")</span> @entry.Message
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = JoystickIntegrationPlugin.PluginId;
+    private JoystickSettingsService Settings => PluginServiceLocator.GetRequiredService<JoystickSettingsService>(PluginId);
+    private JoystickAuthService Auth => PluginServiceLocator.GetRequiredService<JoystickAuthService>(PluginId);
+    private JoystickConnectionService Connection => PluginServiceLocator.GetRequiredService<JoystickConnectionService>(PluginId);
+    private EventLogService Log => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private static readonly HttpClient Http = new();
+
+    private string ClientId = "";
+    private string ClientSecret = "";
+    private bool Installing;
+    private string RedirectUri => JoystickConstants.OAuthRedirectUri;
+
+    private string StatusClass => Connection.IsConnected ? "connected" : Connection.IsConnecting ? "connecting" : "disconnected";
+    private string StatusText => Connection.IsConnected ? "Connected" : Connection.IsConnecting ? "Connecting..." : "Not connected";
+    private string InstallButtonText => Installing ? "Waiting for authorization..." : "Install on my channel";
+
+    private void UpdateClientId(string? v)
+    {
+        ClientId = v ?? "";
+        Settings.ClientId = ClientId;
+    }
+
+    private void UpdateClientSecret(string? v)
+    {
+        ClientSecret = v ?? "";
+        Settings.ClientSecret = ClientSecret;
+    }
+
+    protected override void OnInitialized()
+    {
+        ClientId = Settings.ClientId;
+        ClientSecret = Settings.ClientSecret;
+        Connection.ConnectionStateChanged += OnStateChanged;
+        Auth.StatusChanged += OnAuthStatus;
+        Log.LogChanged += OnLogChanged;
+    }
+
+    private void OnStateChanged(bool _) => InvokeAsync(StateHasChanged);
+    private void OnLogChanged() => InvokeAsync(StateHasChanged);
+    private void OnAuthStatus(string message)
+    {
+        Log.AddLog(message);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Install()
+    {
+        Installing = true;
+        try
+        {
+            var ok = await Auth.InstallAsync();
+            if (ok)
+            {
+                await Connection.ConnectAsync();
+            }
+        }
+        finally
+        {
+            Installing = false;
+        }
+    }
+
+    private void RemoveInstall()
+    {
+        _ = Connection.DisconnectAsync();
+        Auth.ClearInstall();
+    }
+
+    private async Task Connect() => await Connection.ConnectAsync();
+    private async Task Disconnect() => await Connection.DisconnectAsync();
+
+    private async Task OpenBotsPage()
+    {
+        try { await JS.InvokeVoidAsync("open", JoystickConstants.SiteHost, "_blank"); } catch { }
+    }
+
+    private async Task CopyRedirect()
+    {
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", RedirectUri); } catch { }
+    }
+
+    /// <summary>Uses the joystick.tv /echo endpoint to inject a sample Tipped event for testing.</summary>
+    private async Task SendTestTip()
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, JoystickConstants.EchoUrl);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Basic", Settings.BasicKey);
+            req.Content = new StringContent(
+                "{\"sample\":{\"event\":\"StreamEvent\",\"data\":\"Tipped\"}}",
+                Encoding.UTF8, "application/json");
+            var resp = await Http.SendAsync(req);
+            Log.AddLog(resp.IsSuccessStatusCode
+                ? "Sent test tip via /echo"
+                : $"Test tip failed ({(int)resp.StatusCode})", isError: !resp.IsSuccessStatusCode);
+        }
+        catch (Exception ex)
+        {
+            Log.AddLog($"Test tip error: {ex.Message}", isError: true);
+        }
+    }
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnStateChanged;
+        Auth.StatusChanged -= OnAuthStatus;
+        Log.LogChanged -= OnLogChanged;
+    }
+}

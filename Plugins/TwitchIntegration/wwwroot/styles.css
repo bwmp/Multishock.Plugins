@@ -1,7 +1,7 @@
 /* ========== Card Styles ========== */
 .twitch-card {
-    background: var(--app-surface, #1e1e1e);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface);
+    border: 1px solid var(--ms-border);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -12,8 +12,8 @@
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--app-text, #e9ecef);
-    border-bottom: 1px solid var(--app-border, #343a40);
+    color: var(--ms-text);
+    border-bottom: 1px solid var(--ms-border);
 }
 .twitch-card-body {
     padding: 1rem;
@@ -27,8 +27,8 @@
     appearance: none;
     -webkit-appearance: none;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface-3);
+    border: 1px solid var(--ms-border);
     position: relative;
     transition: all 0.15s;
 }
@@ -38,21 +38,21 @@
     width: 14px;
     height: 14px;
     border-radius: 9999px;
-    background: var(--app-muted, #adb5bd);
+    background: var(--ms-muted);
     top: 2px;
     left: 2px;
     transition: all 0.15s;
 }
 .twitch-toggle:checked {
-    background: rgba(74, 158, 255, 0.3);
-    border-color: var(--app-primary, #4a9eff);
+    background: rgb(var(--ms-primary-rgb) / 0.3);
+    border-color: var(--ms-primary);
 }
 .twitch-toggle:checked::before {
-    background: var(--app-primary, #4a9eff);
+    background: var(--ms-primary);
     transform: translateX(16px);
 }
 .twitch-toggle:hover:not(:disabled) {
-    border-color: var(--app-primary, #4a9eff);
+    border-color: var(--ms-primary);
 }
 .twitch-toggle:disabled {
     opacity: 0.4;
@@ -66,7 +66,7 @@
     width: 100%;
     height: 6px;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ms-surface-3);
     cursor: pointer;
 }
 .twitch-slider::-webkit-slider-thumb {
@@ -75,20 +75,20 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--app-primary, #4a9eff);
+    background: var(--ms-primary);
     cursor: pointer;
     transition: all 0.15s;
     border: none;
 }
 .twitch-slider::-webkit-slider-thumb:hover {
     transform: scale(1.15);
-    box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+    box-shadow: 0 0 8px rgb(var(--ms-primary-rgb) / 0.5);
 }
 .twitch-slider::-moz-range-thumb {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--app-primary, #4a9eff);
+    background: var(--ms-primary);
     cursor: pointer;
     border: none;
 }
@@ -99,11 +99,11 @@
 
 /* ========== Select Dropdown ========== */
 .twitch-select {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface-2);
+    border: 1px solid var(--ms-border);
     border-radius: 4px;
     padding: 0.5rem 2rem 0.5rem 0.75rem;
-    color: var(--app-text, #e9ecef);
+    color: var(--ms-text);
     font-size: 0.875rem;
     cursor: pointer;
     appearance: none;
@@ -115,15 +115,15 @@
     transition: all 0.15s;
 }
 .twitch-select:hover:not(:disabled) {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: var(--ms-surface-3);
 }
 .twitch-select:focus {
     outline: none;
-    border-color: var(--app-primary, #4a9eff);
+    border-color: var(--ms-primary);
 }
 .twitch-select option {
-    background: var(--app-surface, #1e1e1e);
-    color: var(--app-text, #e9ecef);
+    background: var(--ms-surface);
+    color: var(--ms-text);
 }
 .twitch-select:disabled {
     opacity: 0.4;
@@ -132,23 +132,23 @@
 
 /* ========== Input Fields ========== */
 .twitch-input {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface-2);
+    border: 1px solid var(--ms-border);
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
-    color: var(--app-text, #e9ecef);
+    color: var(--ms-text);
     font-size: 0.875rem;
     transition: all 0.15s;
 }
 .twitch-input:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--ms-surface-3);
 }
 .twitch-input:focus {
     outline: none;
-    border-color: var(--app-primary, #4a9eff);
+    border-color: var(--ms-primary);
 }
 .twitch-input::placeholder {
-    color: var(--app-muted, #adb5bd);
+    color: var(--ms-muted);
 }
 .twitch-input:disabled {
     opacity: 0.4;
@@ -161,8 +161,8 @@
     text-align: center;
     font-weight: 500;
     font-size: 0.75rem;
-    background: rgba(74, 158, 255, 0.2);
-    color: var(--app-primary, #4a9eff);
+    background: rgb(var(--ms-primary-rgb) / 0.2);
+    color: var(--ms-primary);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-family: ui-monospace, monospace;
@@ -176,30 +176,30 @@
     width: 32px;
     height: 32px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 4px;
-    color: var(--app-text, #e9ecef);
+    color: var(--ms-text);
     cursor: pointer;
     transition: all 0.15s;
 }
 .twitch-toolbar-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--app-border, #343a40);
+    background: var(--ms-surface-3);
+    border-color: var(--ms-border);
 }
 .twitch-toolbar-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
 .twitch-toolbar-btn.success:hover:not(:disabled) {
-    background: rgba(46, 164, 79, 0.2);
-    border-color: #2ea44f;
-    color: #2ea44f;
+    background: rgb(var(--ms-success-rgb) / 0.2);
+    border-color: rgb(var(--ms-success-rgb));
+    color: rgb(var(--ms-success-rgb));
 }
 .twitch-toolbar-btn.danger:hover:not(:disabled) {
-    background: rgba(248, 81, 73, 0.2);
-    border-color: #f85149;
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    border-color: rgb(var(--ms-danger-rgb));
+    color: rgb(var(--ms-danger-rgb));
 }
 
 /* ========== Reorder Buttons ========== */
@@ -210,16 +210,16 @@
     width: 20px;
     height: 16px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 3px;
-    color: var(--app-muted, #adb5bd);
+    color: var(--ms-muted);
     cursor: pointer;
     transition: all 0.15s;
 }
 .twitch-reorder-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--app-text, #e9ecef);
+    background: var(--ms-surface-3);
+    color: var(--ms-text);
 }
 .twitch-reorder-btn:disabled {
     opacity: 0.3;
@@ -234,21 +234,21 @@
     width: 24px;
     height: 24px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 4px;
-    color: var(--app-muted, #adb5bd);
+    color: var(--ms-muted);
     cursor: pointer;
     transition: all 0.15s;
 }
 .twitch-toolbar-btn-sm:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--app-text, #e9ecef);
+    background: var(--ms-surface-3);
+    color: var(--ms-text);
 }
 .twitch-toolbar-btn-sm.danger:hover {
-    background: rgba(248, 81, 73, 0.2);
-    border-color: #f85149;
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    border-color: rgb(var(--ms-danger-rgb));
+    color: rgb(var(--ms-danger-rgb));
 }
 
 /* ========== Button Styles ========== */
@@ -265,23 +265,23 @@
     transition: all 0.15s;
 }
 .twitch-btn-primary {
-    background: var(--app-primary, #4a9eff);
-    color: white;
+    background: var(--ms-primary);
+    color: var(--ms-on-primary);
 }
 .twitch-btn-primary:hover:not(:disabled) {
-    background: #3d8be6;
+    background: var(--ms-primary-hover);
 }
 .twitch-btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--app-border, #343a40);
-    color: var(--app-text, #e9ecef);
+    background: var(--ms-surface-2);
+    border: 1px solid var(--ms-border);
+    color: var(--ms-text);
 }
 .twitch-btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ms-surface-3);
 }
 .twitch-btn-danger {
-    background: rgba(248, 81, 73, 0.2);
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    color: rgb(var(--ms-danger-rgb));
 }
 .twitch-btn-danger:hover:not(:disabled) {
     background: rgba(248, 81, 73, 0.3);
@@ -301,20 +301,20 @@
     font-size: 0.625rem;
     font-weight: 500;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--app-muted, #adb5bd);
+    background: var(--ms-surface-3);
+    color: var(--ms-muted);
 }
 .twitch-badge-primary {
-    background: rgba(74, 158, 255, 0.2);
-    color: var(--app-primary, #4a9eff);
+    background: rgb(var(--ms-primary-rgb) / 0.2);
+    color: var(--ms-primary);
 }
 .twitch-badge-success {
-    background: rgba(46, 164, 79, 0.2);
-    color: #2ea44f;
+    background: rgb(var(--ms-success-rgb) / 0.2);
+    color: rgb(var(--ms-success-rgb));
 }
 .twitch-badge-danger {
-    background: rgba(248, 81, 73, 0.2);
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    color: rgb(var(--ms-danger-rgb));
 }
 
 /* ========== List Item ========== */
@@ -324,18 +324,18 @@
     gap: 0.75rem;
     padding: 0.75rem;
     margin-bottom: 0.25rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s;
 }
 .twitch-list-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
 }
 .twitch-list-item.active {
-    background: rgba(74, 158, 255, 0.1);
-    border-color: var(--app-primary, #4a9eff);
+    background: rgb(var(--ms-primary-rgb) / 0.1);
+    border-color: var(--ms-primary);
 }
 
 /* ========== Section/Bracket Row ========== */
@@ -345,13 +345,13 @@
     align-items: center;
     gap: 1rem;
     padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ms-surface-2);
     border: 1px solid transparent;
     border-radius: 6px;
     transition: all 0.15s;
 }
 .twitch-bracket:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--ms-surface-2);
 }
 
 /* ========== Shocker Chip ========== */
@@ -363,22 +363,22 @@
     font-size: 0.75rem;
     font-weight: 500;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--app-border, #343a40);
-    color: var(--app-text, #e9ecef);
+    background: var(--ms-surface-2);
+    border: 1px solid var(--ms-border);
+    color: var(--ms-text);
     cursor: pointer;
     transition: all 0.15s;
 }
 .twitch-chip:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ms-surface-3);
 }
 .twitch-chip-selected {
-    background: rgba(74, 158, 255, 0.2);
-    border-color: var(--app-primary, #4a9eff);
-    color: var(--app-primary, #4a9eff);
+    background: rgb(var(--ms-primary-rgb) / 0.2);
+    border-color: var(--ms-primary);
+    color: var(--ms-primary);
 }
 .twitch-chip-selected:hover {
-    background: rgba(74, 158, 255, 0.3);
+    background: rgb(var(--ms-primary-rgb) / 0.3);
 }
 
 /* ========== Status Indicator ========== */
@@ -392,12 +392,12 @@
     border-radius: 9999px;
 }
 .twitch-status-connected {
-    background: rgba(46, 164, 79, 0.2);
-    color: #2ea44f;
+    background: rgb(var(--ms-success-rgb) / 0.2);
+    color: rgb(var(--ms-success-rgb));
 }
 .twitch-status-disconnected {
-    background: rgba(248, 81, 73, 0.2);
-    color: #f85149;
+    background: rgb(var(--ms-danger-rgb) / 0.2);
+    color: rgb(var(--ms-danger-rgb));
 }
 .twitch-status-dot {
     width: 8px;
@@ -410,7 +410,7 @@
 .twitch-separator {
     width: 1px;
     height: 24px;
-    background: var(--app-border, #343a40);
+    background: var(--ms-border);
     margin: 0 0.5rem;
 }
 
@@ -421,7 +421,7 @@
     align-items: center;
     justify-content: center;
     padding: 2rem 1rem;
-    color: var(--app-muted, #adb5bd);
+    color: var(--ms-muted);
     text-align: center;
     gap: 0.5rem;
 }
@@ -440,16 +440,16 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.5rem 0.75rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface-2);
+    border: 1px solid var(--ms-border);
     border-radius: 4px;
-    color: var(--app-text, #e9ecef);
+    color: var(--ms-text);
     font-size: 0.875rem;
     transition: all 0.15s;
 }
 .twitch-multiselect-display:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--app-primary, #4a9eff);
+    background: var(--ms-surface-3);
+    border-color: var(--ms-primary);
 }
 .twitch-multiselect-dropdown {
     position: absolute;
@@ -457,8 +457,8 @@
     left: 0;
     right: 0;
     margin-top: 4px;
-    background: var(--app-surface, #1e1e1e);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface);
+    border: 1px solid var(--ms-border);
     border-radius: 4px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 50;
@@ -469,8 +469,8 @@
     display: flex;
     justify-content: space-between;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--app-border, #343a40);
-    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--ms-border);
+    background: var(--ms-surface-2);
 }
 .twitch-multiselect-actions button {
     background: none;
@@ -489,14 +489,14 @@
     padding: 0.5rem 0.75rem;
     cursor: pointer;
     font-size: 0.875rem;
-    color: var(--app-text, #e9ecef);
+    color: var(--ms-text);
     transition: background 0.1s;
 }
 .twitch-multiselect-option:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ms-surface-2);
 }
 .twitch-multiselect-option.selected {
-    background: rgba(74, 158, 255, 0.1);
+    background: rgb(var(--ms-primary-rgb) / 0.1);
 }
 
 /* ========== Checkbox ========== */
@@ -507,15 +507,15 @@
     appearance: none;
     -webkit-appearance: none;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid var(--app-border, #343a40);
+    background: var(--ms-surface-3);
+    border: 1px solid var(--ms-border);
     position: relative;
     transition: all 0.15s;
     flex-shrink: 0;
 }
 .twitch-checkbox:checked {
-    background: var(--app-primary, #4a9eff);
-    border-color: var(--app-primary, #4a9eff);
+    background: var(--ms-primary);
+    border-color: var(--ms-primary);
 }
 .twitch-checkbox:checked::after {
     content: '';
@@ -539,6 +539,6 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--app-muted, #adb5bd);
-    border-bottom: 1px solid var(--app-border, #343a40);
+    color: var(--ms-muted);
+    border-bottom: 1px solid var(--ms-border);
 }

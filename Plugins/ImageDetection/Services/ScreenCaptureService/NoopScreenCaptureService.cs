@@ -14,7 +14,7 @@ public class NoopScreenCaptureService : IScreenCaptureService
 
     public bool IsSupported => false;
 
-    public string? UnsupportedReason => "Screen capture is only implemented for Windows in this plugin build.";
+    public string? UnsupportedReason => "Screen capture is unavailable on this platform.";
 
     public string? DpiWarning => null;
 

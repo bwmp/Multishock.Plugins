@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AssemblyName>HeartRateIntegration</AssemblyName>
+        <RootNamespace>HeartRateIntegration</RootNamespace>
+        <PluginVersion>0.1.0</PluginVersion> <!-- x-release-please-version -->
+        <Version>$(PluginVersion)</Version>
+        <PluginSdkVersion>1.13.0</PluginSdkVersion>
+        <OutputPath>bin\$(Configuration)\net10.0\</OutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="$(PluginSdkVersion)" ExcludeAssets="runtime" />
+        <None Update="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

@@ -4,10 +4,10 @@
 @using TikTokIntegration.Components.Config
 @implements IDisposable
 
-<div class="p-4 mx-auto space-y-4">
+<div class="max-w-4xl space-y-4">
     <div>
-        <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Coin Goal</h1>
-        <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">
+        <h1 class="text-xl font-bold text-app-text">Coin Goal</h1>
+        <p class="text-sm mt-1 text-app-muted">
             Add up gift coins over time and fire an action every time the running total hits a goal — a meter that
             builds up as viewers send gifts, instead of reacting to each gift on its own.
         </p>
@@ -19,7 +19,7 @@
         <ExtraTop>
             <div class="flex flex-wrap items-end gap-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">
+                    <label class="block text-xs font-medium mb-1 text-app-muted">
                         Goal (coins)
                     </label>
                     <NumberInput Value="@((double)Service.Config.GoalAmount)" Min="1" Max="1000000" Class="w-32"
@@ -32,7 +32,7 @@
             </div>
 
             <div class="space-y-1">
-                <div class="flex items-center justify-between text-xs" style="color: var(--app-muted, #adb5bd);">
+                <div class="flex items-center justify-between text-xs text-app-muted">
                     <span>Progress</span>
                     <span>@Service.Accumulated / @Service.Config.GoalAmount coins</span>
                 </div>
@@ -41,7 +41,7 @@
                         style="width: @($"{Service.ProgressFraction * 100:0.#}%"); background: linear-gradient(90deg, #fe2c55, #ff6b81);"></div>
                 </div>
                 <div class="flex items-center justify-between pt-1">
-                    <span class="text-xs" style="color: var(--app-muted, #adb5bd);">
+                    <span class="text-xs text-app-muted">
                         Reached @Service.TimesReached time@(Service.TimesReached == 1 ? "" : "s") this session
                     </span>
                     <Button Text="Reset progress" Variant="secondary" Size="sm" OnClick="@(() => Service.Reset())" />

@@ -29,7 +29,7 @@
                                 var index = i;
                                 var isActive = Image.Region.GridSections?.Sections[index] ?? true;
                                 <button type="button"
-                                        class="w-16 h-12 rounded text-xs font-medium transition-all @(isActive ? "bg-green-600 hover:bg-green-500" : "bg-red-600/50 hover:bg-red-500/50")"
+                                        class="w-16 h-12 rounded text-xs font-medium transition-all @(isActive ? "bg-app-success hover:bg-app-success" : "bg-app-danger/50 hover:bg-app-danger/50")"
                                         @onclick="@(() => ToggleSection(index))">
                                     @(index + 1)
                                 </button>
@@ -65,7 +65,7 @@
                     <span class="text-app-text font-medium">@Image.CaptureResolution.Width&times;@Image.CaptureResolution.Height</span>
                     @if (IsResolutionMismatch())
                     {
-                        <span class="text-yellow-500">(mismatch)</span>
+                        <span class="text-app-warning">(mismatch)</span>
                     }
                 </div>
                 @if (IsResolutionMismatch())

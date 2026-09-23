@@ -1,0 +1,166 @@
+@page "/plugins/com-multishock-fanslyintegration/fanslyintegration"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@implements IDisposable
+
+@* Shared page header: same title, status and action band as every host screen. *@
+<PageHeader Title="Fansly"
+            Icon="heart"
+            Description="React to tips, follows and subscriptions from a flow.">
+    <Meta>
+        @if (Connection.IsConnected)
+        {
+            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
+        }
+        else if (Connection.IsConnecting)
+        {
+            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
+        }
+        else
+        {
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
+        }
+    </Meta>
+    <Actions>
+        @if (Connection.IsConnected)
+        {
+            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
+        }
+        else
+        {
+            <Button Variant="primary" Icon="plug" Text="Connect"
+                    Disabled="@(Connection.IsConnecting)" OnClick="Connect" />
+        }
+    </Actions>
+</PageHeader>
+
+<div class="max-w-4xl space-y-4">
+
+    <div class="fsl-step">
+        <div class="text-sm font-semibold mb-2"><span class="fsl-step-number">1</span>Paste your Fansly account token</div>
+        <p class="text-xs mb-2 text-app-muted">
+            Fansly has no bot/developer API, so MultiShock connects using your own account token.
+            Log in at <strong>fansly.com</strong>, open your browser dev tools
+            (<code>F12</code> → <strong>Network</strong>), refresh, click any <code>apiv3.fansly.com</code>
+            request and copy the value of the <strong>authorization</strong> request header.
+            Keep this token private — it grants access to your account.
+        </p>
+        <label class="block text-xs font-medium mb-1 text-app-muted">Account Token</label>
+        <TextInput InputType="password" Placeholder="your Fansly authorization token" Value="@AuthToken"
+                   ValueChanged="@(v => UpdateAuthToken(v))" Class="mb-2" />
+        <label class="block text-xs font-medium mb-1 text-app-muted">Your Username</label>
+        <TextInput Placeholder="your Fansly username" Value="@Username"
+                   ValueChanged="@(v => UpdateUsername(v))" />
+    </div>
+
+    <div class="fsl-step">
+        <div class="text-sm font-semibold mb-2"><span class="fsl-step-number">2</span>Connect</div>
+        <p class="text-xs mb-2 text-app-muted">
+            Start your Fansly stream first — the live chat room only exists while you are broadcasting.
+        </p>
+        <div class="flex gap-2">
+            @if (!Connection.IsConnected)
+            {
+                <Button Text="@ConnectButtonText" Variant="primary"
+                        Disabled="@(!Settings.HasCredentials || Connection.IsConnecting)" OnClick="Connect" />
+            }
+            else
+            {
+                <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
+            }
+        </div>
+
+        <label class="flex items-center gap-2 mt-3 text-xs text-app-muted">
+            <input type="checkbox" checked="@Settings.AutoConnect"
+                   @onchange="@(e => Settings.AutoConnect = (bool)(e.Value ?? false))" />
+            Auto-connect on startup
+        </label>
+        <label class="flex items-center gap-2 mt-1 text-xs text-app-muted">
+            <input type="checkbox" checked="@Settings.AutoReconnect"
+                   @onchange="@(e => Settings.AutoReconnect = (bool)(e.Value ?? false))" />
+            Auto-reconnect if the connection drops
+        </label>
+    </div>
+
+    <div class="fsl-step">
+        <div class="text-sm font-semibold mb-2"><span class="fsl-step-number">3</span>Set up reactions</div>
+        <p class="text-xs mb-3 text-app-muted">
+            The quickest way to react to Fansly events is right here in the UI — no flow editor needed.
+            Advanced users can instead wire the <strong>Fansly</strong> trigger nodes in a flow for full control.
+        </p>
+        <div class="flex gap-2 flex-wrap">
+            <Button Text="Tip Reactions" Variant="primary" OnClick="OpenTipReactions" />
+            <Button Text="Follows / Subs" Variant="secondary" OnClick="OpenEventsConfig" />
+        </div>
+    </div>
+
+    <div class="fsl-step">
+        <div class="text-sm font-semibold mb-2">Event Log</div>
+        <div class="text-xs" style="max-height: 220px; overflow-y: auto; font-family: monospace;">
+            @if (Log.Count == 0)
+            {
+                <div class="text-app-muted">No events yet.</div>
+            }
+            else
+            {
+                @foreach (var entry in Log.Entries.Reverse())
+                {
+                    <div style="color: @(entry.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">
+                        <span class="text-app-muted">@entry.Time.ToString("HH:mm:ss")</span> @entry.Message
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = FanslyIntegrationPlugin.PluginId;
+    private FanslySettingsService Settings => PluginServiceLocator.GetRequiredService<FanslySettingsService>(PluginId);
+    private FanslyConnectionService Connection => PluginServiceLocator.GetRequiredService<FanslyConnectionService>(PluginId);
+    private EventLogService Log => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
+
+    private string AuthToken = "";
+    private string Username = "";
+
+    private string StatusClass => Connection.IsConnected ? "connected" : Connection.IsConnecting ? "connecting" : "disconnected";
+    private string StatusText => Connection.IsConnected ? "Connected" : Connection.IsConnecting ? "Connecting..." : "Not connected";
+    private string ConnectButtonText => Connection.IsConnecting ? "Connecting..." : "Connect";
+
+    private void UpdateAuthToken(string? v)
+    {
+        AuthToken = v ?? "";
+        Settings.AuthToken = AuthToken;
+    }
+
+    private void UpdateUsername(string? v)
+    {
+        Username = v ?? "";
+        Settings.Username = Username;
+    }
+
+    protected override void OnInitialized()
+    {
+        AuthToken = Settings.AuthToken;
+        Username = Settings.Username;
+        Connection.ConnectionStateChanged += OnStateChanged;
+        Log.LogChanged += OnLogChanged;
+    }
+
+    private void OnStateChanged(bool _) => InvokeAsync(StateHasChanged);
+    private void OnLogChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task Connect() => await Connection.ConnectAsync();
+    private async Task Disconnect() => await Connection.DisconnectAsync();
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private void OpenTipReactions() => Nav.NavigateTo("/plugins/com-multishock-fanslyintegration/tip-reactions");
+    private void OpenEventsConfig() => Nav.NavigateTo("/plugins/com-multishock-fanslyintegration/events-config");
+
+    public void Dispose()
+    {
+        Connection.ConnectionStateChanged -= OnStateChanged;
+        Log.LogChanged -= OnLogChanged;
+    }
+}

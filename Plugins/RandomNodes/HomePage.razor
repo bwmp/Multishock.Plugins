@@ -1,18 +1,18 @@
 @page "/plugins/com-multishock-randomnodes/randomnodes"
 
-<div class="space-y-6 p-4">
+<div class="max-w-4xl space-y-6">
     <div>
         <h1 class="text-xl font-bold">Random Nodes</h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        <p class="mt-2 text-sm text-app-subtle dark:text-app-muted">
             A grab bag of handy flow nodes for media status, randomization, text checks, time, and delays.
         </p>
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
-        <section class="randomnodes-card space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+        <section class="randomnodes-card space-y-3 rounded-lg border border-app-border p-4 dark:border-app-border">
             <div>
                 <h2 class="font-semibold">Media nodes</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
+                <p class="text-sm text-app-subtle dark:text-app-muted">
                     Read currently playing music from Windows media sessions, including local Spotify.
                 </p>
             </div>
@@ -22,10 +22,10 @@
             </ul>
         </section>
 
-        <section class="randomnodes-card space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+        <section class="randomnodes-card space-y-3 rounded-lg border border-app-border p-4 dark:border-app-border">
             <div>
                 <h2 class="font-semibold">Utility nodes</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
+                <p class="text-sm text-app-subtle dark:text-app-muted">
                     Small building blocks for adding randomness and quick logic to flows.
                 </p>
             </div>
@@ -41,7 +41,7 @@
         </section>
     </div>
 
-    <div class="rounded-lg bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
+    <div class="rounded-lg bg-app-info p-4 text-sm text-app-info dark:bg-app-info/40 dark:text-app-info">
         <strong>Spotify note:</strong> the Spotify node uses the Windows media controls API, so Spotify must be running and exposing a media session.
         If Spotify is not found, the node falls back to the current Windows media session when available.
     </div>

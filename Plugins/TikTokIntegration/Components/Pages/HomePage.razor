@@ -3,48 +3,38 @@
 @using MultiShock.PluginSdk.Components
 @implements IDisposable
 
-<div class="p-4">
-    <div class="flex items-center gap-2 mb-4 p-2 rounded-md"
-        style="background: var(--app-surface, #1e1e1e); border: 1px solid var(--app-border, #343a40);">
-
+@* Shared page header: same title, status and action band as every host screen. *@
+<PageHeader Title="TikTok Live"
+            Icon="music"
+            Description="React to gifts, likes, follows and comments during a TikTok live from a flow.">
+    <Meta>
         @if (Connection.IsConnected)
         {
-            <div class="tiktok-status tiktok-status-connected">
-                <span class="tiktok-status-dot"></span>
-                Connected to @@@Connection.ConnectedUsername
-            </div>
-        }
-        else if (Connection.IsWaitingForLive)
-        {
-            <div class="tiktok-status tiktok-status-waiting">
-                <span class="tiktok-status-dot"></span>
-                Waiting for @@@Username to go live...
-            </div>
+            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
         }
         else if (Connection.IsConnecting)
         {
-            <span class="text-sm" style="color: var(--app-muted, #adb5bd);">Connecting...</span>
+            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
         }
         else
         {
-            <div class="tiktok-status tiktok-status-disconnected">
-                <span class="tiktok-status-dot"></span>
-                Disconnected
-            </div>
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
         }
-
-        <div style="flex: 1;"></div>
-
-        @if (Connection.IsConnected && Connection.ViewerCount > 0)
+    </Meta>
+    <Actions>
+        @if (Connection.IsConnected)
         {
-            <span class="tiktok-badge tiktok-badge-primary">@Connection.ViewerCount viewers</span>
+            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
         }
+        else
+        {
+            <Button Variant="primary" Icon="plug" Text="Connect"
+                    Disabled="@(Connection.IsConnecting)" OnClick="Connect" />
+        }
+    </Actions>
+</PageHeader>
 
-        <div class="flex items-center gap-2">
-            <LucideIcon Name="music" Class="w-5 h-5" />
-            <span class="text-sm font-semibold" style="color: var(--app-text, #e9ecef);">TikTok Integration</span>
-        </div>
-    </div>
+<div class="max-w-4xl space-y-4">
 
     <div class="space-y-4">
         <div class="tiktok-card">
@@ -53,7 +43,7 @@
             </div>
             <div class="tiktok-card-body space-y-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">
+                    <label class="block text-xs font-medium mb-1 text-app-muted">
                         TikTok Username
                     </label>
                     <div class="flex gap-2">
@@ -71,7 +61,7 @@
                             <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
                         }
                     </div>
-                    <p class="text-xs mt-1" style="color: var(--app-muted, #adb5bd);">
+                    <p class="text-xs mt-1 text-app-muted">
                         The streamer must be live for the connection to succeed. Enter your own @@username to react to
                         your own stream.
                     </p>
@@ -86,18 +76,18 @@
                         ValueChanged="@(v => { Settings.AutoReconnect = v; })" />
                 </div>
 
-                <details class="pt-3" style="border-top: 1px solid var(--app-border, #343a40);">
-                    <summary class="text-sm cursor-pointer" style="color: var(--app-muted, #adb5bd);">
+                <details class="pt-3 border-t border-app-border">
+                    <summary class="text-sm cursor-pointer text-app-muted">
                         Advanced: signing &amp; authentication
                     </summary>
                     <div class="mt-3 space-y-3">
                         <div>
-                            <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">
+                            <label class="block text-xs font-medium mb-1 text-app-muted">
                                 Euler Stream API Key (optional)
                             </label>
                             <TextInput InputType="password" Placeholder="Raises the connection signing rate limit"
                                 Value="@Settings.EulerApiKey" ValueChanged="@(v => { Settings.EulerApiKey = v ?? ""; })" />
-                            <p class="text-xs mt-1" style="color: var(--app-muted, #adb5bd);">
+                            <p class="text-xs mt-1 text-app-muted">
                                 TikTok requires connection requests to be signed. This works anonymously for casual use;
                                 a free key from
                                 <a href="https://www.eulerstream.com/" target="_blank" style="color: #fe2c55;">
@@ -106,19 +96,19 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">
+                            <label class="block text-xs font-medium mb-1 text-app-muted">
                                 Custom Sign Server (optional)
                             </label>
                             <TextInput Placeholder="https://your-sign-server/" Value="@Settings.CustomSignServer"
                                 ValueChanged="@(v => { Settings.CustomSignServer = v ?? ""; })" />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium mb-1" style="color: var(--app-muted, #adb5bd);">
+                            <label class="block text-xs font-medium mb-1 text-app-muted">
                                 TikTok Session ID (optional)
                             </label>
                             <TextInput InputType="password" Placeholder="Only needed for restricted rooms"
                                 Value="@Settings.SessionId" ValueChanged="@(v => { Settings.SessionId = v ?? ""; })" />
-                            <p class="text-xs mt-1" style="color: var(--app-muted, #adb5bd);">
+                            <p class="text-xs mt-1 text-app-muted">
                                 Most public streams do not need this. Keep it secret — it is your TikTok login token.
                             </p>
                         </div>
@@ -126,7 +116,7 @@
                 </details>
 
                 <div class="text-xs px-3 py-2 rounded"
-                    style="background: rgba(255, 196, 0, 0.08); color: #d1a000; border: 1px solid rgba(255, 196, 0, 0.2);">
+                    style="background: rgba(255, 196, 0, 0.08); color: rgb(var(--ms-warning-rgb)); border: 1px solid rgba(255, 196, 0, 0.2);">
                     TikTok does not provide an official LIVE API. This uses the same public webcast feed as the web
                     player. It is read-only, but connecting to LIVE data is against TikTok's Terms of Service — use at
                     your own discretion. TikTok occasionally changes the protocol, which may require a plugin update.
@@ -136,9 +126,9 @@
 
         @if (!string.IsNullOrEmpty(ErrorMessage))
         {
-            <div class="tiktok-card" style="border-color: #f85149;">
+            <div class="tiktok-card" style="border-color: rgb(var(--ms-danger-rgb));">
                 <div class="tiktok-card-body">
-                    <div class="flex items-center gap-2" style="color: #f85149;">
+                    <div class="flex items-center gap-2" style="color: rgb(var(--ms-danger-rgb));">
                         <LucideIcon Name="triangle-alert" Class="w-5 h-5" />
                         <span>@ErrorMessage</span>
                     </div>
@@ -151,31 +141,27 @@
                 <span>Setup Path</span>
             </div>
             <div class="tiktok-card-body space-y-3">
-                <p class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                <p class="text-sm text-app-muted">
                     Configure how TikTok events map to your shockers:
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <a href="/plugins/com-multishock-tiktokintegration/gift-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
-                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
                         <LucideIcon Name="gift" Size="16" />
                         <span>Gift Brackets</span>
                     </a>
                     <a href="/plugins/com-multishock-tiktokintegration/individual-gifts"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
-                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
                         <LucideIcon Name="sparkles" Size="16" />
                         <span>Individual Gifts</span>
                     </a>
                     <a href="/plugins/com-multishock-tiktokintegration/coin-goal"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
-                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
                         <LucideIcon Name="target" Size="16" />
                         <span>Coin Goal</span>
                     </a>
                     <a href="/plugins/com-multishock-tiktokintegration/events-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
-                        style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
                         <LucideIcon Name="heart" Size="16" />
                         <span>Follows / Shares / Subs</span>
                     </a>
@@ -192,7 +178,7 @@
                 <div class="space-y-1 max-h-64 overflow-y-auto">
                     @if (EventLog.Count == 0)
                     {
-                        <p class="text-sm" style="color: var(--app-muted, #adb5bd);">
+                        <p class="text-sm text-app-muted">
                             No events yet. Connect to a live stream to see events here.
                         </p>
                     }
@@ -202,8 +188,8 @@
                         {
                             <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
                                 style="background: rgba(255, 255, 255, 0.02);">
-                                <span style="color: var(--app-muted, #adb5bd);">[@log.Time.ToString("HH:mm:ss")]</span>
-                                <span style="color: @(log.IsError ? "#f85149" : "var(--app-text, #e9ecef)");">@log.Message</span>
+                                <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
+                                <span style="color: @(log.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">@log.Message</span>
                             </div>
                         }
                     }

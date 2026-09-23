@@ -1,7 +1,7 @@
 @page "/plugins/com-multishock-throneintegration/throneintegration"
 @implements IDisposable
 
-<div class="space-y-4 p-4">
+<div class="max-w-4xl space-y-4">
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-bold">Throne Integration</h1>
     </div>
@@ -28,7 +28,7 @@
 
             @if (!string.IsNullOrEmpty(StatusMessage))
             {
-                <div class="text-sm @(IsConnected ? "text-green-500" : "text-gray-500")">
+                <div class="text-sm @(IsConnected ? "text-app-success" : "text-app-subtle")">
                     @StatusMessage
                 </div>
             }
@@ -39,7 +39,7 @@
     {
         <Card Title="Recent Throne Gifts">
             <div class="flex justify-between items-center mb-2">
-                <div class="text-sm text-gray-400">Showing latest gifts (up to 50 stored)</div>
+                <div class="text-sm text-app-muted">Showing latest gifts (up to 50 stored)</div>
                 @if (RecentEvents.Count > 0)
                 {
                     <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearRecent" />
@@ -48,7 +48,7 @@
             <div class="space-y-2">
                 @if (RecentEvents.Count == 0)
                 {
-                    <div class="text-gray-500 text-sm">No gifts received yet. Waiting for events...</div>
+                    <div class="text-app-subtle text-sm">No gifts received yet. Waiting for events...</div>
                 }
                 else
                 {
@@ -57,7 +57,7 @@
                         <div class="throneintegration-card flex items-center justify-between">
                             <div class="flex-1">
                                 <div class="font-medium">@evt.OverlayInformation?.GifterUsername</div>
-                                <div class="text-sm text-gray-500">
+                                <div class="text-sm text-app-subtle">
                                     @evt.OverlayInformation?.Type
                                     @if (!string.IsNullOrEmpty(evt.OverlayInformation?.ItemName))
                                     {
@@ -66,12 +66,12 @@
                                 </div>
                                 @if (!string.IsNullOrEmpty(evt.OverlayInformation?.Message))
                                 {
-                                    <div class="text-sm italic text-gray-400 mt-1">
+                                    <div class="text-sm italic text-app-muted mt-1">
                                         "@evt.OverlayInformation.Message"
                                     </div>
                                 }
                             </div>
-                            <div class="text-sm text-gray-500">
+                            <div class="text-sm text-app-subtle">
                                 @FormatTimestamp(evt.CreatedAt)
                             </div>
                         </div>

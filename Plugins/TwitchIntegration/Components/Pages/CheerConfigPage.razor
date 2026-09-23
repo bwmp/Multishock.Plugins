@@ -4,11 +4,11 @@
 @implements IDisposable
 @using global::TwitchIntegration.Components.Config
 
-<div class="p-4 mx-auto">
+<div class="max-w-4xl space-y-4">
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="text-xl font-bold" style="color: var(--app-text, #e9ecef);">Bits/Cheers Configuration</h1>
-            <p class="text-sm mt-1" style="color: var(--app-muted, #adb5bd);">Configure actions triggered by Twitch
+            <h1 class="text-xl font-bold text-app-text">Bits/Cheers Configuration</h1>
+            <p class="text-sm mt-1 text-app-muted">Configure actions triggered by Twitch
                 cheers</p>
         </div>
         <div class="flex items-center gap-3" data-guided-setup="twitch-cheers-toolbar">
@@ -29,14 +29,12 @@
         <div class="twitch-card-body">
             <div class="flex flex-wrap gap-2">
                 <a href="/plugins/com-multishock-twitchintegration/twitchintegration"
-                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
-                    style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);">
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
                     <LucideIcon Name="plug" Size="16" />
                     <span>Back to Connection</span>
                 </a>
                 <a href="/plugins/com-multishock-twitchintegration/sub-config"
-                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
-                    style="border-color: var(--app-border, #343a40); color: var(--app-text, #e9ecef); background: var(--app-surface, #1e1e1e);"
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface"
                     data-guided-setup="twitch-cheers-open-subs">
                     <LucideIcon Name="user-plus" Size="16" />
                     <span>Continue to Subs / Gifted Subs</span>
@@ -90,8 +88,7 @@
                                 <LucideIcon Name="trash2" Class="w-6 h-6" />
                             </Button>
                         </div>
-                        <svg class="w-4 h-4 transition-transform @(ExpandedSections.Contains(sec.Id) ? "rotate-180" : "")"
-                            style="color: var(--app-muted, #adb5bd);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ExpandedSections.Contains(sec.Id) ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </div>
@@ -117,8 +114,7 @@
                             @if (sec.CommandType == "Shock")
                             {
                                 <div>
-                                    <label class="block text-xs font-medium mb-1"
-                                        style="color: var(--app-muted, #adb5bd);">Warning Vibrate</label>
+                                    <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
                                     <Toggle Value="sec.WarningVibrate"
                                         ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
                                 </div>
@@ -129,8 +125,7 @@
                                     Options="@MatchingModeOptions" />
                             </div>
                             <div class="grow">
-                                <label class="block text-xs font-medium mb-1"
-                                    style="color: var(--app-muted, #adb5bd);">Shockers</label>
+                                <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
                                 @{
                                     var loadedShockers = GetLoadedShockers().ToList();
                                     var selectedCount = sec.SelectedShockerIds.Count;
@@ -142,19 +137,17 @@
                                 }
                                 else
                                 {
-                                    <div class="twitch-input w-full flex items-center text-xs"
-                                        style="color: var(--app-muted, #adb5bd);">
+                                    <div class="twitch-input w-full flex items-center text-xs text-app-muted">
                                         No shockers
                                     </div>
                                 }
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-3" data-guided-setup="twitch-cheers-brackets"
-                            style="border-top: 1px solid var(--app-border, #343a40);">
+                        <div class="flex items-center justify-between pt-3 border-t border-app-border" data-guided-setup="twitch-cheers-brackets">
                             <div>
-                                <label class="text-sm font-medium" style="color: var(--app-text, #e9ecef);">Bit Brackets</label>
-                                <p class="text-xs mt-0.5" style="color: var(--app-muted, #adb5bd);">Define intensity & duration
+                                <label class="text-sm font-medium text-app-text">Bit Brackets</label>
+                                <p class="text-xs mt-0.5 text-app-muted">Define intensity & duration
                                     at different bit amounts</p>
                             </div>
                             <Button Text="Add Bracket" Variant="secondary" Size="sm"
@@ -186,7 +179,7 @@
             <div class="twitch-card">
                 <div class="twitch-card-body">
                     <div class="twitch-empty py-8">
-                        <svg class="w-12 h-12 mb-2" style="color: var(--app-muted, #adb5bd);" fill="none"
+                        <svg class="w-12 h-12 mb-2 text-app-muted" fill="none"
                             stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                                 d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -202,21 +195,20 @@
         <div class="twitch-card">
             <div class="twitch-card-header cursor-pointer" @onclick="@(() => ShowHelpCard = !ShowHelpCard)">
                 <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4" style="color: var(--app-primary, #4a9eff);" fill="none" stroke="currentColor"
+                    <svg class="w-4 h-4 text-app-primary" fill="none" stroke="currentColor"
                         viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span>How It Works</span>
                 </div>
-                <svg class="w-4 h-4 transition-transform @(ShowHelpCard ? "rotate-180" : "")"
-                    style="color: var(--app-muted, #adb5bd);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ShowHelpCard ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </div>
             @if (ShowHelpCard)
             {
-                <div class="twitch-card-body text-sm" style="color: var(--app-muted, #adb5bd);">
+                <div class="twitch-card-body text-sm text-app-muted">
                     <p class="mb-3">When a cheer arrives, keywords are matched to sections. The matching section's bracket
                         (based on bit amount) determines the action.</p>
                 </div>

@@ -1,0 +1,87 @@
+@page "/plugins/com-multishock-joystickintegration/events-config"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@using JoystickIntegration.Components.Config
+@implements IDisposable
+
+<div class="max-w-4xl space-y-4">
+    <div>
+        <h1 class="text-xl font-bold text-app-text">Follows, Subs &amp; More</h1>
+        <p class="text-sm mt-1 text-app-muted">
+            Configure reactions for non-tip events. Each is off by default.
+        </p>
+    </div>
+
+    <SimpleActionCard Title="New Follower" Icon="user-plus" Config="Events.Config.Follow"
+        Description="Fires when a viewer follows the streamer." OnChanged="SaveEvents" />
+
+    <SimpleActionCard Title="Subscription" Icon="star" Config="Events.Config.Subscribe"
+        Description="Fires on a new or gifted subscription." OnChanged="SaveEvents" />
+
+    <SimpleActionCard Title="Wheel Spin Claimed" Icon="disc-3" Config="Events.Config.WheelSpin"
+        Description="Fires when a viewer claims a wheel-spin prize." OnChanged="SaveEvents" />
+
+    <SimpleActionCard Title="Tip Goal Met" Icon="target" Config="Events.Config.TipGoal"
+        Description="Fires when the streamer's tip goal is met." OnChanged="SaveEvents" />
+
+    <div class="jtv-card">
+        <div class="jtv-card-header">
+            <div class="flex items-center gap-2">
+                <LucideIcon Name="message-square" Class="w-4 h-4" />
+                <span>Chat Feedback</span>
+            </div>
+            <Toggle Label="@(Chat.Config.Enabled ? "On" : "Off")" Value="Chat.Config.Enabled"
+                ValueChanged="@(v => Chat.SetEnabled(v))" />
+        </div>
+        @if (Chat.Config.Enabled)
+        {
+            <div class="jtv-card-body space-y-4">
+                <p class="text-xs text-app-muted">
+                    Post a public chat message when events fire. Requires your bot to have the
+                    <strong>SendMessage</strong> permission. Placeholders: <code>{user}</code>, <code>{tokens}</code>,
+                    <code>{item}</code>.
+                </p>
+
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <Toggle Value="Chat.Config.TipEnabled" ValueChanged="@(v => Chat.SetTipEnabled(v))" />
+                        <span class="text-xs font-medium text-app-muted w-20">On Tip</span>
+                        <TextInput Value="@Chat.Config.TipTemplate" ValueChanged="@(v => Chat.SetTipTemplate(v ?? ""))" Class="flex-1" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Toggle Value="Chat.Config.FollowEnabled" ValueChanged="@(v => Chat.SetFollowEnabled(v))" />
+                        <span class="text-xs font-medium text-app-muted w-20">On Follow</span>
+                        <TextInput Value="@Chat.Config.FollowTemplate" ValueChanged="@(v => Chat.SetFollowTemplate(v ?? ""))" Class="flex-1" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Toggle Value="Chat.Config.SubscribeEnabled" ValueChanged="@(v => Chat.SetSubscribeEnabled(v))" />
+                        <span class="text-xs font-medium text-app-muted w-20">On Sub</span>
+                        <TextInput Value="@Chat.Config.SubscribeTemplate" ValueChanged="@(v => Chat.SetSubscribeTemplate(v ?? ""))" Class="flex-1" />
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly string PluginId = JoystickIntegrationPlugin.PluginId;
+    private EventsConfigService Events => PluginServiceLocator.GetRequiredService<EventsConfigService>(PluginId);
+    private ChatFeedbackService Chat => PluginServiceLocator.GetRequiredService<ChatFeedbackService>(PluginId);
+
+    protected override void OnInitialized()
+    {
+        Events.ConfigChanged += OnConfigChanged;
+        Chat.ConfigChanged += OnConfigChanged;
+    }
+
+    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+
+    private void SaveEvents() => Events.SaveConfig();
+
+    public void Dispose()
+    {
+        Events.ConfigChanged -= OnConfigChanged;
+        Chat.ConfigChanged -= OnConfigChanged;
+    }
+}

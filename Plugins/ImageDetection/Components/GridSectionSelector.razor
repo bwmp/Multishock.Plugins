@@ -13,7 +13,7 @@
                 var isEnabled = Sections?.Sections[index] ?? true;
                 
                 <button type="button"
-                        class="w-8 h-8 border border-zinc-600 cursor-pointer transition-colors duration-200 @(isEnabled ? "bg-blue-500 hover:bg-blue-400" : "bg-zinc-700 hover:bg-zinc-600")"
+                        class="w-8 h-8 border border-app-border-strong cursor-pointer transition-colors duration-200 @(isEnabled ? "bg-app-info hover:bg-app-info" : "bg-app-surface-3 hover:bg-app-surface-3")"
                         @onclick="@(() => ToggleSection(r, c))"
                         title="@($"Section {index + 1}: {(isEnabled ? "Enabled" : "Disabled")}")">
                 </button>

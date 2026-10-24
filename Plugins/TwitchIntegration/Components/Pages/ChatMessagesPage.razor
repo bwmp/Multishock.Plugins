@@ -1,0 +1,158 @@
+@page "/plugins/com-multishock-twitchintegration/chat-messages"
+@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
+@inject IPluginHost Host
+@implements IDisposable
+
+<PageHeader Title="Chat Messages"
+            Description="Post a message in your Twitch chat when a cheer bracket, redeem, sub, gift or follow triggers an action, and repeat an info message on a timer.">
+    <Actions>
+        <Toggle Label="@(Config.Enabled ? "Enabled" : "Disabled")" Value="Config.Enabled"
+                ValueChanged="@(enabled => AutoMessages.SetEnabled(enabled))" />
+    </Actions>
+</PageHeader>
+
+@if (!TwitchService.IsConnected)
+{
+    <Alert Variant="info" Class="mb-4">
+        Twitch isn't connected. Messages are only sent while the plugin is connected.
+    </Alert>
+}
+
+<div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 @(Config.Enabled ? "" : "opacity-60")">
+    <div class="twitch-card xl:col-span-2">
+        <div class="twitch-card-header">
+            <span>Repeating message</span>
+            <div class="flex items-center gap-2">
+                <Button Text="Send now" Icon="send" Variant="secondary" Size="sm"
+                        Disabled="@(!TwitchService.IsConnected)" Loading="_sendingRepeating"
+                        OnClick="SendRepeatingNow" />
+                <Toggle Label="Repeat" Value="Config.Repeating.Enabled"
+                        ValueChanged="@(enabled => AutoMessages.SetRepeatingEnabled(enabled))" />
+            </div>
+        </div>
+        <div class="twitch-card-body space-y-3">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <NumberInput Label="Every" Suffix="min"
+                             Value="@(Config.Repeating.IntervalSeconds / 60.0)"
+                             Min="@(AutoMessageService.MinIntervalSeconds / 60.0)"
+                             Max="@(AutoMessageService.MaxIntervalSeconds / 60.0)"
+                             ValueChanged="@(v => AutoMessages.SetRepeatingInterval((int)Math.Round((v ?? 10) * 60)))" />
+                <div class="md:col-span-3">
+                    <TextArea Label="Message" Rows="3" Value="@Config.Repeating.Template"
+                              ValueChanged="@(v => AutoMessages.SetRepeatingTemplate(v ?? string.Empty))" />
+                </div>
+            </div>
+            @PlaceholderHint(RepeatingPlaceholders)
+            @MessagePreview(AutoMessages.RenderRepeating())
+        </div>
+    </div>
+
+    @foreach (var trigger in Triggers)
+    {
+        var template = Config.Get(trigger.Trigger);
+        <div class="twitch-card">
+            <div class="twitch-card-header">
+                <span>@trigger.Title</span>
+                <Toggle AriaLabel="@($"Send a message on {trigger.Title.ToLowerInvariant()}")" Value="template.Enabled"
+                        ValueChanged="@(enabled => AutoMessages.SetTriggerEnabled(trigger.Trigger, enabled))" />
+            </div>
+            <div class="twitch-card-body space-y-3">
+                <p class="text-xs text-app-muted">@trigger.When</p>
+                <TextInput Value="@template.Template" Disabled="@(!template.Enabled)"
+                           aria-label="@($"{trigger.Title} message")"
+                           ValueChanged="@(v => AutoMessages.SetTriggerTemplate(trigger.Trigger, v ?? string.Empty))" />
+                @PlaceholderHint(AutoMessageService.GetPlaceholders(trigger.Trigger))
+                @MessagePreview(AutoMessageService.RenderSample(trigger.Trigger, template.Template))
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
+    private AutoMessageService AutoMessages => PluginServiceLocator.GetRequiredService<AutoMessageService>(PluginId);
+    private TwitchEventSubService TwitchService => PluginServiceLocator.GetRequiredService<TwitchEventSubService>(PluginId);
+    private CheerConfigService CheerConfig => PluginServiceLocator.GetRequiredService<CheerConfigService>(PluginId);
+
+    private AutoMessageConfig Config => AutoMessages.Config;
+
+    private static readonly IReadOnlyList<string> RepeatingPlaceholders = ["brackets"];
+
+    private sealed record TriggerInfo(AutoMessageTrigger Trigger, string Title, string When);
+
+    private static readonly TriggerInfo[] Triggers =
+    [
+        new(AutoMessageTrigger.Cheer, "Cheer bracket", "Sent when a cheer matches a bracket and its action fires."),
+        new(AutoMessageTrigger.Redeem, "Channel point redeem", "Sent when a configured channel point reward fires its action."),
+        new(AutoMessageTrigger.Subscription, "Subscription", "Sent when a new sub or shared resub fires its tier's action."),
+        new(AutoMessageTrigger.GiftSubscription, "Gifted subs", "Sent once per gift, with the number of subs gifted."),
+        new(AutoMessageTrigger.Follow, "Follow", "Sent when a first-time follower fires the follow action."),
+    ];
+
+    private bool _sendingRepeating;
+
+    protected override void OnInitialized()
+    {
+        AutoMessages.ConfigChanged += OnChanged;
+        CheerConfig.ConfigChanged += OnChanged;
+        TwitchService.ConnectionStateChanged += OnConnectionChanged;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnConnectionChanged(bool _) => InvokeAsync(StateHasChanged);
+
+    private async Task SendRepeatingNow()
+    {
+        _sendingRepeating = true;
+        try
+        {
+            if (await AutoMessages.SendRepeatingNowAsync())
+            {
+                Host.ShowSuccessToast("Message sent", "The repeating message was posted in chat.");
+            }
+            else
+            {
+                Host.ShowErrorToast("Message not sent", "Twitch rejected the message or the connection dropped. Check the event log.");
+            }
+        }
+        finally
+        {
+            _sendingRepeating = false;
+        }
+    }
+
+    private static RenderFragment PlaceholderHint(IReadOnlyList<string> names) => __builder =>
+    {
+        <div class="flex flex-wrap items-center gap-1.5 text-xs text-app-muted">
+            <span>Placeholders:</span>
+            @foreach (var name in names)
+            {
+                <code class="rounded bg-app-surface-2 px-1.5 py-0.5 font-mono text-app-text">{@name}</code>
+            }
+        </div>
+    };
+
+    private static RenderFragment MessagePreview(string text) => __builder =>
+    {
+        <div class="rounded-ctl border border-app-border bg-app-surface-2 px-3 py-2 text-sm">
+            <div class="section-label mb-1">Preview</div>
+            @if (string.IsNullOrWhiteSpace(text))
+            {
+                <span class="text-app-subtle">Nothing will be sent - the message is empty.</span>
+            }
+            else
+            {
+                <span class="break-words text-app-text">@text</span>
+            }
+        </div>
+    };
+
+    public void Dispose()
+    {
+        AutoMessages.ConfigChanged -= OnChanged;
+        CheerConfig.ConfigChanged -= OnChanged;
+        TwitchService.ConnectionStateChanged -= OnConnectionChanged;
+    }
+}

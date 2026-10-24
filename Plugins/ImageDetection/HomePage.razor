@@ -4,53 +4,33 @@
 @inject NavigationManager NavManager
 @implements IDisposable
 
-<div class="max-w-5xl space-y-4">
-    <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-3 min-w-0">
-            @if (!string.IsNullOrEmpty(SelectedModule))
-            {
-                <button class="p-2 rounded-lg bg-app-surface-2 hover:bg-app-surface-3 transition-colors"
-                        @onclick="GoBack"
-                        title="Back to modules">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-            }
+<PageHeader Title="@GetPageTitle()"
+            Icon="@(string.IsNullOrEmpty(SelectedModule) ? "scan-eye" : null)"
+            Breadcrumb="@(string.IsNullOrEmpty(SelectedModule) ? null : BackToModules)">
+    <Meta>
+        <Badge Variant="@(IsRunning ? "success" : "neutral")">
+            <span class="h-1.5 w-1.5 rounded-full @(IsRunning ? "bg-app-success" : "bg-app-subtle")"></span>
+            @(IsRunning ? "Running" : "Stopped")
+        </Badge>
+    </Meta>
+    <Actions>
+        <Button Text="Recent detections" Icon="history" Variant="secondary" OnClick="OpenRecentDetections" />
+        <Button Text="@(IsRunning ? "Stop detection" : "Start detection")"
+                Icon="@(IsRunning ? "square" : "play")"
+                Variant="@(IsRunning ? "danger" : "primary")"
+                OnClick="ToggleDetection" />
+    </Actions>
+</PageHeader>
 
-            <h1 class="text-2xl font-bold truncate">@GetPageTitle()</h1>
-        </div>
-
-        <div class="flex items-center gap-3">
-            <Button Text="Recent Detections"
-                    Variant="secondary"
-                    OnClick="OpenRecentDetections" />
-
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-app-success/20" : "bg-app-danger/20")">
-                <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-app-success animate-pulse" : "bg-app-danger")"></span>
-                <span class="text-sm font-medium @(IsRunning ? "text-app-success" : "text-app-danger")">
-                    @(IsRunning ? "Running" : "Stopped")
-                </span>
-            </div>
-
-            <Button Text="@(IsRunning ? "Stop Detection" : "Start Detection")"
-                    Variant="@(IsRunning ? "danger" : "primary")"
-                    OnClick="ToggleDetection" />
-        </div>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
-    {
-        <div class="mb-4 p-3 rounded-lg bg-app-danger/10 border border-app-danger/30 text-app-danger flex items-center justify-between">
-            <span>@ErrorMessage</span>
-            <button @onclick="ClearErrorMessage" class="text-app-danger hover:text-app-danger" title="Dismiss error">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-    }
-</div>
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <Alert Variant="danger" Class="mb-4">
+        <ChildContent>@ErrorMessage</ChildContent>
+        <Actions>
+            <Button Icon="x" Size="icon-sm" Variant="ghost" AriaLabel="Dismiss error" Title="Dismiss error" OnClick="ClearErrorMessage" />
+        </Actions>
+    </Alert>
+}
 
 @if (string.IsNullOrEmpty(SelectedModule))
 {
@@ -96,6 +76,14 @@ else
 
         return "Image Detection";
     }
+
+    private RenderFragment BackToModules => __builder =>
+    {
+        <button type="button" class="inline-flex items-center gap-1 hover:text-app-text" @onclick="GoBack">
+            <LucideIcon Name="arrow-left" Size="12" />
+            Image Detection
+        </button>
+    };
 
     private Task ToggleDetection() => DetectionService.ToggleAsync();
 

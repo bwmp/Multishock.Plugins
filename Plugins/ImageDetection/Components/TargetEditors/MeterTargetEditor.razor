@@ -15,20 +15,10 @@
 
 @if (!regionConfigured)
 {
-    <div class="p-4 rounded-lg bg-app-warning/10 border border-app-warning/30">
-        <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-app-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <div>
-                <p class="text-sm font-medium text-app-warning">Setup required: Select your health bar region</p>
-                <p class="text-xs text-app-warning/80 mt-1">
-                    Use the region picker below to select where the health bar appears on screen.
-                    This is required before detection can work.
-                </p>
-            </div>
-        </div>
-    </div>
+    <Alert Variant="warning" Title="Setup required: select your health bar region">
+        Use the region picker below to select where the health bar appears on screen.
+        This is required before detection can work.
+    </Alert>
 }
 
 @if (DetectionService.IsRunning && !string.IsNullOrEmpty(ModuleId))

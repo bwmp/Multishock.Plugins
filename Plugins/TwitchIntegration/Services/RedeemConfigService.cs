@@ -26,6 +26,8 @@ public class RedeemConfigService : IDisposable
 
     public event Action? ConfigChanged;
 
+    public event Action<AutoMessageActivation>? AutoMessageActivated;
+
     public RedeemConfigRoot Config => _config;
 
     public bool IsFetchingRedeems => _isFetching;
@@ -518,6 +520,10 @@ public class RedeemConfigService : IDisposable
         var duration = Math.Clamp(redeemConfig.Duration, 0.1, 15.0);
 
         _ = ExecuteActionAsync(redeemConfig, intensity, duration);
+
+        AutoMessageActivated?.Invoke(AutoMessageActivation.Create(
+            AutoMessageTrigger.Redeem, redemption.UserName, intensity, duration,
+            ("redeem", string.IsNullOrEmpty(redemption.Reward?.Title) ? redeemConfig.RewardTitle : redemption.Reward.Title)));
     }
 
     private async Task ExecuteActionAsync(RedeemConfig redeemConfig, int intensity, double duration)

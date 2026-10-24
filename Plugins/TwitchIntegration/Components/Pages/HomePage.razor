@@ -48,7 +48,7 @@
     </Actions>
 </PageHeader>
 
-<div class="max-w-4xl space-y-4">
+<div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
 
     <div class="space-y-4">
         <div class="twitch-card" data-guided-setup="twitch-home-connection">
@@ -154,12 +154,6 @@
                                 <Button Text="Clear" Variant="secondary" Disabled="@(string.IsNullOrWhiteSpace(OAuthToken))"
                                     OnClick="ClearToken" />
                             </div>
-                            <p class="text-xs text-app-muted">
-                                Get your token from
-                                <a class="text-app-primary" href="https://twitchtokengenerator.com/" target="_blank">
-                                    TwitchTokenGenerator.com
-                                </a>
-                            </p>
                         </div>
                     </details>
                 }
@@ -294,6 +288,9 @@
             </div>
         }
 
+    </div>
+
+    <div class="space-y-4">
         <TwitchIntegration.Components.EventLog />
 
         <TwitchIntegration.Components.PerformancePanel />

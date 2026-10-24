@@ -23,6 +23,8 @@ public class SubscriptionConfigService
 
     public event Action? ConfigChanged;
 
+    public event Action<AutoMessageActivation>? AutoMessageActivated;
+
     public SubscriptionConfig Config => _config;
 
     public SubscriptionConfigService(
@@ -159,32 +161,18 @@ public class SubscriptionConfigService
 
         var section = FindSectionForEvent("Sub", subscribeEvent.UserName, subscribeEvent.TierNumber);
         if (section == null) return;
-        var count = 1;
 
-        if (section.Mode == SubscriptionMode.Brackets)
-        {
-            ExecuteBracketAction(section, count);
-        }
-        else
-        {
-            ExecuteIncrementalAction(section, count);
-        }
+        var fired = ExecuteSectionAction(section, 1);
+        RaiseAutoMessage(fired, AutoMessageTrigger.Subscription, subscribeEvent.UserName, subscribeEvent.TierNumber, 1);
     }
 
     private void HandleSubscriptionMessageEvent(SubscriptionMessageEvent messageEvent)
     {
         var section = FindSectionForEvent("Resub", messageEvent.UserName, messageEvent.TierNumber);
         if (section == null) return;
-        var count = 1;
 
-        if (section.Mode == SubscriptionMode.Brackets)
-        {
-            ExecuteBracketAction(section, count);
-        }
-        else
-        {
-            ExecuteIncrementalAction(section, count);
-        }
+        var fired = ExecuteSectionAction(section, 1);
+        RaiseAutoMessage(fired, AutoMessageTrigger.Subscription, messageEvent.UserName, messageEvent.TierNumber, 1);
     }
 
     private void HandleSubscriptionGiftEvent(SubscriptionGiftEvent giftEvent)
@@ -193,12 +181,15 @@ public class SubscriptionConfigService
         if (section == null) return;
         var count = giftEvent.Total;
 
+        var giverName = giftEvent.IsAnonymous || string.IsNullOrEmpty(giftEvent.UserName) ? "Anonymous" : giftEvent.UserName;
+
         if (section.Mode == SubscriptionMode.Brackets)
         {
             var bracket = FindMatchingBracket(section, count);
             if (bracket != null)
             {
-                ExecuteBracketAction(section, count);
+                var fired = ExecuteBracketAction(section, count);
+                RaiseAutoMessage(fired, AutoMessageTrigger.GiftSubscription, giverName, giftEvent.TierNumber, count);
 
                 // Fire bracket activation trigger
                 _ = _triggerManager.FireSubscriptionBracketEvent(
@@ -216,8 +207,24 @@ public class SubscriptionConfigService
         }
         else
         {
-            ExecuteIncrementalAction(section, count);
+            var fired = ExecuteIncrementalAction(section, count);
+            RaiseAutoMessage(fired, AutoMessageTrigger.GiftSubscription, giverName, giftEvent.TierNumber, count);
         }
+    }
+
+    private (int Intensity, double Duration)? ExecuteSectionAction(SubscriptionTierSection section, int count) =>
+        section.Mode == SubscriptionMode.Brackets
+            ? ExecuteBracketAction(section, count)
+            : ExecuteIncrementalAction(section, count);
+
+    private void RaiseAutoMessage((int Intensity, double Duration)? fired, AutoMessageTrigger trigger, string userName, int tier, int amount)
+    {
+        if (fired is not { } action) return;
+
+        AutoMessageActivated?.Invoke(AutoMessageActivation.Create(
+            trigger, userName, action.Intensity, action.Duration,
+            ("amount", amount.ToString()),
+            ("tier", $"Tier {tier}")));
     }
 
     private SubscriptionTierSection? FindSectionForEvent(string eventName, string userName, int tier)
@@ -242,14 +249,14 @@ public class SubscriptionConfigService
         TwitchIntegrationPlugin.Logger?.LogInformation("[Subs] {Event} from {User} skipped: {Reason}", eventName, userName, reason);
     }
 
-    private void ExecuteIncrementalAction(SubscriptionTierSection section, int count)
+    private (int Intensity, double Duration)? ExecuteIncrementalAction(SubscriptionTierSection section, int count)
     {
         if (!section.SelectedShockerIds.Any())
         {
             TwitchIntegrationPlugin.Logger?.LogWarning("[Subs] {Section} has no shockers selected", section.Name);
-            return;
+            return null;
         }
-        if (count <= 0) return;
+        if (count <= 0) return null;
 
         var cfg = section.Incremental;
 
@@ -261,27 +268,29 @@ public class SubscriptionConfigService
         var duration = Math.Clamp(rawDuration, 0.1, Math.Clamp(cfg.MaxDuration, 0.1, 15.0));
 
         _ = ExecuteDeviceActionAsync(section, intensity, duration, cfg.CommandType, cfg.Mode, cfg.WarningVibrate);
+        return (intensity, duration);
     }
 
-    private void ExecuteBracketAction(SubscriptionTierSection section, int count)
+    private (int Intensity, double Duration)? ExecuteBracketAction(SubscriptionTierSection section, int count)
     {
         if (!section.SelectedShockerIds.Any())
         {
             TwitchIntegrationPlugin.Logger?.LogWarning("[Subs] {Section} has no shockers selected", section.Name);
-            return;
+            return null;
         }
 
         var bracket = FindMatchingBracket(section, count);
         if (bracket == null)
         {
             TwitchIntegrationPlugin.Logger?.LogInformation("[Subs] {Section} has no bracket matching count {Count}", section.Name, count);
-            return;
+            return null;
         }
 
         var intensity = Math.Clamp(bracket.Intensity, 1, 100);
         var duration = Math.Clamp(bracket.Duration, 0.1, 15.0);
 
         _ = ExecuteDeviceActionAsync(section, intensity, duration, section.BracketCommandType, bracket.Mode, section.WarningVibrate);
+        return (intensity, duration);
     }
 
     private SubscriptionBracket? FindMatchingBracket(SubscriptionTierSection section, int count)

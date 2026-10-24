@@ -23,6 +23,8 @@ public class CheerConfigService
 
     public event Action? ConfigChanged;
 
+    public event Action<AutoMessageActivation>? AutoMessageActivated;
+
     public CheerConfig Config => _config;
 
     public CheerConfigService(
@@ -127,6 +129,18 @@ public class CheerConfigService
         if (bracket == null) return;
 
         _ = ExecuteActionAsync(matchedSection, bracket);
+
+        if (matchedSection.SelectedShockerIds.Count > 0)
+        {
+            AutoMessageActivated?.Invoke(AutoMessageActivation.Create(
+                AutoMessageTrigger.Cheer,
+                cheerEvent.IsAnonymous || string.IsNullOrEmpty(cheerEvent.UserName) ? "Anonymous" : cheerEvent.UserName,
+                bracket.Intensity,
+                bracket.Duration,
+                ("amount", cheerEvent.Bits.ToString()),
+                ("chosen_amount", bracket.BitAmount.ToString()),
+                ("section", matchedSection.Name)));
+        }
 
         // Fire bracket activation trigger
         _ = _triggerManager.FireCheerBracketEvent(

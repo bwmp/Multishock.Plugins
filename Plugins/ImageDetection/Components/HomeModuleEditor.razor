@@ -11,75 +11,97 @@
    selector, resolution dialog). The per-target editing UI lives in
    Components/TargetEditors. *@
 
-<div class="p-6 overflow-y-auto">
-    <div class="flex items-end gap-4 mb-6">
-        <div class="flex-1">
-            <label class="block text-sm text-app-muted mb-1.5">Selected Target</label>
-            <select class="w-full px-3 py-2 rounded-lg bg-app-surface-2 border border-app-border focus:border-app-info transition-colors"
-                    value="@SelectedImageId"
-                    @onchange="OnImageSelected">
-                @if (SelectedModuleData?.Images.Count == 0)
+<div class="flex flex-col gap-5 lg:flex-row lg:items-start">
+    <aside class="lg:sticky lg:top-24 lg:w-72 lg:shrink-0">
+        <Card NoPadding="true">
+            <Header>
+                <div class="flex w-full items-center justify-between gap-2">
+                    <div class="panel-title">Targets</div>
+                    <span class="text-xs text-app-subtle">@(SelectedModuleData?.Images.Count ?? 0)</span>
+                </div>
+            </Header>
+            <ChildContent>
+                @if (SelectedModuleData == null || SelectedModuleData.Images.Count == 0)
                 {
-                    <option value="">No targets - upload an image or add health/text detection</option>
+                    <p class="px-4 py-3 text-sm text-app-muted">No targets yet. Add one below.</p>
                 }
                 else
                 {
-                    @foreach (var image in SelectedModuleData?.Images.Values ?? Enumerable.Empty<DetectionImage>())
-                    {
-                        var warn = DetectionService.GetTargetIssues(image).Count > 0 ? "⚠ " : string.Empty;
-                        <option value="@image.Id">
-                            @if (image.TargetType == DetectionTargetType.Meter)
-                            {
-                                @($"{warn}[Meter] {image.Name}")
-                            }
-                            else if (image.TargetType == DetectionTargetType.Ocr)
-                            {
-                                @($"{warn}[OCR] {image.Name}")
-                            }
-                            else
-                            {
-                                @($"{warn}{image.Name}")
-                            }
-                        </option>
-                    }
+                    <ul class="max-h-96 overflow-y-auto py-1">
+                        @foreach (var image in SelectedModuleData.Images.Values)
+                        {
+                            var isSelected = image.Id == SelectedImageId;
+                            var hasIssues = DetectionService.GetTargetIssues(image).Count > 0;
+                            <li>
+                                <button type="button"
+                                        class="flex w-full items-center gap-3 border-l-2 px-4 py-2 text-left transition-colors @(isSelected ? "border-app-primary bg-app-surface-2" : "border-transparent hover:bg-app-surface-2")"
+                                        aria-current="@(isSelected ? "true" : null)"
+                                        @onclick="() => SelectImage(image.Id)">
+                                    <LucideIcon Name="@TargetIcon(image.TargetType)" Size="16"
+                                                Class="@($"shrink-0 {(isSelected ? "text-app-text" : "text-app-muted")}")" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm @(image.Enabled ? "text-app-text" : "text-app-subtle")">@image.Name</span>
+                                        <span class="block text-xs text-app-subtle">
+                                            @TargetLabel(image.TargetType)@(image.Enabled ? "" : " · Off")
+                                        </span>
+                                    </span>
+                                    @if (hasIssues)
+                                    {
+                                        <span class="shrink-0" title="Needs attention">
+                                            <LucideIcon Name="triangle-alert" Size="14" Class="text-app-warning" />
+                                            <span class="sr-only">Needs attention</span>
+                                        </span>
+                                    }
+                                </button>
+                            </li>
+                        }
+                    </ul>
                 }
-            </select>
-        </div>
-        <div class="flex items-center gap-2">
-            <Toggle Value="@(SelectedImage?.Enabled ?? false)"
-                    ValueChanged="OnImageEnabledChanged" />
-            <span class="text-sm text-app-muted">Enabled</span>
-        </div>
-    </div>
 
-    <div class="flex gap-3 mb-6">
-        <label class="flex-1 px-4 py-2.5 rounded-lg bg-app-info hover:bg-app-info text-center font-medium cursor-pointer transition-colors">
-            Upload Image
-            <InputFile OnChange="HandleFileUpload" accept=".png,.jpg,.jpeg" class="hidden" />
-        </label>
-        <button class="px-4 py-2.5 rounded-lg bg-app-info/20 text-app-info hover:bg-app-info/30 font-medium transition-colors"
-                title="Take a screenshot and drag a rectangle around the target - pixel-exact and resolution-stamped automatically"
-                @onclick="CaptureTemplateFromScreen">
-            Capture Template
-        </button>
-        <button class="px-4 py-2.5 rounded-lg bg-app-success hover:bg-app-success text-app-text font-medium transition-colors"
-                @onclick="CreateMeterTarget">
-            + Health Detection
-        </button>
-        <button class="px-4 py-2.5 rounded-lg bg-app-warning hover:bg-app-warning text-app-text font-medium transition-colors"
-                @onclick="CreateOcrTarget">
-            + Text/Number Detection
-        </button>
-        <button class="px-4 py-2.5 rounded-lg bg-app-danger/20 text-app-danger hover:bg-app-danger/30 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled="@(SelectedImage == null)"
-                @onclick="ConfirmDeleteImage">
-            Delete Image
-        </button>
-    </div>
+                <div class="border-t border-app-border p-3">
+                    <div class="section-label mb-2">Add target</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <Button Text="Capture" Icon="crop" Variant="secondary" Size="sm"
+                                Title="Take a screenshot and drag a rectangle around the thing to detect"
+                                OnClick="CaptureTemplateFromScreen" />
+                        <label class="inline-flex h-7 cursor-pointer select-none items-center justify-center gap-1.5 rounded-ctl border border-app-border bg-app-surface-2 px-2.5 text-xs font-medium leading-none text-app-text transition-colors hover:border-app-border-strong hover:bg-app-surface-3 focus-within:ring-2 focus-within:ring-app-primary"
+                               title="Upload a PNG or JPG of the thing to detect">
+                            <LucideIcon Name="upload" Size="16" Class="shrink-0" />
+                            <span>Upload</span>
+                            <InputFile OnChange="HandleFileUpload" accept=".png,.jpg,.jpeg" class="sr-only" />
+                        </label>
+                        <Button Text="Health bar" Icon="heart-pulse" Variant="secondary" Size="sm"
+                                Title="Read how full a health bar is and react when it drops"
+                                OnClick="CreateMeterTarget" />
+                        <Button Text="Text / number" Icon="type" Variant="secondary" Size="sm"
+                                Title="Read text or numbers in a screen region"
+                                OnClick="CreateOcrTarget" />
+                    </div>
+                    <p class="mt-2 text-xs text-app-subtle">Capture or upload an image to match it on screen.</p>
+                </div>
+            </ChildContent>
+        </Card>
+    </aside>
 
-    @if (SelectedImage != null)
-    {
-        <div class="space-y-4">
+    <section class="min-w-0 flex-1 space-y-4">
+        @if (SelectedImage != null)
+        {
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-app-border pb-4">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-ctl border border-app-border bg-app-surface-2">
+                        <LucideIcon Name="@TargetIcon(SelectedImage.TargetType)" Size="18" Class="text-app-muted" />
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="truncate text-base font-semibold text-app-text">@SelectedImage.Name</h2>
+                        <p class="text-xs text-app-muted">@TargetDescription(SelectedImage.TargetType)</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <Toggle Label="Enabled" Value="SelectedImage.Enabled" ValueChanged="OnImageEnabledChanged" />
+                    <Button Text="Delete" Icon="trash-2" Variant="danger" Size="sm" OnClick="ConfirmDeleteImage" />
+                </div>
+            </div>
+
             <TargetStatusPanel ModuleId="@ModuleId" Image="SelectedImage" />
 
             @if (SelectedImage.TargetType == DetectionTargetType.Meter)
@@ -92,48 +114,30 @@
                 <OcrTargetEditor ModuleId="@ModuleId" Image="SelectedImage"
                                  OnPickRegion="CaptureAndOpenPicker" />
             }
-
-            <ActionSettingsCard ModuleId="@ModuleId" Image="SelectedImage" />
-
-            @if (SelectedImage.TargetType == DetectionTargetType.Template)
+            else
             {
                 <TemplateRegionCard ModuleId="@ModuleId" Image="SelectedImage"
                                     OnPickRegion="CaptureAndOpenPicker"
                                     OnOpenVisualSelector="OpenVisualSelector" />
             }
-        </div>
-    }
-    else
-    {
-        <div class="text-center py-12 text-app-subtle">
-            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <p class="text-lg mb-2">No targets in this module</p>
-            <p class="text-sm">Upload an image, add health detection, or add text/number detection to get started</p>
-        </div>
-    }
+
+            <ActionSettingsCard ModuleId="@ModuleId" Image="SelectedImage" />
+        }
+        else
+        {
+            <EmptyState Icon="scan-eye"
+                        Title="No targets in this module"
+                        Description="Add a target to start detecting: capture or upload an image to match, or read a health bar or on-screen text." />
+        }
+    </section>
 </div>
 
-@if (ShowDeleteConfirmDialog)
-{
-    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @onclick="@(() => ShowDeleteConfirmDialog = false)">
-        <div class="bg-app-surface-2 border border-app-border rounded-xl p-6 w-full max-w-sm shadow-2xl" @onclick:stopPropagation="true">
-            <h2 class="text-xl font-bold mb-2">Confirm Delete</h2>
-            <p class="text-app-muted mb-6">@DeleteConfirmMessage</p>
-            <div class="flex justify-end gap-3">
-                <button class="px-4 py-2 rounded-lg bg-app-surface-3 hover:bg-app-surface-3 transition-colors"
-                        @onclick="@(() => ShowDeleteConfirmDialog = false)">
-                    Cancel
-                </button>
-                <button class="px-4 py-2 rounded-lg bg-app-danger hover:bg-app-danger font-medium transition-colors"
-                        @onclick="ExecuteDelete">
-                    Delete
-                </button>
-            </div>
-        </div>
-    </div>
-}
+<ConfirmDialog IsOpen="ShowDeleteConfirmDialog"
+               Title="Delete target"
+               Message="@DeleteConfirmMessage"
+               ConfirmText="Delete"
+               OnCancel="CancelDelete"
+               OnConfirm="ExecuteDelete" />
 
 <VisualSectionSelector
     IsVisible="ShowVisualSelector"
@@ -291,11 +295,31 @@
         });
     }
 
-    private void OnImageSelected(ChangeEventArgs e)
+    private void SelectImage(string imageId)
     {
-        SelectedImageId = e.Value?.ToString();
-        StateHasChanged();
+        SelectedImageId = imageId;
     }
+
+    private static string TargetIcon(DetectionTargetType type) => type switch
+    {
+        DetectionTargetType.Meter => "heart-pulse",
+        DetectionTargetType.Ocr => "type",
+        _ => "image",
+    };
+
+    private static string TargetLabel(DetectionTargetType type) => type switch
+    {
+        DetectionTargetType.Meter => "Health bar",
+        DetectionTargetType.Ocr => "Text / number",
+        _ => "Image match",
+    };
+
+    private static string TargetDescription(DetectionTargetType type) => type switch
+    {
+        DetectionTargetType.Meter => "Health bar · reacts when the bar's fill level changes",
+        DetectionTargetType.Ocr => "Text / number · reacts to keywords or number changes in a screen region",
+        _ => "Image match · reacts when this image appears on screen",
+    };
 
     private void OnImageEnabledChanged(bool enabled)
     {
@@ -425,7 +449,7 @@
     {
         if (SelectedImage == null) return;
 
-        DeleteConfirmMessage = $"Are you sure you want to delete \"{SelectedImage.Name}\"?";
+        DeleteConfirmMessage = $"Delete \"{SelectedImage.Name}\"? This can't be undone.";
         DeleteAction = () =>
         {
             if (!string.IsNullOrEmpty(ModuleId) && SelectedImageId != null)
@@ -438,6 +462,12 @@
         };
         ShowDeleteConfirmDialog = true;
         StateHasChanged();
+    }
+
+    private void CancelDelete()
+    {
+        ShowDeleteConfirmDialog = false;
+        DeleteAction = null;
     }
 
     private void ExecuteDelete()

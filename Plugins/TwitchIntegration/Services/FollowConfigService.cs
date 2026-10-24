@@ -27,6 +27,8 @@ public class FollowConfigService : IDisposable
 
     public event Action? ConfigChanged;
 
+    public event Action<AutoMessageActivation>? AutoMessageActivated;
+
     public FollowConfig Config => _config;
 
     public bool IsFetchingFollowers => _isFetching;
@@ -263,6 +265,9 @@ public class FollowConfigService : IDisposable
         var duration = Math.Clamp(_config.Duration, 0.1, 15.0);
 
         _ = ExecuteActionAsync(intensity, duration, _config.CommandType, _config.Mode, _config.WarningVibrate);
+
+        AutoMessageActivated?.Invoke(AutoMessageActivation.Create(
+            AutoMessageTrigger.Follow, followEvent.UserName, intensity, duration));
     }
 
     private async Task ExecuteActionAsync(int intensity, double duration, string commandTypeString, SelectionMode mode, bool warningVibrate)

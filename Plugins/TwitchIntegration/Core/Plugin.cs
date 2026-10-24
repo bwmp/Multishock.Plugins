@@ -43,6 +43,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         services.AddSingleton<HypeTrainConfigService>();
         services.AddSingleton<LegacyTwitchImportService>();
         services.AddSingleton<EventLogService>();
+        services.AddSingleton<AutoMessageService>();
     }
 
     public void Initialize(IServiceProvider sp)
@@ -73,6 +74,9 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
         // Initialize the hype train config service (subscribes to hype train events in constructor)
         _ = sp.GetService(typeof(HypeTrainConfigService)) as HypeTrainConfigService;
+
+        // Initialize the auto message service (listens to the config services above)
+        _ = sp.GetService(typeof(AutoMessageService)) as AutoMessageService;
 
         // Attempt auto-connect if enabled and either a stored token exists or the local CLI (which needs no login) is used
         var authService = sp.GetService(typeof(TwitchAuthService)) as TwitchAuthService;
@@ -169,6 +173,13 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
             Href = "/redeem-config",
             Icon = "gift",
             Order = 55
+        },
+        new NavigationItem
+        {
+            Text = "Chat Messages",
+            Href = "/chat-messages",
+            Icon = "message-square",
+            Order = 56
         }
     ];
 

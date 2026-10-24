@@ -11,19 +11,22 @@ public sealed class LegacyTwitchImportService
     private readonly SubscriptionConfigService _subscriptionConfigService;
     private readonly FollowConfigService _followConfigService;
     private readonly HypeTrainConfigService _hypeTrainConfigService;
+    private readonly AutoMessageService _autoMessageService;
 
     public LegacyTwitchImportService(
         CheerConfigService cheerConfigService,
         RedeemConfigService redeemConfigService,
         SubscriptionConfigService subscriptionConfigService,
         FollowConfigService followConfigService,
-        HypeTrainConfigService hypeTrainConfigService)
+        HypeTrainConfigService hypeTrainConfigService,
+        AutoMessageService autoMessageService)
     {
         _cheerConfigService = cheerConfigService;
         _redeemConfigService = redeemConfigService;
         _subscriptionConfigService = subscriptionConfigService;
         _followConfigService = followConfigService;
         _hypeTrainConfigService = hypeTrainConfigService;
+        _autoMessageService = autoMessageService;
     }
 
     public Task<LegacyImportResult> ImportAsync(string configPath, CancellationToken cancellationToken = default)
@@ -54,12 +57,17 @@ public sealed class LegacyTwitchImportService
         var subscriptionConfig = BuildSubscriptionConfig(legacy, shockerLookup);
         var followConfig = BuildFollowConfig(legacy, shockerLookup);
         var hypeTrainConfig = BuildHypeTrainConfig(legacy, shockerLookup);
+        var autoMessageConfig = BuildAutoMessageConfig(legacy);
 
         _cheerConfigService.ReplaceConfig(cheerConfig);
         _redeemConfigService.ReplaceConfig(redeemConfig);
         _subscriptionConfigService.ReplaceConfig(subscriptionConfig);
         _followConfigService.ReplaceConfig(followConfig);
         _hypeTrainConfigService.ReplaceConfig(hypeTrainConfig);
+        if (autoMessageConfig != null)
+        {
+            _autoMessageService.ReplaceConfig(autoMessageConfig);
+        }
 
         var details = string.Join(Environment.NewLine, new[]
         {
@@ -67,7 +75,10 @@ public sealed class LegacyTwitchImportService
             $"Redeems: {redeemConfig.Redeems.Count} reward(s)",
             $"Subs: {subscriptionConfig.Sections.Count} tier section(s)",
             $"Follow: {(followConfig.Enabled ? "enabled" : "disabled")}",
-            $"Hype Train: during {(hypeTrainConfig.During.Enabled ? "enabled" : "disabled")}, end {(hypeTrainConfig.End.Enabled ? "enabled" : "disabled")}"
+            $"Hype Train: during {(hypeTrainConfig.During.Enabled ? "enabled" : "disabled")}, end {(hypeTrainConfig.End.Enabled ? "enabled" : "disabled")}",
+            autoMessageConfig == null
+                ? "Chat messages: none in the legacy config"
+                : $"Chat messages: {(autoMessageConfig.Enabled ? "enabled" : "disabled")} (repeating message left off - turn it on in Chat Messages)"
         });
 
         return Task.FromResult(new LegacyImportResult(true, "Imported legacy Twitch settings into the new plugin config files.", details));
@@ -92,6 +103,46 @@ public sealed class LegacyTwitchImportService
         }
 
         return lookup;
+    }
+
+    private static AutoMessageConfig? BuildAutoMessageConfig(LegacyRoot legacy)
+    {
+        var module = (legacy.StreamModules ?? [])
+            .FirstOrDefault(m => string.Equals(m.Name, "Chat Messages", StringComparison.OrdinalIgnoreCase));
+        if (module == null) return null;
+
+        var config = new AutoMessageConfig { Enabled = module.Enabled };
+        ApplyLegacyTemplate(config.Cheer, module.Cheer);
+        ApplyLegacyTemplate(config.Redeem, module.Redeem);
+        ApplyLegacyTemplate(config.Subscription, module.Subscription);
+        ApplyLegacyTemplate(config.GiftSubscription, module.SubscriptionGift);
+        ApplyLegacyTemplate(config.Follow, module.Follow);
+
+        // The legacy app only repeated the message while a per-session switch was on,
+        // so it is imported switched off rather than starting to post on its own.
+        if (module.RepeatingMessage != null)
+        {
+            config.Repeating.Enabled = false;
+            config.Repeating.IntervalSeconds = Math.Clamp(
+                (int)module.RepeatingMessage.Timeout, AutoMessageService.MinIntervalSeconds, AutoMessageService.MaxIntervalSeconds);
+            if (!string.IsNullOrWhiteSpace(module.RepeatingMessage.MessageTemplate))
+            {
+                config.Repeating.Template = module.RepeatingMessage.MessageTemplate;
+            }
+        }
+
+        return config;
+    }
+
+    private static void ApplyLegacyTemplate(AutoMessageTemplate target, LegacyChatTemplate? source)
+    {
+        if (source == null) return;
+
+        target.Enabled = source.Enabled;
+        if (!string.IsNullOrWhiteSpace(source.MessageTemplate))
+        {
+            target.Template = source.MessageTemplate;
+        }
     }
 
     private static CheerConfig BuildCheerConfig(LegacyRoot legacy, Dictionary<int, List<string>> shockerLookup)
@@ -352,6 +403,54 @@ public sealed class LegacyTwitchImportService
 
         [JsonPropertyName("hype_train")]
         public LegacyHypeTrain? HypeTrain { get; set; }
+
+        [JsonPropertyName("stream_modules")]
+        public List<LegacyStreamModule>? StreamModules { get; set; }
+    }
+
+    private sealed class LegacyStreamModule
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; }
+
+        [JsonPropertyName("cheer")]
+        public LegacyChatTemplate? Cheer { get; set; }
+
+        [JsonPropertyName("redeem")]
+        public LegacyChatTemplate? Redeem { get; set; }
+
+        [JsonPropertyName("subscription")]
+        public LegacyChatTemplate? Subscription { get; set; }
+
+        [JsonPropertyName("subscription_gift")]
+        public LegacyChatTemplate? SubscriptionGift { get; set; }
+
+        [JsonPropertyName("follow")]
+        public LegacyChatTemplate? Follow { get; set; }
+
+        [JsonPropertyName("repeating_message")]
+        public LegacyRepeatingMessage? RepeatingMessage { get; set; }
+    }
+
+    private sealed class LegacyChatTemplate
+    {
+        [JsonPropertyName("enabled")]
+        public bool Enabled { get; set; }
+
+        [JsonPropertyName("message_template")]
+        public string? MessageTemplate { get; set; }
+    }
+
+    private sealed class LegacyRepeatingMessage
+    {
+        [JsonPropertyName("timeout")]
+        public double Timeout { get; set; } = 600;
+
+        [JsonPropertyName("message_template")]
+        public string? MessageTemplate { get; set; }
     }
 
     private sealed class LegacyDevice

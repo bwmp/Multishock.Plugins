@@ -2,13 +2,15 @@ using HeartRateIntegration.Bluetooth;
 using HeartRateIntegration.Nodes;
 using HeartRateIntegration.Profiles;
 using HeartRateIntegration.Services;
+using HeartRateIntegration.Watch;
 using Microsoft.Extensions.DependencyInjection;
 using MultiShock.PluginSdk;
 using MultiShock.PluginSdk.Flow;
+using MultiShock.PluginSdk.VrWatch;
 
 namespace HeartRateIntegration;
 
-public sealed class HeartRatePlugin : IReloadablePlugin, IPluginRouteProvider, IFlowNodeProvider
+public sealed class HeartRatePlugin : IReloadablePlugin, IPluginRouteProvider, IFlowNodeProvider, IVrWatchProvider
 {
     public const string PluginId = "com.multishock.heartrateintegration";
     public string Id => PluginId;
@@ -38,4 +40,13 @@ public sealed class HeartRatePlugin : IReloadablePlugin, IPluginRouteProvider, I
     ];
 
     public IEnumerable<IFlowNode> GetNodeTypes() => [new HeartRateReceivedNode(), new GetHeartRateNode()];
+
+    public VrWatchContent GetWatchContent() =>
+        _services?.GetService<HeartRateMonitor>() is { } monitor
+            ? HeartRateWatchCard.Build(monitor.Snapshot, DateTimeOffset.UtcNow)
+            : new VrWatchContent();
+
+    // The card has no controls, so the watch never sends input.
+    public Task<string?> OnWatchInputAsync(VrWatchInput input, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
 }

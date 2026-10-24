@@ -5,7 +5,12 @@ using Valve.VR;
 
 namespace SteamVROverlay.Overlay;
 
-public readonly record struct PointerState(Vector3 Origin, Vector3 Direction, bool TriggerDown);
+public readonly record struct PointerState(Matrix4x4 Pose, bool TriggerDown, bool GripDown)
+{
+    public Vector3 Origin => OverlayMath.PositionOf(Pose);
+
+    public Vector3 Direction => OverlayMath.AimOf(Pose);
+}
 
 /// <summary>
 /// Reads the pointing hand through SteamVR Input. Unlike an interactive overlay, an action set
@@ -16,6 +21,7 @@ public sealed class WristInput
 {
     private const string ActionSet = "/actions/wrist";
     private const string ClickAction = "/actions/wrist/in/click";
+    private const string GrabAction = "/actions/wrist/in/grab";
     private const string PointerAction = "/actions/wrist/in/pointer";
     private const string HapticAction = "/actions/wrist/out/haptic";
 
@@ -30,16 +36,18 @@ public sealed class WristInput
     private readonly CVRInput _input;
     private readonly VRActiveActionSet_t[] _activeSets;
     private readonly ulong _click;
+    private readonly ulong _grab;
     private readonly ulong _pointer;
     private readonly ulong _haptic;
     private readonly ulong _leftHand;
     private readonly ulong _rightHand;
 
-    private WristInput(CVRInput input, ulong actionSet, ulong click, ulong pointer, ulong haptic, ulong leftHand, ulong rightHand)
+    private WristInput(CVRInput input, ulong actionSet, ulong click, ulong grab, ulong pointer, ulong haptic, ulong leftHand, ulong rightHand)
     {
         _input = input;
         _activeSets = [new VRActiveActionSet_t { ulActionSet = actionSet, ulRestrictedToDevice = OpenVR.k_ulInvalidInputValueHandle }];
         _click = click;
+        _grab = grab;
         _pointer = pointer;
         _haptic = haptic;
         _leftHand = leftHand;
@@ -54,15 +62,16 @@ public sealed class WristInput
         var manifestPath = WriteManifest(directory);
         Check(input.SetActionManifestPath(manifestPath), "SetActionManifestPath");
 
-        ulong actionSet = 0, click = 0, pointer = 0, haptic = 0, left = 0, right = 0;
+        ulong actionSet = 0, click = 0, grab = 0, pointer = 0, haptic = 0, left = 0, right = 0;
         Check(input.GetActionSetHandle(ActionSet, ref actionSet), "GetActionSetHandle");
         Check(input.GetActionHandle(ClickAction, ref click), "GetActionHandle(click)");
+        Check(input.GetActionHandle(GrabAction, ref grab), "GetActionHandle(grab)");
         Check(input.GetActionHandle(PointerAction, ref pointer), "GetActionHandle(pointer)");
         Check(input.GetActionHandle(HapticAction, ref haptic), "GetActionHandle(haptic)");
         Check(input.GetInputSourceHandle("/user/hand/left", ref left), "GetInputSourceHandle(left)");
         Check(input.GetInputSourceHandle("/user/hand/right", ref right), "GetInputSourceHandle(right)");
 
-        return new WristInput(input, actionSet, click, pointer, haptic, left, right);
+        return new WristInput(input, actionSet, click, grab, pointer, haptic, left, right);
     }
 
     /// <summary>
@@ -89,18 +98,23 @@ public sealed class WristInput
             return false;
         }
 
-        var digital = new InputDigitalActionData_t();
-        var triggerDown = _input.GetDigitalActionData(_click, ref digital, DigitalSize, hand) == EVRInputError.None &&
-                          digital.bActive &&
-                          digital.bState;
-
-        var matrix = OverlayMath.ToMatrix4x4(pose.pose.mDeviceToAbsoluteTracking);
-        state = new PointerState(OverlayMath.PositionOf(matrix), OverlayMath.AimOf(matrix), triggerDown);
+        state = new PointerState(
+            OverlayMath.ToMatrix4x4(pose.pose.mDeviceToAbsoluteTracking),
+            IsDown(_click, hand),
+            IsDown(_grab, hand));
         return true;
     }
 
-    public void Pulse(bool rightHand, float amplitude = 0.25f) =>
-        _input.TriggerHapticVibrationAction(_haptic, 0f, 0.015f, 160f, amplitude, rightHand ? _rightHand : _leftHand);
+    private bool IsDown(ulong action, ulong hand)
+    {
+        var digital = new InputDigitalActionData_t();
+        return _input.GetDigitalActionData(action, ref digital, DigitalSize, hand) == EVRInputError.None &&
+               digital.bActive &&
+               digital.bState;
+    }
+
+    public void Pulse(bool rightHand, float amplitude = 0.25f, float seconds = 0.015f) =>
+        _input.TriggerHapticVibrationAction(_haptic, 0f, seconds, 160f, amplitude, rightHand ? _rightHand : _leftHand);
 
     private static string WriteManifest(string directory)
     {
@@ -126,6 +140,7 @@ public sealed class WristInput
             ["actions"] = new[]
             {
                 new Dictionary<string, string> { ["name"] = ClickAction, ["type"] = "boolean" },
+                new Dictionary<string, string> { ["name"] = GrabAction, ["type"] = "boolean" },
                 new Dictionary<string, string> { ["name"] = PointerAction, ["type"] = "pose" },
                 new Dictionary<string, string> { ["name"] = HapticAction, ["type"] = "vibration" },
             },
@@ -140,6 +155,7 @@ public sealed class WristInput
                     ["language_tag"] = "en_US",
                     [ActionSet] = "MultiShock Wrist",
                     [ClickAction] = "Click",
+                    [GrabAction] = "Move the panel",
                     [PointerAction] = "Pointer",
                     [HapticAction] = "Haptics",
                 },
@@ -161,14 +177,18 @@ public sealed class WristInput
             {
                 [ActionSet] = new Dictionary<string, object>
                 {
-                    ["sources"] = hands.Select(hand => new Dictionary<string, object>
+                    ["sources"] = hands.SelectMany(hand => new[]
                     {
-                        ["path"] = $"/user/hand/{hand}/input/trigger",
-                        ["mode"] = "trigger",
-                        ["inputs"] = new Dictionary<string, object>
+                        new Dictionary<string, object>
                         {
-                            ["click"] = new Dictionary<string, string> { ["output"] = ClickAction },
+                            ["path"] = $"/user/hand/{hand}/input/trigger",
+                            ["mode"] = "trigger",
+                            ["inputs"] = new Dictionary<string, object>
+                            {
+                                ["click"] = new Dictionary<string, string> { ["output"] = ClickAction },
+                            },
                         },
+                        GripSource(controllerType, hand),
                     }).ToArray(),
                     ["poses"] = hands.Select(hand => new Dictionary<string, string>
                     {
@@ -181,6 +201,24 @@ public sealed class WristInput
                         ["output"] = HapticAction,
                     }).ToArray(),
                 },
+            },
+        };
+    }
+
+    /// <summary>
+    /// Index controllers sense grip force rather than clicking, so they use SteamVR's grab mode;
+    /// every other supported controller's grip reads as a button.
+    /// </summary>
+    private static Dictionary<string, object> GripSource(string controllerType, string hand)
+    {
+        var (mode, input) = controllerType == "knuckles" ? ("grab", "grab") : ("button", "click");
+        return new Dictionary<string, object>
+        {
+            ["path"] = $"/user/hand/{hand}/input/grip",
+            ["mode"] = mode,
+            ["inputs"] = new Dictionary<string, object>
+            {
+                [input] = new Dictionary<string, string> { ["output"] = GrabAction },
             },
         };
     }

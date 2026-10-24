@@ -153,7 +153,7 @@ public class RedeemConfigService : IDisposable
             return new RedeemFetchResult(false, "Already fetching rewards", 0, 0);
         }
 
-        var token = _authService.StoredToken;
+        var token = await _authService.GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new RedeemFetchResult(false, "No OAuth token. Connect Twitch first.", 0, 0);
@@ -177,7 +177,7 @@ public class RedeemConfigService : IDisposable
                 userName = validation.UserName;
             }
 
-            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = _authService.HelixApiBaseUrl;
             var cursor = (string?)null;
             var allRewards = new List<TwitchReward>();
 
@@ -312,7 +312,7 @@ public class RedeemConfigService : IDisposable
 
     public async Task<RewardOperationResult> CreateRewardAsync(string title, int cost, string? prompt = null, string? backgroundColor = null, CancellationToken cancellationToken = default)
     {
-        var token = _authService.StoredToken;
+        var token = await _authService.GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new RewardOperationResult(false, "No OAuth token available", null);
@@ -326,7 +326,7 @@ public class RedeemConfigService : IDisposable
 
         try
         {
-            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = _authService.HelixApiBaseUrl;
             var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}";
 
             var requestBody = new
@@ -388,7 +388,7 @@ public class RedeemConfigService : IDisposable
 
     public async Task<RewardOperationResult> UpdateRewardAsync(string rewardId, string? title = null, int? cost = null, string? prompt = null, string? backgroundColor = null, bool? isEnabled = null, bool? isPaused = null, CancellationToken cancellationToken = default)
     {
-        var token = _authService.StoredToken;
+        var token = await _authService.GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new RewardOperationResult(false, "No OAuth token available", null);
@@ -408,7 +408,7 @@ public class RedeemConfigService : IDisposable
 
         try
         {
-            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = _authService.HelixApiBaseUrl;
             var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}&id={rewardId}";
 
             var requestBody = new Dictionary<string, object?>();
@@ -454,7 +454,7 @@ public class RedeemConfigService : IDisposable
 
     public async Task<RewardOperationResult> DeleteRewardAsync(string rewardId, CancellationToken cancellationToken = default)
     {
-        var token = _authService.StoredToken;
+        var token = await _authService.GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new RewardOperationResult(false, "No OAuth token available", null);
@@ -474,7 +474,7 @@ public class RedeemConfigService : IDisposable
 
         try
         {
-            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = _authService.HelixApiBaseUrl;
             var url = $"{baseUrl}/channel_points/custom_rewards?broadcaster_id={userId}&id={rewardId}";
 
             using var request = new HttpRequestMessage(HttpMethod.Delete, url);

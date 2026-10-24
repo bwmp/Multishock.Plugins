@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "entryPoint": "HeartRateIntegration.dll",
   "description": "Live BLE heart rate from COOSPO H808S and other standard Bluetooth heart-rate monitors.",
-  "sdkVersion": "1.13.0",
+  "sdkVersion": "1.15.0",
   "platforms": ["win-x64"],
   "tags": ["bluetooth", "heart-rate", "coospo"]
 }

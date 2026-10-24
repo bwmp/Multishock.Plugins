@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using SteamVROverlay.Overlay;
 
 namespace SteamVROverlay.Services;
 
@@ -11,6 +12,9 @@ public enum OverlayHand
 
 public class OverlaySettingsService
 {
+    /// <summary>The furthest the panel can sit from its controller on each axis.</summary>
+    public const float MaxOffsetMeters = 0.5f;
+
     private const string ConfigFileName = "steamvr-overlay-config.json";
 
     private readonly string _configPath;
@@ -30,6 +34,15 @@ public class OverlaySettingsService
         public float RollDegrees { get; set; }
         public float Opacity { get; set; } = 0.95f;
         public float Curvature { get; set; }
+        public bool GrabToMove { get; set; } = true;
+
+        public bool ShowBatteries { get; set; } = true;
+        public bool ShowMedia { get; set; } = true;
+        public bool ShowAudio { get; set; } = true;
+        public bool ShowPerformance { get; set; } = true;
+
+        /// <summary>Keys of other plugins' watch cards and pages the user turned off.</summary>
+        public List<string> HiddenWatchItems { get; set; } = [];
 
         public bool GazeActivation { get; set; } = true;
         public float GazeAngleDegrees { get; set; } = 60f;
@@ -87,20 +100,20 @@ public class OverlaySettingsService
 
     public float OffsetX
     {
-        get => Math.Clamp(_state.OffsetX, -0.5f, 0.5f);
-        set => Set(v => _state.OffsetX = Math.Clamp(v, -0.5f, 0.5f), value);
+        get => Math.Clamp(_state.OffsetX, -MaxOffsetMeters, MaxOffsetMeters);
+        set => Set(v => _state.OffsetX = Math.Clamp(v, -MaxOffsetMeters, MaxOffsetMeters), value);
     }
 
     public float OffsetY
     {
-        get => Math.Clamp(_state.OffsetY, -0.5f, 0.5f);
-        set => Set(v => _state.OffsetY = Math.Clamp(v, -0.5f, 0.5f), value);
+        get => Math.Clamp(_state.OffsetY, -MaxOffsetMeters, MaxOffsetMeters);
+        set => Set(v => _state.OffsetY = Math.Clamp(v, -MaxOffsetMeters, MaxOffsetMeters), value);
     }
 
     public float OffsetZ
     {
-        get => Math.Clamp(_state.OffsetZ, -0.5f, 0.5f);
-        set => Set(v => _state.OffsetZ = Math.Clamp(v, -0.5f, 0.5f), value);
+        get => Math.Clamp(_state.OffsetZ, -MaxOffsetMeters, MaxOffsetMeters);
+        set => Set(v => _state.OffsetZ = Math.Clamp(v, -MaxOffsetMeters, MaxOffsetMeters), value);
     }
 
     public float PitchDegrees
@@ -131,6 +144,87 @@ public class OverlaySettingsService
     {
         get => Math.Clamp(_state.Curvature, 0f, 1f);
         set => Set(v => _state.Curvature = Math.Clamp(v, 0f, 1f), value);
+    }
+
+    /// <summary>Whether holding the other hand's grip on the panel moves it.</summary>
+    public bool GrabToMove
+    {
+        get => _state.GrabToMove;
+        set => Set(v => _state.GrabToMove = v, value);
+    }
+
+    public bool ShowBatteries
+    {
+        get => _state.ShowBatteries;
+        set => Set(v => _state.ShowBatteries = v, value);
+    }
+
+    public bool ShowMedia
+    {
+        get => _state.ShowMedia;
+        set => Set(v => _state.ShowMedia = v, value);
+    }
+
+    public bool ShowAudio
+    {
+        get => _state.ShowAudio;
+        set => Set(v => _state.ShowAudio = v, value);
+    }
+
+    public bool ShowPerformance
+    {
+        get => _state.ShowPerformance;
+        set => Set(v => _state.ShowPerformance = v, value);
+    }
+
+    public OverlayPlacement Placement => new(OffsetX, OffsetY, OffsetZ, PitchDegrees, YawDegrees, RollDegrees);
+
+    /// <summary>
+    /// Saves a whole placement at once, as moving the panel in VR produces, with one write and
+    /// one <see cref="Changed"/>.
+    /// </summary>
+    public void SetPlacement(OverlayPlacement placement)
+    {
+        _state.OffsetX = Math.Clamp(placement.OffsetX, -MaxOffsetMeters, MaxOffsetMeters);
+        _state.OffsetY = Math.Clamp(placement.OffsetY, -MaxOffsetMeters, MaxOffsetMeters);
+        _state.OffsetZ = Math.Clamp(placement.OffsetZ, -MaxOffsetMeters, MaxOffsetMeters);
+        _state.PitchDegrees = Math.Clamp(placement.PitchDegrees, -180f, 180f);
+        _state.YawDegrees = Math.Clamp(placement.YawDegrees, -180f, 180f);
+        _state.RollDegrees = Math.Clamp(placement.RollDegrees, -180f, 180f);
+        SaveConfig();
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Puts the panel back in its default spot on the wrist, for when it has been moved
+    /// somewhere it can no longer be seen or grabbed.
+    /// </summary>
+    public void ResetPlacement()
+    {
+        var defaults = new ConfigState();
+        SetPlacement(new OverlayPlacement(
+            defaults.OffsetX, defaults.OffsetY, defaults.OffsetZ,
+            defaults.PitchDegrees, defaults.YawDegrees, defaults.RollDegrees));
+    }
+
+    public IReadOnlySet<string> HiddenWatchItems => new HashSet<string>(_state.HiddenWatchItems ?? [], StringComparer.Ordinal);
+
+    public bool IsWatchItemShown(string key) => _state.HiddenWatchItems?.Contains(key) != true;
+
+    /// <summary>
+    /// Shows or hides another plugin's card or page, by its
+    /// <see cref="Overlay.WatchContent.CardKey"/> or <see cref="Overlay.WatchContent.PageKey"/>.
+    /// </summary>
+    public void SetWatchItemShown(string key, bool shown)
+    {
+        var hidden = _state.HiddenWatchItems ?? [];
+        hidden.Remove(key);
+        if (!shown)
+        {
+            hidden.Add(key);
+        }
+
+        Set(v => _state.HiddenWatchItems = v, hidden);
     }
 
     public bool GazeActivation
@@ -208,13 +302,13 @@ public class OverlaySettingsService
             _state.WidthMeters = Math.Clamp((float)widthMeters, 0.05f, 1.0f);
 
         if (TryGetValue(settings, "offsetX", out double offsetX))
-            _state.OffsetX = Math.Clamp((float)offsetX, -0.5f, 0.5f);
+            _state.OffsetX = Math.Clamp((float)offsetX, -MaxOffsetMeters, MaxOffsetMeters);
 
         if (TryGetValue(settings, "offsetY", out double offsetY))
-            _state.OffsetY = Math.Clamp((float)offsetY, -0.5f, 0.5f);
+            _state.OffsetY = Math.Clamp((float)offsetY, -MaxOffsetMeters, MaxOffsetMeters);
 
         if (TryGetValue(settings, "offsetZ", out double offsetZ))
-            _state.OffsetZ = Math.Clamp((float)offsetZ, -0.5f, 0.5f);
+            _state.OffsetZ = Math.Clamp((float)offsetZ, -MaxOffsetMeters, MaxOffsetMeters);
 
         if (TryGetValue(settings, "pitchDegrees", out double pitch))
             _state.PitchDegrees = Math.Clamp((float)pitch, -180f, 180f);
@@ -230,6 +324,21 @@ public class OverlaySettingsService
 
         if (TryGetValue(settings, "curvature", out double curvature))
             _state.Curvature = Math.Clamp((float)curvature, 0f, 1f);
+
+        if (TryGetValue(settings, "grabToMove", out bool grabToMove))
+            _state.GrabToMove = grabToMove;
+
+        if (TryGetValue(settings, "showBatteries", out bool showBatteries))
+            _state.ShowBatteries = showBatteries;
+
+        if (TryGetValue(settings, "showMedia", out bool showMedia))
+            _state.ShowMedia = showMedia;
+
+        if (TryGetValue(settings, "showAudio", out bool showAudio))
+            _state.ShowAudio = showAudio;
+
+        if (TryGetValue(settings, "showPerformance", out bool showPerformance))
+            _state.ShowPerformance = showPerformance;
 
         if (TryGetValue(settings, "gazeActivation", out bool gazeActivation))
             _state.GazeActivation = gazeActivation;

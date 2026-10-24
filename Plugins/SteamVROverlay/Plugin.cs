@@ -9,7 +9,8 @@ using SteamVROverlay.Services;
 namespace SteamVROverlay;
 
 /// <summary>
-/// Adds a SteamVR wrist overlay for controlling shockers from inside VR.
+/// Adds a SteamVR wrist watch with the time, device batteries, media and audio controls, and
+/// performance stats, which opens the shocker controls, plus notifications shown in view.
 /// </summary>
 public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvider, IPluginWithStyles, IFlowNodeProvider
 {
@@ -21,7 +22,7 @@ public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "In-VR wrist overlay for controlling shockers from inside SteamVR.";
+    public string Description => "In-VR wrist watch with the time, device batteries, media controls, performance stats, and shocker controls.";
 
     private OverlaySettingsService? _settingsService;
     private WristOverlayService? _overlayService;
@@ -32,6 +33,9 @@ public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<OverlaySettingsService>();
+        services.AddSingleton<MediaSessionService>();
+        services.AddSingleton<SystemAudioService>();
+        services.AddSingleton<WatchProviderService>();
         services.AddSingleton<WristOverlayService>();
     }
 
@@ -67,6 +71,11 @@ public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
         ["rollDegrees"] = 0.0,
         ["opacity"] = 0.95,
         ["curvature"] = 0.0,
+        ["grabToMove"] = true,
+        ["showBatteries"] = true,
+        ["showMedia"] = true,
+        ["showAudio"] = true,
+        ["showPerformance"] = true,
         ["gazeActivation"] = true,
         ["gazeAngleDegrees"] = 60.0,
         ["hideDelayMs"] = 400,
@@ -117,5 +126,6 @@ public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     {
         yield return new WristOverlayActionTriggerNode();
         yield return new SetOverlayVisibilityNode();
+        yield return new ShowNotificationNode();
     }
 }

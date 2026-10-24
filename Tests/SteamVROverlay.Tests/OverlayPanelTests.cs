@@ -25,7 +25,21 @@ public sealed class OverlayPanelTests
     {
         var panel = new OverlayPanel(options ?? DefaultOptions);
         panel.SetShockers(shockers, isConnected: shockers.Length > 0);
+        panel.ShowView(PanelView.Shockers);
         return panel;
+    }
+
+    private static readonly AudioState Speakers = new("Speakers", 0.5f, false, "Microphone", false);
+
+    private static MediaState Song(bool canPlayPause = true) => new(
+        "Song", "Artist", IsPlaying: true, canPlayPause, CanGoNext: true, CanGoPrevious: true,
+        TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(200), DateTime.UtcNow, 1.0, Thumbnail: null);
+
+    private static List<PanelControlRequest> RecordControls(OverlayPanel panel)
+    {
+        var controls = new List<PanelControlRequest>();
+        panel.ControlRequested += controls.Add;
+        return controls;
     }
 
     private static List<PanelActionRequest> Record(OverlayPanel panel)
@@ -328,5 +342,205 @@ public sealed class OverlayPanelTests
 
         Assert.Empty(actions);
         Assert.Null(panel.PressedRegionId);
+    }
+
+    [Fact]
+    public void ThePanelOpensOnTheWatch()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+
+        Assert.Equal(PanelView.Watch, panel.ActiveView);
+        Assert.Equal(
+            [WatchModule.Clock, WatchModule.Media, WatchModule.Audio, WatchModule.Performance, WatchModule.Panels, WatchModule.Toolbar, WatchModule.Batteries],
+            panel.Cards.Select(c => c.Module));
+        Assert.DoesNotContain(panel.Regions, r => r.Id == OverlayPanel.RegionShock);
+    }
+
+    [Fact]
+    public void TheShockersCardOpensTheShockerControlsAndWatchGoesBack()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+
+        Click(panel, OverlayPanel.RegionOpenShockers);
+
+        Assert.Equal(PanelView.Shockers, panel.ActiveView);
+        Assert.Contains(panel.Regions, r => r.Id == OverlayPanel.RegionShock);
+        Assert.DoesNotContain(panel.Regions, r => r.Id == OverlayPanel.RegionPlayPause);
+
+        Click(panel, OverlayPanel.RegionBackToWatch);
+
+        Assert.Equal(PanelView.Watch, panel.ActiveView);
+    }
+
+    [Fact]
+    public void CardsStackWithoutOverlapping()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        var cards = panel.Cards;
+
+        for (var i = 1; i < cards.Count; i++)
+        {
+            Assert.Equal(cards[i - 1].Rect.Bottom + OverlayPanel.CardGap, cards[i].Rect.Top);
+        }
+
+        Assert.Equal(cards[^1].Rect.Bottom, panel.Height);
+    }
+
+    [Fact]
+    public void HidingACardRemovesItsControlsAndShortensTheWatch()
+    {
+        var full = new OverlayPanel(DefaultOptions);
+        var withoutMedia = new OverlayPanel(DefaultOptions with { ShowMedia = false });
+
+        Assert.DoesNotContain(withoutMedia.Cards, c => c.Module == WatchModule.Media);
+        Assert.DoesNotContain(withoutMedia.Regions, r => r.Id == OverlayPanel.RegionPlayPause);
+        Assert.True(withoutMedia.Height < full.Height);
+    }
+
+    [Fact]
+    public void AnotherRowOfBatteriesGrowsTheWatch()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        var oneRow = Enumerable.Repeat(new DeviceBattery("Tracker", BatteryDeviceKind.Tracker, 1f, false), OverlayPanel.BatteryColumns).ToList();
+        panel.SetBatteries(oneRow);
+        var height = panel.Height;
+
+        panel.SetBatteries([.. oneRow, new DeviceBattery("Headset", BatteryDeviceKind.Headset, 1f, false)]);
+
+        Assert.Equal(height + OverlayPanel.BatteryRowPitch, panel.Height);
+    }
+
+    [Fact]
+    public void TheBatteriesButtonAsksForTheBatteriesToBeShownOrHidden()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        var controls = RecordControls(panel);
+
+        Click(panel, OverlayPanel.RegionToggleBatteries);
+
+        Assert.Equal([PanelControl.ToggleBatteries], controls.Select(c => c.Control));
+    }
+
+    [Fact]
+    public void HiddenBatteriesLeaveTheToolbarAtTheBottom()
+    {
+        var panel = new OverlayPanel(DefaultOptions with { ShowBatteries = false });
+
+        Assert.Equal(WatchModule.Toolbar, panel.Cards[^1].Module);
+        Assert.Contains(panel.Regions, r => r.Id == OverlayPanel.RegionToggleBatteries);
+    }
+
+    [Fact]
+    public void ThePencilTogglesEditingWhichEndsOnLeavingTheWatch()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+
+        Click(panel, OverlayPanel.RegionEditWatch);
+        Assert.True(panel.IsEditing);
+
+        Click(panel, OverlayPanel.RegionEditWatch);
+        Assert.False(panel.IsEditing);
+
+        Click(panel, OverlayPanel.RegionEditWatch);
+        Click(panel, OverlayPanel.RegionOpenShockers);
+        Assert.False(panel.IsEditing);
+    }
+
+    [Fact]
+    public void PlayPauseRaisesAControlWhenThePlayerAllowsIt()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        panel.SetMedia(Song());
+        var controls = RecordControls(panel);
+
+        Click(panel, OverlayPanel.RegionPlayPause);
+        Click(panel, OverlayPanel.RegionNextTrack);
+
+        Assert.Equal([PanelControl.PlayPause, PanelControl.NextTrack], controls.Select(c => c.Control));
+    }
+
+    [Fact]
+    public void MediaButtonsDoNothingWhenNothingIsPlaying()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        var controls = RecordControls(panel);
+
+        Click(panel, OverlayPanel.RegionPlayPause);
+
+        Assert.Empty(controls);
+        Assert.Equal("Nothing is playing", panel.Toast);
+    }
+
+    [Fact]
+    public void MediaButtonsThePlayerDisabledAreInert()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        panel.SetMedia(Song(canPlayPause: false));
+        var controls = RecordControls(panel);
+
+        Click(panel, OverlayPanel.RegionPlayPause);
+
+        Assert.Empty(controls);
+    }
+
+    [Fact]
+    public void DraggingTheVolumeSliderSetsTheVolume()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        panel.SetAudio(Speakers);
+        var controls = RecordControls(panel);
+        var track = OverlayPanel.TrackRectFor(RectOf(panel, OverlayPanel.RegionVolume));
+
+        panel.PointerDown(track.Left, track.MidY);
+        panel.PointerMove(track.Right, track.MidY);
+
+        Assert.Equal([0f, 1f], controls.Select(c => c.Volume));
+        Assert.All(controls, c => Assert.Equal(PanelControl.SetVolume, c.Control));
+        Assert.Equal(1f, panel.OutputVolume);
+
+        panel.PointerUp(track.Right, track.MidY);
+
+        // Once released the slider shows the device's volume again.
+        Assert.Equal(0.5f, panel.OutputVolume);
+    }
+
+    [Fact]
+    public void TheVolumeSliderIsInertWithoutAnOutputDevice()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        var controls = RecordControls(panel);
+        var track = OverlayPanel.TrackRectFor(RectOf(panel, OverlayPanel.RegionVolume));
+
+        panel.PointerDown(track.Right, track.MidY);
+
+        Assert.Empty(controls);
+    }
+
+    [Fact]
+    public void MuteButtonsToggleTheirDevices()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        panel.SetAudio(Speakers);
+        var controls = RecordControls(panel);
+
+        Click(panel, OverlayPanel.RegionOutputMute);
+        Click(panel, OverlayPanel.RegionMicrophone);
+
+        Assert.Equal([PanelControl.ToggleOutputMute, PanelControl.ToggleMicrophoneMute], controls.Select(c => c.Control));
+    }
+
+    [Fact]
+    public void TheClockOnlyRedrawsWhenTheMinuteChanges()
+    {
+        var panel = new OverlayPanel(DefaultOptions);
+        var start = new DateTime(2026, 9, 24, 18, 30, 5, DateTimeKind.Utc);
+        panel.Tick(start);
+        panel.ClearDirty();
+
+        panel.Tick(start.AddSeconds(20));
+        Assert.False(panel.IsDirty);
+
+        panel.Tick(start.AddSeconds(60));
+        Assert.True(panel.IsDirty);
     }
 }

@@ -33,6 +33,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<TwitchEventSubService>();
+        services.AddSingleton<TwitchPerformanceProfiler>();
         services.AddSingleton<TwitchTriggerManager>();
         services.AddSingleton<TwitchAuthService>();
         services.AddSingleton<CheerConfigService>();
@@ -73,14 +74,14 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         // Initialize the hype train config service (subscribes to hype train events in constructor)
         _ = sp.GetService(typeof(HypeTrainConfigService)) as HypeTrainConfigService;
 
-        // Attempt auto-connect if a stored token exists and auto-connect is enabled
+        // Attempt auto-connect if enabled and either a stored token exists or the local CLI (which needs no login) is used
         var authService = sp.GetService(typeof(TwitchAuthService)) as TwitchAuthService;
         if (_eventSubService != null && authService != null &&
             authService.AutoConnect &&
-            !string.IsNullOrEmpty(authService.StoredToken) &&
+            (authService.UseLocalCli || !string.IsNullOrEmpty(authService.StoredToken)) &&
             !_eventSubService.IsConnected)
         {
-            _ = _eventSubService.ConnectAsync(authService.StoredToken!);
+            _ = _eventSubService.ConnectAsync();
         }
     }
 

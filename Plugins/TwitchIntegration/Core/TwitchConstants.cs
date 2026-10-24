@@ -5,14 +5,9 @@ public static class TwitchConstants
     public const string ClientId = "2usq7xnhsujju3ezja2nzb5j7vtd84";
 
     public const string EventSubWebSocketUrl = "wss://eventsub.wss.twitch.tv/ws";
-    public const string EventSubWebSocketUrlLocal = "ws://127.0.0.1:8080/ws";
+    public const string DefaultLocalCliUrl = "ws://127.0.0.1:8080/ws";
 
     public const string HelixApiBaseUrl = "https://api.twitch.tv/helix";
-    public const string HelixApiBaseUrlLocal = "http://127.0.0.1:8080";
-
-    public const int OAuthCallbackPort = 8783;
-
-    public static string OAuthRedirectUri => $"http://localhost:{OAuthCallbackPort}/callback";
 
     public static readonly string[] RequiredScopes =
     [

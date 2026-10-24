@@ -135,7 +135,7 @@ public class FollowConfigService : IDisposable
             return new FollowFetchResult(false, "Already fetching followers", 0);
         }
 
-        var token = _authService.StoredToken;
+        var token = await _authService.GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             return new FollowFetchResult(false, "No OAuth token. Connect Twitch first.", 0);
@@ -159,7 +159,7 @@ public class FollowConfigService : IDisposable
                 userName = validation.UserName;
             }
 
-            var baseUrl = _authService.UseLocalCli ? TwitchConstants.HelixApiBaseUrlLocal : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = _authService.HelixApiBaseUrl;
             var cursor = (string?)null;
             var added = 0;
 

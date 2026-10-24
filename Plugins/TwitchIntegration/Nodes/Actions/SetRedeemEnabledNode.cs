@@ -116,7 +116,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
                 });
             }
 
-            var token = authService.StoredToken;
+            var token = await authService.GetAccessTokenAsync(cancellationToken);
             if (string.IsNullOrEmpty(token))
             {
                 TwitchIntegrationPlugin.Logger?.LogWarning("SetRedeemEnabled: No OAuth token available");
@@ -128,9 +128,7 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
                 });
             }
 
-            var baseUrl = authService.UseLocalCli
-                ? TwitchConstants.HelixApiBaseUrlLocal
-                : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = authService.HelixApiBaseUrl;
 
             using var httpClient = new HttpClient();
 
@@ -236,15 +234,13 @@ public sealed class SetRedeemEnabledNode : IFlowProcessNode
             }
 
             var userId = twitchService.CurrentUserId;
-            var token = authService.StoredToken;
+            var token = await authService.GetAccessTokenAsync(cancellationToken);
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
             {
                 return;
             }
 
-            var baseUrl = authService.UseLocalCli
-                ? TwitchConstants.HelixApiBaseUrlLocal
-                : TwitchConstants.HelixApiBaseUrl;
+            var baseUrl = authService.HelixApiBaseUrl;
 
             // Fetch only manageable rewards from Twitch API
             using var httpClient = new HttpClient();

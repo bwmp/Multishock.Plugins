@@ -5,6 +5,6 @@
   "version": "1.2.0",
   "entryPoint": "VRChatOSC.dll",
   "description": "OSC send/receive integration for VRChat using FastOSC.",
-  "sdkVersion": "1.13.0",
+  "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

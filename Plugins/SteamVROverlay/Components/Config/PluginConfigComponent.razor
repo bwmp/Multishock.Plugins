@@ -1,5 +1,6 @@
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
+@using SteamVROverlay.Overlay
 @using SteamVROverlay.Services
 @implements IDisposable
 
@@ -62,6 +63,15 @@
             The right hand uses the mirror image. Adjust while SteamVR is running to see the panel move.
         </p>
 
+        <Toggle Label="Move the panel by grabbing it in VR" Value="GrabToMove" ValueChanged="ToggleGrabToMove" />
+        <p class="text-xs text-app-subtle">
+            @(GrabToMove
+                ? "Point your other controller at the panel, hold the grip, and let go where you want it. The offsets above update to match."
+                : "The grip is ignored on the panel, so it can't be moved by accident. Tap Move watch at the bottom of the watch to move it, or use the offsets above.")
+        </p>
+
+        <Button Text="Reset placement" Variant="secondary" Size="sm" Icon="rotate-ccw" OnClick="ResetPlacement" />
+
         <Slider Label="Opacity" Min="10" Max="100" Step="5"
                 Value="@(Opacity * 100)"
                 ValueChanged="@(v => Opacity = (float)(v / 100))" />
@@ -69,6 +79,29 @@
         <Slider Label="Curvature" Min="0" Max="100" Step="5"
                 Value="@(Curvature * 100)"
                 ValueChanged="@(v => Curvature = (float)(v / 100))" />
+    </section>
+
+    <section class="space-y-3">
+        <h3 class="text-sm font-semibold text-app-text">Watch</h3>
+        <p class="text-xs text-app-subtle">
+            The time and the button that opens the shocker controls are always shown. Device batteries can also be shown or hidden from the watch.
+        </p>
+
+        <Toggle Label="Device batteries" Value="ShowBatteries" ValueChanged="ToggleShowBatteries" />
+        <Toggle Label="Media controls" Value="ShowMedia" ValueChanged="ToggleShowMedia" />
+        <Toggle Label="Volume and microphone" Value="ShowAudio" ValueChanged="ToggleShowAudio" />
+        <Toggle Label="Performance" Value="ShowPerformance" ValueChanged="ToggleShowPerformance" />
+
+        @if (ContributedItems.Count > 0)
+        {
+            <h4 class="text-xs font-semibold text-app-muted pt-1">From other plugins</h4>
+            @foreach (var item in ContributedItems)
+            {
+                <Toggle Label="@item.Label"
+                        Value="@Settings.IsWatchItemShown(item.Key)"
+                        ValueChanged="@(shown => SetWatchItemShown(item.Key, shown))" />
+            }
+        }
     </section>
 
     <section class="space-y-3">
@@ -160,17 +193,35 @@
     private WristOverlayService Overlay =>
         PluginServiceLocator.GetRequiredService<WristOverlayService>(PluginIdValue);
 
+    private WatchProviderService WatchProviders =>
+        PluginServiceLocator.GetRequiredService<WatchProviderService>(PluginIdValue);
+
     [Parameter]
     public string? PluginId { get; set; }
 
     private bool Enabled;
     private bool AutoStart;
+    private IReadOnlyList<(string Key, string Label)> ContributedItems = [];
 
     protected override void OnInitialized()
     {
         Enabled = Settings.Enabled;
         AutoStart = Settings.AutoStart;
         Overlay.StateChanged += OnStateChanged;
+        Settings.Changed += OnSettingsChanged;
+
+        ContributedItems =
+        [
+            .. WatchProviders.Poll().SelectMany(c =>
+                c.Content.Cards.Select(card => (WatchContent.CardKey(c.PluginId, card.Id), $"{card.Title ?? card.Id} card from {c.PluginName}"))
+                    .Concat(c.Content.Pages.Select(page => (WatchContent.PageKey(c.PluginId, page.Id), $"{page.Title} page from {c.PluginName}"))))
+        ];
+    }
+
+    private Task SetWatchItemShown(string key, bool shown)
+    {
+        Settings.SetWatchItemShown(key, shown);
+        return Task.CompletedTask;
     }
 
     private string HandValue => Settings.Hand == OverlayHand.Right ? "right" : "left";
@@ -228,6 +279,16 @@
         get => Settings.Curvature;
         set => Settings.Curvature = value;
     }
+
+    private bool GrabToMove => Settings.GrabToMove;
+
+    private bool ShowBatteries => Settings.ShowBatteries;
+
+    private bool ShowMedia => Settings.ShowMedia;
+
+    private bool ShowAudio => Settings.ShowAudio;
+
+    private bool ShowPerformance => Settings.ShowPerformance;
 
     private bool GazeActivation => Settings.GazeActivation;
 
@@ -322,6 +383,36 @@
         return Task.CompletedTask;
     }
 
+    private Task ToggleGrabToMove(bool enabled)
+    {
+        Settings.GrabToMove = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleShowBatteries(bool enabled)
+    {
+        Settings.ShowBatteries = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleShowMedia(bool enabled)
+    {
+        Settings.ShowMedia = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleShowAudio(bool enabled)
+    {
+        Settings.ShowAudio = enabled;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleShowPerformance(bool enabled)
+    {
+        Settings.ShowPerformance = enabled;
+        return Task.CompletedTask;
+    }
+
     private Task ToggleGazeActivation(bool enabled)
     {
         Settings.GazeActivation = enabled;
@@ -344,10 +435,16 @@
 
     private void StopOverlay() => Overlay.Stop();
 
+    private void ResetPlacement() => Settings.ResetPlacement();
+
     private void OnStateChanged(OverlayRuntimeState state) => InvokeAsync(StateHasChanged);
+
+    // Moving the panel in VR saves its placement from the overlay thread; show the new offsets.
+    private void OnSettingsChanged() => InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         Overlay.StateChanged -= OnStateChanged;
+        Settings.Changed -= OnSettingsChanged;
     }
 }

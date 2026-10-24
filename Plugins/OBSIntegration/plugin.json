@@ -5,6 +5,6 @@
   "version": "1.2.0",
   "entryPoint": "OBSIntegration.dll",
   "description": "Control OBS Studio through MultiShock - toggle sources, switch scenes, and more",
-  "sdkVersion": "1.13.0",
+  "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

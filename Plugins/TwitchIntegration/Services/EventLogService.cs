@@ -45,6 +45,14 @@ public class EventLogService : IDisposable
         }
     }
 
+    public IReadOnlyList<LogEntry> GetRecentEntries(int count)
+    {
+        lock (_lock)
+        {
+            return _entries.TakeLast(count).Reverse().ToArray();
+        }
+    }
+
     public void AddLog(string message, bool isError = false)
     {
         lock (_lock)

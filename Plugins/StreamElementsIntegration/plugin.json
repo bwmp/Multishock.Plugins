@@ -5,6 +5,6 @@
   "version": "0.1.0",
   "entryPoint": "StreamElementsIntegration.dll",
   "description": "StreamElements integration with flow trigger nodes for tips, cheers, follows, subscribers, hosts, raids, and store redemptions via the StreamElements realtime API",
-  "sdkVersion": "1.13.0",
+  "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

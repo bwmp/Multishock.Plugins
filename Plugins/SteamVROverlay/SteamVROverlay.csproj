@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <!-- The Windows TFM provides the WinRT media session API; the output path stays where CI expects it. -->
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <OutputPath>bin\$(Configuration)\net10.0\</OutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -25,14 +30,12 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+        <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
         <PackageReference Include="SkiaSharp" Version="3.119.0" />
         <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0" />
         <PackageReference Include="VolcanicArts.Libs.OpenVR" Version="2.5.1" />
         <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
-        <!-- Coordinated development against the sibling SDK. Restore the PackageReference
-             below once the matching SDK version is published. -->
-        <!-- <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" /> -->
-        <ProjectReference Include="..\..\..\PluginSdk\PluginSdk.csproj" Private="false" ExcludeAssets="runtime" />
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.15.0" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <!-- Version with conditional build stamp -->
@@ -93,7 +96,7 @@
         -->
         <ItemGroup>
             <ManagedDeps Include="$(TargetDir)*.dll"
-                         Exclude="$(TargetPath);$(TargetDir)MultiShock.PluginSdk.dll;$(TargetDir)PiShock.MultiShock.PluginSdk.dll;$(TargetDir)Microsoft.*.dll;$(TargetDir)System.*.dll;$(TargetDir)openvr_api.dll" />
+                         Exclude="$(TargetPath);$(TargetDir)MultiShock.PluginSdk.dll;$(TargetDir)PiShock.MultiShock.PluginSdk.dll;$(TargetDir)Microsoft.*.dll;$(TargetDir)System.*.dll;$(TargetDir)WinRT.Runtime.dll;$(TargetDir)openvr_api.dll" />
             <RootNativeLibs Include="$(TargetDir)openvr_api.dll;$(TargetDir)runtimes\win-x64\native\libSkiaSharp.dll" />
         </ItemGroup>
         <Copy SourceFiles="@(ManagedDeps)" DestinationFolder="$(PluginStagingDir)" Condition="'@(ManagedDeps)' != ''" />

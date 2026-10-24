@@ -12,7 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-    <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.13.0" ExcludeAssets="runtime" />
+    <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.15.0" ExcludeAssets="runtime" />
   </ItemGroup>
   <Target Name="PackPluginPackage" AfterTargets="Build" Condition="'$(SkipPluginPackaging)' != 'true'">
     <PropertyGroup>

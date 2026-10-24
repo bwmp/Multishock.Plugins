@@ -1,0 +1,82 @@
+@implements IAsyncDisposable
+
+@if (TwitchService.IsConnected || _entries.Count > 0)
+{
+    <div class="twitch-card">
+        <div class="twitch-card-header">
+            <span>Event Log</span>
+            <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
+        </div>
+        <div class="twitch-card-body">
+            <div class="space-y-1 max-h-64 overflow-y-auto">
+                @if (_entries.Count == 0)
+                {
+                    <p class="text-sm text-app-muted">No events yet. Waiting for Twitch events...</p>
+                }
+                else
+                {
+                    @foreach (var log in _entries)
+                    {
+                        <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded">
+                            <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
+                            <span class="@(log.IsError ? "text-app-danger" : "text-app-text")">@log.Message</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private EventLogService LogService => PluginServiceLocator.GetRequiredService<EventLogService>(TwitchIntegrationPlugin.PluginId);
+    private TwitchEventSubService TwitchService => PluginServiceLocator.GetRequiredService<TwitchEventSubService>(TwitchIntegrationPlugin.PluginId);
+    private readonly CancellationTokenSource _refreshCts = new();
+    private IReadOnlyList<EventLogService.LogEntry> _entries = [];
+    private Task? _refreshTask;
+    private int _dirty;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        LogService.LogChanged += OnLogChanged;
+        _entries = LogService.GetRecentEntries(50);
+        _refreshTask = Task.Run(RefreshAsync);
+    }
+
+    private void OnLogChanged() => Interlocked.Exchange(ref _dirty, 1);
+
+    private async Task RefreshAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_refreshCts.Token))
+            {
+                if (Interlocked.Exchange(ref _dirty, 0) == 0) continue;
+                await InvokeAsync(() =>
+                {
+                    if (_disposed) return;
+                    _entries = LogService.GetRecentEntries(50);
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) when (_refreshCts.IsCancellationRequested) { }
+    }
+
+    private void ClearLog()
+    {
+        LogService.Clear();
+        _entries = [];
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        LogService.LogChanged -= OnLogChanged;
+        await _refreshCts.CancelAsync();
+        if (_refreshTask != null) await _refreshTask;
+        _refreshCts.Dispose();
+    }
+}

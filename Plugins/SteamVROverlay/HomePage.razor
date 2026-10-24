@@ -1,6 +1,7 @@
 @page "/plugins/com-multishock-steamvroverlay/steamvroverlay"
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
+@using SteamVROverlay.Overlay
 @using SteamVROverlay.Services
 @implements IDisposable
 
@@ -40,12 +41,25 @@
     <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         <div class="space-y-2">
             <h2 class="text-sm font-semibold text-app-text">Panel preview</h2>
+            <div class="w-80 space-y-2">
+                <Tabs Items="PreviewViews" Value="@PreviewTarget" ValueChanged="OnPreviewTargetChanged" Variant="segmented" Class="w-full" />
+                @if (PluginPages.Count > 0)
+                {
+                    <Select TValue="string"
+                            Label="Plugin page"
+                            Placeholder="Preview a page from another plugin"
+                            Options="PluginPages"
+                            Value="@(IsPluginPage ? PreviewTarget : null)"
+                            ValueChanged="OnPreviewTargetChanged" />
+                }
+            </div>
             @if (PreviewDataUrl is not null)
             {
+                @* The watch's height depends on the cards shown, so only the width is fixed. *@
                 <img src="@PreviewDataUrl"
                      alt="Preview of the wrist panel as it appears in SteamVR"
-                     width="320" height="320"
-                     class="rounded-lg border border-app-border bg-app-bg" />
+                     width="320"
+                     class="h-auto" />
             }
             else
             {
@@ -53,7 +67,15 @@
                     Preview unavailable
                 </div>
             }
-            <Button Text="Refresh preview" Variant="secondary" Size="sm" Icon="refresh-cw" OnClick="RefreshPreview" />
+            <div class="flex gap-2">
+                <Button Text="Refresh preview" Variant="secondary" Size="sm" Icon="refresh-cw" OnClick="RefreshPreview" />
+                <Button Text="Send test notification"
+                        Variant="secondary"
+                        Size="sm"
+                        Icon="bell"
+                        Disabled="@(Overlay.State != OverlayRuntimeState.Running)"
+                        OnClick="SendTestNotification" />
+            </div>
         </div>
 
         <div class="space-y-4 text-sm">
@@ -88,13 +110,21 @@
                 <ul class="space-y-1 text-app-muted list-disc pl-5">
                     <li>Turn the wrist wearing the panel toward your face to reveal it.</li>
                     <li>Point the other controller at it and use the trigger to click.</li>
-                    <li>Tap shocker names to target them. With none selected, actions apply to every shocker.</li>
-                    <li>Drag the intensity and duration sliders, then choose Vibrate, Shock, or Beep.</li>
+                    @if (Settings.GrabToMove)
+                    {
+                        <li>To move it, point at it, hold the grip, and let go where you want it. The new spot is saved.</li>
+                    }
+                    <li>Move watch at the bottom makes the whole watch grabbable with the trigger or grip until you tap Done.</li>
+                    <li>The watch stacks the time, what's playing, volume and microphone, and the VR app's performance, with device batteries at the bottom that the Batteries button shows or hides.</li>
+                    <li>Shockers near the bottom of the watch opens the shocker controls; Watch at the top goes back.</li>
+                    <li>Other plugins can add their own cards to the watch and pages below Shockers.</li>
+                    <li>After the wrist has been down for 10 seconds, raising it shows the watch again.</li>
+                    <li>Flows can pop up notifications in your view with the Show VR Notification node.</li>
                 </ul>
             </div>
 
             <p class="text-app-subtle">
-                Placement, limits, and the hold-to-shock guard are configured in
+                Placement, the watch's cards, limits, and the hold-to-shock guard are configured in
                 Settings &rarr; Plugins &rarr; SteamVROverlay.
             </p>
         </div>
@@ -110,12 +140,28 @@
     private WristOverlayService Overlay =>
         PluginServiceLocator.GetRequiredService<WristOverlayService>(PluginIdValue);
 
+    private WatchProviderService WatchProviders =>
+        PluginServiceLocator.GetRequiredService<WatchProviderService>(PluginIdValue);
+
+    private static readonly IReadOnlyList<Tabs.TabItem> PreviewViews =
+    [
+        new(nameof(PanelView.Watch), "Watch"),
+        new(nameof(PanelView.Shockers), "Shockers"),
+    ];
+
     private string? PreviewDataUrl;
 
-    protected override void OnInitialized()
+    /// <summary>A built-in view's name, or another plugin's page key.</summary>
+    private string PreviewTarget = nameof(PanelView.Watch);
+
+    private IReadOnlyList<Select<string>.SelectOption<string>> PluginPages = [];
+
+    private bool IsPluginPage => PluginPages.Any(p => p.Value == PreviewTarget);
+
+    protected override async Task OnInitializedAsync()
     {
         Overlay.StateChanged += OnStateChanged;
-        RefreshPreview();
+        await RefreshPreview();
     }
 
     private string StatusText => Overlay.State switch
@@ -136,11 +182,26 @@
         _ => "bg-app-subtle"
     };
 
-    private void RefreshPreview()
+    private async Task RefreshPreview()
     {
+        PluginPages =
+        [
+            .. WatchProviders.Poll().SelectMany(c => c.Content.Pages.Select(page =>
+                new Select<string>.SelectOption<string>(WatchContent.PageKey(c.PluginId, page.Id), $"{page.Title} ({c.PluginName})")))
+        ];
+
+        if (!Enum.TryParse<PanelView>(PreviewTarget, out var view) && !IsPluginPage)
+        {
+            PreviewTarget = nameof(PanelView.Watch);
+            view = PanelView.Watch;
+        }
+
         try
         {
-            PreviewDataUrl = "data:image/png;base64," + Convert.ToBase64String(Overlay.RenderPreviewPng());
+            var png = IsPluginPage
+                ? await Overlay.RenderPreviewPngAsync(PanelView.Watch, PreviewTarget)
+                : await Overlay.RenderPreviewPngAsync(view);
+            PreviewDataUrl = "data:image/png;base64," + Convert.ToBase64String(png);
         }
         catch
         {
@@ -148,10 +209,19 @@
         }
     }
 
-    private void Start()
+    private async Task OnPreviewTargetChanged(string? target)
+    {
+        PreviewTarget = target ?? nameof(PanelView.Watch);
+        await RefreshPreview();
+    }
+
+    private void SendTestNotification() =>
+        Overlay.ShowNotification("MultiShock", "This is how flow notifications look in VR.", TimeSpan.FromSeconds(4), buzz: true);
+
+    private async Task Start()
     {
         Overlay.Start();
-        RefreshPreview();
+        await RefreshPreview();
     }
 
     private void Stop() => Overlay.Stop();

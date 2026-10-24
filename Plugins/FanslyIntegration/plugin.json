@@ -5,6 +5,6 @@
   "version": "0.1.0",
   "entryPoint": "FanslyIntegration.dll",
   "description": "Fansly integration for tips, chat messages, follows, subscriptions, and stream state",
-  "sdkVersion": "1.13.0",
+  "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

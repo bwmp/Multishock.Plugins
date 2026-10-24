@@ -1,4 +1,5 @@
 using MultiShock.PluginSdk.Flow;
+using Microsoft.Extensions.Logging;
 using TwitchIntegration.Models;
 
 namespace TwitchIntegration.Services;
@@ -6,12 +7,14 @@ namespace TwitchIntegration.Services;
 public class TwitchTriggerManager
 {
     private readonly TwitchEventSubService _eventSubService;
+    private readonly TwitchPerformanceProfiler _profiler;
     private readonly Dictionary<string, List<TriggerRegistration>> _registrations = [];
     private readonly object _lock = new();
 
-    public TwitchTriggerManager(TwitchEventSubService eventSubService)
+    public TwitchTriggerManager(TwitchEventSubService eventSubService, TwitchPerformanceProfiler profiler)
     {
         _eventSubService = eventSubService;
+        _profiler = profiler;
 
         // Subscribe to all events
         _eventSubService.OnCheer += HandleCheer;
@@ -66,14 +69,16 @@ public class TwitchTriggerManager
         {
             try
             {
+                using var timing = _profiler.IsCapturing ? _profiler.Measure($"Flow trigger dispatch: {eventType}") : default;
                 if (filter == null || filter(reg.Instance))
                 {
-                    await reg.Callback(reg.Instance, outputs);
+                    await reg.Callback(reg.Instance, outputs).ConfigureAwait(false);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore errors in individual triggers
+                TwitchIntegrationPlugin.Logger?.LogError(ex, "Failed to dispatch Twitch trigger {EventType} for {InstanceId}",
+                    eventType, reg.Instance.InstanceId);
             }
         }
     }

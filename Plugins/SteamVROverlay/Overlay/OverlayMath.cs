@@ -4,6 +4,17 @@ using Valve.VR;
 namespace SteamVROverlay.Overlay;
 
 /// <summary>
+/// A panel's placement on its controller, in the terms the settings store it.
+/// </summary>
+public readonly record struct OverlayPlacement(
+    float OffsetX,
+    float OffsetY,
+    float OffsetZ,
+    float PitchDegrees,
+    float YawDegrees,
+    float RollDegrees);
+
+/// <summary>
 /// Conversions between OpenVR's row-major 3x4 pose matrices and <see cref="Matrix4x4"/>.
 /// </summary>
 public static class OverlayMath
@@ -27,6 +38,52 @@ public static class OverlayMath
 
         rotation.Translation = new Vector3(offsetX, offsetY, offsetZ);
         return ToHmdMatrix(rotation);
+    }
+
+    /// <summary>
+    /// The inverse of <see cref="BuildLocalTransform"/>. Pointing straight up or down, yaw and
+    /// roll turn about the same axis, so the turn is reported as yaw with no roll.
+    /// </summary>
+    public static OverlayPlacement DecomposeLocalTransform(in Matrix4x4 local)
+    {
+        // CreateFromYawPitchRoll composes roll, then pitch, then yaw, which puts -sin(pitch) at
+        // M32, cos(pitch) times yaw's sine and cosine at M31 and M33, and roll in the second
+        // column. Atan2 keeps pitch precise near ±90°, where asin loses most of its digits.
+        var cosPitch = MathF.Sqrt(local.M31 * local.M31 + local.M33 * local.M33);
+        var pitch = MathF.Atan2(-local.M32, cosPitch);
+        float yaw, roll;
+        if (cosPitch > 1e-5f)
+        {
+            yaw = MathF.Atan2(local.M31, local.M33);
+            roll = MathF.Atan2(local.M12, local.M22);
+        }
+        else
+        {
+            yaw = MathF.Atan2(-local.M13, local.M11);
+            roll = 0f;
+        }
+
+        var offset = local.Translation;
+        return new OverlayPlacement(
+            offset.X,
+            offset.Y,
+            offset.Z,
+            RadiansToDegrees(pitch),
+            RadiansToDegrees(yaw),
+            RadiansToDegrees(roll));
+    }
+
+    /// <summary>
+    /// Where a grabbed panel sits on the controller wearing it: it keeps the pose it had in the
+    /// grabbing hand, but stays within <paramref name="maxOffset"/> metres of the wearing
+    /// controller on each axis, the furthest the settings can store.
+    /// </summary>
+    /// <param name="panelInHand">The panel's pose relative to the grabbing hand when it was grabbed.</param>
+    public static Matrix4x4 FollowHand(in Matrix4x4 panelInHand, in Matrix4x4 hand, in Matrix4x4 worldToWrist, float maxOffset)
+    {
+        var local = panelInHand * hand * worldToWrist;
+        local.Translation = Vector3.Clamp(local.Translation, new Vector3(-maxOffset), new Vector3(maxOffset));
+        return local;
     }
 
     /// <summary>
@@ -64,7 +121,7 @@ public static class OverlayMath
     public static Vector3 PositionOf(in Matrix4x4 m) => m.Translation;
 
     /// <summary>
-    /// Intersects a ray with a flat, square overlay of the given width.
+    /// Intersects a ray with a flat overlay of the given size.
     /// </summary>
     /// <param name="overlayToWorld">The overlay's pose; its face lies in the local XY plane.</param>
     /// <param name="uv">Hit position with (0, 0) at the texture's top-left and (1, 1) at its bottom-right.</param>
@@ -72,6 +129,7 @@ public static class OverlayMath
     public static bool TryIntersect(
         in Matrix4x4 overlayToWorld,
         float widthMeters,
+        float heightMeters,
         Vector3 rayOrigin,
         Vector3 rayDirection,
         float maxDistance,
@@ -101,7 +159,7 @@ public static class OverlayMath
 
         var hit = localOrigin + localDirection * t;
         var u = hit.X / widthMeters + 0.5f;
-        var v = 0.5f - hit.Y / widthMeters;
+        var v = 0.5f - hit.Y / heightMeters;
         if (u is < 0f or > 1f || v is < 0f or > 1f)
         {
             return false;
@@ -118,4 +176,6 @@ public static class OverlayMath
     public static Vector3 AimOf(in Matrix4x4 m) => -ForwardOf(m);
 
     private static float DegreesToRadians(float degrees) => degrees * (MathF.PI / 180f);
+
+    private static float RadiansToDegrees(float radians) => radians * (180f / MathF.PI);
 }

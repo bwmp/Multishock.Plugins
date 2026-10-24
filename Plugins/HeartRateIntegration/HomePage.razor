@@ -17,7 +17,7 @@
             <span class="text-4xl font-semibold tabular-nums">@(Snapshot.HasFreshReading(DateTimeOffset.UtcNow) ? Snapshot.Latest!.BeatsPerMinute.ToString() : "—")</span>
             <span class="text-app-muted">BPM</span>
         </div>
-        <p class="mt-2 text-sm text-app-muted">@ReadingStatus</p>
+        <p class="mt-2 text-sm text-app-muted">@Snapshot.StatusText(DateTimeOffset.UtcNow)</p>
         @if (Snapshot.Device is { } activeDevice)
         {
             <p class="mt-1 text-sm break-all">@activeDevice.Name</p>
@@ -126,17 +126,6 @@
     private bool Scanned;
     private bool Busy;
     private string? Message;
-
-    private string ReadingStatus => Snapshot.State switch
-    {
-        HeartRateConnectionState.Disconnected => "Connect a monitor to start tracking.",
-        HeartRateConnectionState.Connecting => "Connecting to the monitor…",
-        HeartRateConnectionState.Reconnecting => "Waiting to reconnect…",
-        _ when Snapshot.Latest is null => "Connected. Waiting for the first reading…",
-        _ when Snapshot.Latest.SensorContactDetected == false => "Poor sensor contact. Adjust the strap and moisten the electrodes.",
-        _ when !Snapshot.HasFreshReading(DateTimeOffset.UtcNow) => "No fresh heart-rate reading. Check the strap and connection.",
-        _ => $"Updated {Snapshot.Latest.TimestampUtc.ToLocalTime():HH:mm:ss}"
-    };
 
     private static string ContactText(HeartRateMeasurement reading) => reading.SensorContactDetected switch
     {

@@ -150,10 +150,15 @@ public class SubscriptionConfigService
 
     private void HandleSubscribeEvent(SubscribeEvent subscribeEvent)
     {
-        if (!_config.Enabled) return;
+        // Each recipient of a gift bomb also arrives as a gifted channel.subscribe; the gift event already covers them.
+        if (subscribeEvent.IsGift)
+        {
+            LogSkipped("Sub", subscribeEvent.UserName, "gifted sub, handled by the gift event");
+            return;
+        }
 
-        var section = FindSectionForTier(subscribeEvent.TierNumber);
-        if (section == null || !section.Enabled) return;
+        var section = FindSectionForEvent("Sub", subscribeEvent.UserName, subscribeEvent.TierNumber);
+        if (section == null) return;
         var count = 1;
 
         if (section.Mode == SubscriptionMode.Brackets)
@@ -168,10 +173,8 @@ public class SubscriptionConfigService
 
     private void HandleSubscriptionMessageEvent(SubscriptionMessageEvent messageEvent)
     {
-        if (!_config.Enabled) return;
-
-        var section = FindSectionForTier(messageEvent.TierNumber);
-        if (section == null || !section.Enabled) return;
+        var section = FindSectionForEvent("Resub", messageEvent.UserName, messageEvent.TierNumber);
+        if (section == null) return;
         var count = 1;
 
         if (section.Mode == SubscriptionMode.Brackets)
@@ -186,10 +189,8 @@ public class SubscriptionConfigService
 
     private void HandleSubscriptionGiftEvent(SubscriptionGiftEvent giftEvent)
     {
-        if (!_config.Enabled) return;
-
-        var section = FindSectionForTier(giftEvent.TierNumber);
-        if (section == null || !section.Enabled) return;
+        var section = FindSectionForEvent("Gift", giftEvent.UserName, giftEvent.TierNumber);
+        if (section == null) return;
         var count = giftEvent.Total;
 
         if (section.Mode == SubscriptionMode.Brackets)
@@ -219,14 +220,35 @@ public class SubscriptionConfigService
         }
     }
 
-    private SubscriptionTierSection? FindSectionForTier(int tier)
+    private SubscriptionTierSection? FindSectionForEvent(string eventName, string userName, int tier)
     {
-        return _config.Sections.FirstOrDefault(s => s.Enabled && s.Tier == tier);
+        if (!_config.Enabled)
+        {
+            LogSkipped(eventName, userName, "subscription handling is disabled");
+            return null;
+        }
+
+        var section = _config.Sections.FirstOrDefault(s => s.Enabled && s.Tier == tier);
+        if (section == null)
+        {
+            LogSkipped(eventName, userName, $"no enabled Tier {tier} section");
+        }
+
+        return section;
+    }
+
+    private static void LogSkipped(string eventName, string userName, string reason)
+    {
+        TwitchIntegrationPlugin.Logger?.LogInformation("[Subs] {Event} from {User} skipped: {Reason}", eventName, userName, reason);
     }
 
     private void ExecuteIncrementalAction(SubscriptionTierSection section, int count)
     {
-        if (!section.SelectedShockerIds.Any()) return;
+        if (!section.SelectedShockerIds.Any())
+        {
+            TwitchIntegrationPlugin.Logger?.LogWarning("[Subs] {Section} has no shockers selected", section.Name);
+            return;
+        }
         if (count <= 0) return;
 
         var cfg = section.Incremental;
@@ -243,10 +265,18 @@ public class SubscriptionConfigService
 
     private void ExecuteBracketAction(SubscriptionTierSection section, int count)
     {
-        if (!section.SelectedShockerIds.Any()) return;
+        if (!section.SelectedShockerIds.Any())
+        {
+            TwitchIntegrationPlugin.Logger?.LogWarning("[Subs] {Section} has no shockers selected", section.Name);
+            return;
+        }
 
         var bracket = FindMatchingBracket(section, count);
-        if (bracket == null) return;
+        if (bracket == null)
+        {
+            TwitchIntegrationPlugin.Logger?.LogInformation("[Subs] {Section} has no bracket matching count {Count}", section.Name, count);
+            return;
+        }
 
         var intensity = Math.Clamp(bracket.Intensity, 1, 100);
         var duration = Math.Clamp(bracket.Duration, 0.1, 15.0);
@@ -283,7 +313,14 @@ public class SubscriptionConfigService
         };
 
         var shockerIds = GetShockerIdsForExecution(section, mode);
-        if (!shockerIds.Any()) return;
+        if (!shockerIds.Any())
+        {
+            TwitchIntegrationPlugin.Logger?.LogWarning("[Subs] {Section} skipped: none of its selected shockers are loaded", section.Name);
+            return;
+        }
+
+        TwitchIntegrationPlugin.Logger?.LogInformation("[Subs] {Section} sending {Command} intensity={Intensity} duration={Duration}s",
+            section.Name, commandType, intensity, duration);
 
         var parsedIds = shockerIds
             .Select(id => id.Split(':'))

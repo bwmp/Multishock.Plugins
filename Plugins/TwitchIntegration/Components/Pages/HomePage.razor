@@ -33,7 +33,7 @@
         {
             <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
         }
-        else if (!string.IsNullOrWhiteSpace(SavedToken))
+        else if (CanConnectWithoutLogin)
         {
             <Button Variant="primary" Icon="plug" Text="Connect"
                     Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
@@ -63,7 +63,7 @@
                 @if (!TwitchService.IsConnected)
                 {
                     <div class="flex flex-col items-center gap-4 py-4">
-                        @if (!string.IsNullOrWhiteSpace(SavedToken))
+                        @if (CanConnectWithoutLogin)
                         {
                             <div data-guided-setup="twitch-home-login-button">
                                 <Button Disabled="@(TwitchService.IsConnecting)" OnClick="ConnectWithSavedToken"
@@ -110,9 +110,32 @@
 
                             <Toggle Label="Use local Twitch CLI (testing)" Value="UseLocalCliEnabled"
                                 ValueChanged="@((enabled) => ToggleLocalCli(enabled))" />
+
+                            @if (UseLocalCliEnabled)
+                            {
+                                <TextInput Label="Twitch CLI WebSocket URL" Value="@LocalCliUrl"
+                                    Placeholder="@TwitchConstants.DefaultLocalCliUrl"
+                                    Description="No Twitch login is needed while using the local CLI."
+                                    Error="@LocalCliUrlError"
+                                    ValueChanged="@((value) => UpdateLocalCliUrl(value))" />
+                            }
                         </div>
 
-                        @if (!string.IsNullOrEmpty(AuthStatus))
+                        @if (IsAuthenticating && !string.IsNullOrEmpty(AuthService.PendingUserCode))
+                        {
+                            <div class="flex flex-col items-center gap-1 text-center">
+                                <p class="text-sm text-app-muted">Approve MultiShock on Twitch with this code:</p>
+                                <span class="font-mono text-2xl font-semibold tracking-widest">@AuthService.PendingUserCode</span>
+                                <a class="text-sm text-app-primary" href="@AuthService.PendingVerificationUri" target="_blank">
+                                    Open the Twitch activation page
+                                </a>
+                            </div>
+                        }
+                        else if (AuthService.LoginExpired)
+                        {
+                            <p class="text-sm text-app-warning">Your Twitch login expired. Log in again to keep receiving events.</p>
+                        }
+                        else if (!string.IsNullOrEmpty(AuthStatus))
                         {
                             <p class="text-sm text-app-muted">@AuthStatus</p>
                         }
@@ -162,6 +185,15 @@
 
                             <Toggle Label="Use local Twitch CLI (testing)" Value="UseLocalCliEnabled"
                                 ValueChanged="@((enabled) => ToggleLocalCli(enabled))" />
+
+                            @if (UseLocalCliEnabled)
+                            {
+                                <TextInput Label="Twitch CLI WebSocket URL" Value="@LocalCliUrl"
+                                    Placeholder="@TwitchConstants.DefaultLocalCliUrl"
+                                    Description="No Twitch login is needed while using the local CLI."
+                                    Error="@LocalCliUrlError"
+                                    ValueChanged="@((value) => UpdateLocalCliUrl(value))" />
+                            }
                         </div>
                     </div>
                 }
@@ -262,36 +294,9 @@
             </div>
         }
 
-        @if (TwitchService.IsConnected || EventLogService.Count > 0)
-        {
-            <div class="twitch-card">
-                <div class="twitch-card-header">
-                    <span>Event Log</span>
-                    <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
-                </div>
-                <div class="twitch-card-body">
-                    <div class="space-y-1 max-h-64 overflow-y-auto">
-                        @if (EventLogService.Count == 0)
-                        {
-                            <p class="text-sm text-app-muted">No events yet. Waiting for Twitch
-                                events...</p>
-                        }
-                        else
-                        {
-                            @foreach (var log in EventLogService.Entries.TakeLast(50).Reverse())
-                            {
-                                <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
-                                    style="background: rgba(255, 255, 255, 0.02);">
-                                    <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
-                                    <span
-                                        style="color: @(log.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">@log.Message</span>
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
-            </div>
-        }
+        <TwitchIntegration.Components.EventLog />
+
+        <TwitchIntegration.Components.PerformancePanel />
 
         <div class="twitch-card">
             <div class="twitch-card-header">
@@ -322,12 +327,13 @@
     private LegacyTwitchImportService LegacyImportService => PluginServiceLocator.GetRequiredService<LegacyTwitchImportService>(PluginId);
     
     private string OAuthToken = "";
-    private string? SavedToken;
     private string? ErrorMessage;
     private string? AuthStatus;
     private bool IsAuthenticating;
     private bool AutoConnectEnabled;
     private bool UseLocalCliEnabled;
+    private string LocalCliUrl = string.Empty;
+    private string? LocalCliUrlError;
     private bool IsImportingLegacyConfig;
     private bool LegacyImportSuccess;
     private string LegacyConfigPath = string.Empty;
@@ -352,16 +358,12 @@
     {
         TwitchService.ConnectionStateChanged += OnConnectionStateChanged;
         TwitchService.ErrorOccurred += OnError;
-        EventLogService.LogChanged += OnLogChanged;
         AuthService.StatusChanged += OnAuthStatusChanged;
 
-        SavedToken = AuthService.StoredToken;
-        if (!string.IsNullOrEmpty(SavedToken))
-        {
-            OAuthToken = SavedToken;
-        }
+        OAuthToken = AuthService.StoredToken ?? "";
         AutoConnectEnabled = AuthService.AutoConnect;
         UseLocalCliEnabled = AuthService.UseLocalCli;
+        LocalCliUrl = AuthService.LocalCliUrl;
         LegacyConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MultiShock", "config.json");
     }
 
@@ -410,9 +412,7 @@
             {
                 EventLogService.AddLog("Login successful, connecting to EventSub...");
                 OAuthToken = token;
-                SavedToken = token;
-                AuthService.SaveAuthToken(token);
-                await TwitchService.ConnectAsync(token);
+                await TwitchService.ConnectAsync();
             }
             else
             {
@@ -457,7 +457,9 @@
         EventLogService.AddLog("Connecting to Twitch...");
 
         var token = OAuthToken.Trim();
-        var success = await TwitchService.ConnectAsync(token);
+        // The field is prefilled with the stored login; saving it as a manual token would drop its refresh token.
+        var isStoredLogin = token == AuthService.StoredToken;
+        var success = await TwitchService.ConnectAsync(isStoredLogin ? null : token);
         if (!success)
         {
             EventLogService.AddLog("Connection failed", isError: true);
@@ -471,9 +473,8 @@
                 await LoginWithTwitch();
             }
         }
-        else if (!string.IsNullOrWhiteSpace(token))
+        else if (!isStoredLogin && !string.IsNullOrWhiteSpace(token))
         {
-            SavedToken = token;
             AuthService.SaveAuthToken(token);
         }
     }
@@ -484,14 +485,16 @@
         EventLogService.AddLog("Disconnected");
     }
 
+    private bool CanConnectWithoutLogin => UseLocalCliEnabled || !string.IsNullOrWhiteSpace(AuthService.StoredToken);
+
     private async Task ConnectWithSavedToken()
     {
-        if (string.IsNullOrWhiteSpace(SavedToken)) return;
+        if (!CanConnectWithoutLogin) return;
 
         ErrorMessage = null;
-        EventLogService.AddLog("Connecting with saved token...");
+        EventLogService.AddLog(UseLocalCliEnabled ? "Connecting to local Twitch CLI..." : "Connecting with saved token...");
 
-        var success = await TwitchService.ConnectAsync(SavedToken);
+        var success = await TwitchService.ConnectAsync();
         if (!success)
         {
             EventLogService.AddLog("Connection failed", isError: true);
@@ -524,11 +527,6 @@
         });
     }
 
-    private void OnLogChanged()
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
     private void ToggleAutoConnect(bool enabled)
     {
         AutoConnectEnabled = enabled;
@@ -549,12 +547,24 @@
         }
     }
 
+    private void UpdateLocalCliUrl(string? value)
+    {
+        LocalCliUrl = value?.Trim() ?? string.Empty;
+        if (!TwitchAuthService.IsValidLocalCliUrl(LocalCliUrl))
+        {
+            LocalCliUrlError = "Enter a ws:// or wss:// URL, e.g. " + TwitchConstants.DefaultLocalCliUrl;
+            return;
+        }
+
+        LocalCliUrlError = null;
+        AuthService.LocalCliUrl = LocalCliUrl;
+    }
+
     private async Task LogoutAsync()
     {
         await TwitchService.DisconnectAsync();
         AuthService.ClearAuth();
         OAuthToken = "";
-        SavedToken = null;
         AutoConnectEnabled = false;
         EventLogService.AddLog("Logged out and cleared saved token");
         StateHasChanged();
@@ -564,14 +574,8 @@
     {
         AuthService.ClearAuth();
         OAuthToken = "";
-        SavedToken = null;
         EventLogService.AddLog("Token cleared from config");
         StateHasChanged();
-    }
-
-    private void ClearLog()
-    {
-        EventLogService.Clear();
     }
 
     public void Dispose()
@@ -579,6 +583,5 @@
         AuthService.StatusChanged -= OnAuthStatusChanged;
         TwitchService.ConnectionStateChanged -= OnConnectionStateChanged;
         TwitchService.ErrorOccurred -= OnError;
-        EventLogService.LogChanged -= OnLogChanged;
     }
 }

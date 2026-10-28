@@ -41,6 +41,14 @@ $PluginsRepoRoot = Split-Path -Parent $ScriptsDir
 $RepoRoot = Join-Path $PluginsRepoRoot "Plugins"
 $TemplatesDir = Join-Path $ScriptsDir "templates"
 
+# The SDK version every plugin builds against is pinned once in Directory.Build.props.
+$buildProps = Get-Content (Join-Path $PluginsRepoRoot "Directory.Build.props") -Raw
+$SdkVersion = [regex]::Match($buildProps, '<PluginSdkVersion>(.*?)</PluginSdkVersion>').Groups[1].Value
+if (-not $SdkVersion) {
+    Write-Err "PluginSdkVersion not found in Directory.Build.props"
+    exit 1
+}
+
 # Verify templates exist
 if (-not (Test-Path $TemplatesDir)) {
     Write-Err "Templates directory not found: $TemplatesDir"
@@ -118,6 +126,7 @@ function Expand-Template {
     $content = $content -replace '\{\{DESCRIPTION\}\}', $Description
     $content = $content -replace '\{\{SAFE_NAME\}\}', $SafeName
     $content = $content -replace '\{\{ROUTE_NAME\}\}', $RouteName
+    $content = $content -replace '\{\{SDK_VERSION\}\}', $SdkVersion
     $content = $content -replace '\{\{DATE\}\}', $Date
     
     # Ensure directory exists
@@ -277,6 +286,22 @@ else {
 }
 
 # ───────────────────────────────────────────────────────────────
+# ADD TO SOLUTION
+# ───────────────────────────────────────────────────────────────
+
+Write-Header "Adding project to MultiShock.Plugins.slnx..."
+
+$solutionPath = Join-Path $PluginsRepoRoot "MultiShock.Plugins.slnx"
+$csprojRelative = "Plugins\$PluginFolder\$PluginFolder.csproj"
+dotnet sln $solutionPath add (Join-Path $PluginsRepoRoot $csprojRelative) --solution-folder Plugins | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Write-Success "  Added: $csprojRelative"
+}
+else {
+    Write-Err "  Failed to add $csprojRelative to the solution"
+}
+
+# ───────────────────────────────────────────────────────────────
 # SUMMARY
 # ───────────────────────────────────────────────────────────────
 
@@ -292,7 +317,7 @@ Write-Host ""
 Write-Header "Structure:"
 Write-Host @"
   $PluginFolder/
-  ├── $PluginFolder.csproj   # Project file
+  ├── $PluginFolder.csproj   # Version line only; shared settings come from Directory.Build.*
   ├── plugin.json            # Manifest versioned by release-please
   ├── Plugin.cs              # Main plugin class
   ├── _Imports.razor         # Razor imports
@@ -306,7 +331,7 @@ Write-Host @"
 
 Write-Header "Next steps:"
 Write-Host "  1. cd $PluginFolder"
-Write-Host "  2. dotnet build"
+Write-Host "  2. dotnet build   (drops a .msplugin into your local MultiShock plugin folder)"
 Write-Host "  3. Customize Plugin.cs, HomePage.razor, and ExampleNode.cs"
 Write-Host ""
 

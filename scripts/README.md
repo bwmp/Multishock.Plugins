@@ -58,7 +58,10 @@ This will:
 .\scripts\release-plugins.ps1 -Plugin "TwitchIntegration"
 ```
 
-Release archives are created in the `releases/` folder at the repo root.
+Release archives are created in the `releases/` folder at the repo root. The script builds each
+plugin, runs the shared `StagePluginPackage` MSBuild target from `Directory.Build.targets`, writes a
+validated Manifest v2 `plugin.json`, zips the result, and records a SHA-256 checksum. The `sdkVersion`
+stamped into each manifest is `PluginSdkVersion` from `Directory.Build.props`.
 
 ### List Plugins
 
@@ -74,13 +77,12 @@ The repository includes automated workflows:
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `build.yml` | Push/PR to main | Builds all changed plugins |
+| `build.yml` | Push/PR to main | Builds and tests `MultiShock.Plugins.slnx`, uploads the `.msplugin` packages |
 | `release-please.yml` | Push to main | Creates release PRs and publishes releases |
-| `manual-release.yml` | Manual | Manually trigger a release for any plugin |
 
 ## Release Please Integration
 
 When you create a new plugin, it's automatically added to the release-please configuration. Each plugin has:
 - Its own `CHANGELOG.md` managed by release-please
-- Unique release tags: `plugin-name-plugin-v1.0.0`
+- Unique release tags: `<PluginName>-v<version>` (for example `TwitchIntegration-v1.3.0`)
 - Separate version tracking in `.release-please-manifest.json`

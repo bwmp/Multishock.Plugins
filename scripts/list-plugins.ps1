@@ -73,9 +73,10 @@ if ($Plugins.Count -gt 0) {
         }
         
         # Check if built
-        $dllPath = Join-Path $folder.FullName "bin\Release\net10.0\$pluginName.dll"
-        $builtIndicator = if (Test-Path $dllPath) { "✓" } else { "○" }
-        $builtColor = if (Test-Path $dllPath) { "Green" } else { "DarkGray" }
+        $releaseDir = Join-Path $folder.FullName "bin\Release"
+        $isBuilt = (Test-Path $releaseDir) -and (Get-ChildItem -Path $releaseDir -Recurse -Filter "$pluginName.dll" | Select-Object -First 1)
+        $builtIndicator = if ($isBuilt) { "✓" } else { "○" }
+        $builtColor = if ($isBuilt) { "Green" } else { "DarkGray" }
         
         Write-Host "    $builtIndicator " -ForegroundColor $builtColor -NoNewline
         Write-Host "$pluginName" -ForegroundColor White -NoNewline

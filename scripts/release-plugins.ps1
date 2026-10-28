@@ -155,6 +155,9 @@ if ($PluginFolders.Count -eq 0) {
 Write-Host "Creating release builds for $($PluginFolders.Count) plugin(s)..." -ForegroundColor White
 Write-Host ""
 
+# Every plugin references the SDK version pinned in Directory.Build.props.
+$sharedSdkVersion = Get-CsprojProperty (Join-Path $PluginsRepoRoot "Directory.Build.props") "PluginSdkVersion"
+
 $ReleasedPlugins = @()
 $FailedPlugins = @()
 
@@ -182,46 +185,21 @@ foreach ($folder in $PluginFolders) {
 
         # Build
         Write-Host "  → Building..." -ForegroundColor Yellow
-        # Some plugin projects create a developer package after every build. Redirect
-        # that target away from the user's real MultiShock plugin directory in local runs.
-        $localBuildPluginDir = Join-Path $folder.FullName "bin\CatalogBuildInstall"
-        dotnet build $csprojPath -c Release --nologo -v q -property:LocalPluginDir=$localBuildPluginDir
-
+        dotnet build $csprojPath -c Release --nologo -v q -p:SkipPluginPackaging=true
         if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
-        # Resolve the actual TargetDir instead of assuming net10.0. Windows-specific
-        # plugins use TFMs such as net10.0-windows10.0.22621.0 and otherwise produced
-        # manifest-only packages from a stale/empty net10.0 directory.
-        $targetDirOutput = dotnet msbuild $csprojPath -nologo -getProperty:TargetDir -property:Configuration=Release
-        if ($LASTEXITCODE -ne 0) { throw "Could not resolve the build output directory" }
-        $buildOutput = ($targetDirOutput | Where-Object { $_ -and (Test-Path $_ -PathType Container) } | Select-Object -Last 1)
-        if (-not $buildOutput) { throw "Build output directory could not be resolved for $pluginName" }
-        $entryAssembly = Join-Path $buildOutput "$pluginName.dll"
-        if (-not (Test-Path $entryAssembly -PathType Leaf)) { throw "Built entry assembly not found: $entryAssembly" }
-
+        # Lay out the package with the same MSBuild target developers use locally, so the
+        # catalog artifact never drifts from what `dotnet build` produces.
         $tempDir = Join-Path $folder.FullName "bin\Publish"
-
         if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
-        New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-
-        # Include the plugin's own assemblies plus any dependency/native files, so the
-        # .msplugin package is self-contained (excluding the SDK, which the host provides).
-        Get-ChildItem -Path $buildOutput -Recurse -File | Where-Object {
-            $_.Name -notin @("MultiShock.PluginSdk.dll", "PiShock.MultiShock.PluginSdk.dll") -and (
-                $_.Extension -in @(".dll", ".pdb", ".json") -or
-                $_.Directory.Name -eq "native" -or
-                $_.FullName -match '[\\/]runtimes[\\/]'
-            )
-        } | ForEach-Object {
-            $relative = $_.FullName.Substring($buildOutput.Length).TrimStart('\', '/')
-            $dest = Join-Path $tempDir $relative
-            New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
-            Copy-Item $_.FullName -Destination $dest
-        }
+        dotnet msbuild $csprojPath -nologo -v q -t:StagePluginPackage -p:Configuration=Release "-p:PluginStagingDir=$tempDir"
+        if ($LASTEXITCODE -ne 0) { throw "Packaging failed" }
+        $entryAssembly = Join-Path $tempDir "$pluginName.dll"
+        if (-not (Test-Path $entryAssembly -PathType Leaf)) { throw "Staged entry assembly not found: $entryAssembly" }
 
         # Generate + validate Manifest v2, overwriting any legacy plugin.json in the package.
         $pluginId = Get-PluginId -PluginFolder $folder.FullName -PluginName $pluginName
-        $effectiveSdk = if ($SdkVersion) { $SdkVersion } else { Get-CsprojProperty $csprojPath "PluginSdkVersion" }
+        $effectiveSdk = if ($SdkVersion) { $SdkVersion } else { $sharedSdkVersion }
         $manifest = New-PluginManifestV2 -PluginName $pluginName -Version $version -CsprojPath $csprojPath `
             -PluginId $pluginId -SdkVersion $effectiveSdk -MinAppVersion $MinAppVersion
 
@@ -241,7 +219,20 @@ foreach ($folder in $PluginFolders) {
 
         if (Test-Path $packagePath) { Remove-Item $packagePath }
         if (Test-Path $zipStagingPath) { Remove-Item $zipStagingPath }
-        Compress-Archive -Path "$tempDir\*" -DestinationPath $zipStagingPath -CompressionLevel Optimal
+        # Antivirus scanners briefly lock freshly staged files; retry instead of failing the release.
+        $zipAttempt = 0
+        while ($true) {
+            try {
+                Compress-Archive -Path "$tempDir\*" -DestinationPath $zipStagingPath -CompressionLevel Optimal
+                break
+            }
+            catch [System.IO.IOException] {
+                $zipAttempt++
+                if ($zipAttempt -ge 5) { throw }
+                if (Test-Path $zipStagingPath) { Remove-Item $zipStagingPath }
+                Start-Sleep -Seconds 2
+            }
+        }
         Move-Item -Path $zipStagingPath -Destination $packagePath
 
         # Re-open the exact artifact that will be published. This catches packaging and
@@ -291,9 +282,7 @@ foreach ($folder in $PluginFolders) {
             Size = (Get-Item $packagePath).Length
         }
 
-        # Cleanup temp dir
         Remove-Item -Recurse -Force $tempDir
-        if (Test-Path $localBuildPluginDir) { Remove-Item -Recurse -Force $localBuildPluginDir }
     }
     catch {
         Write-Host "  ✗ Failed: $_" -ForegroundColor Red

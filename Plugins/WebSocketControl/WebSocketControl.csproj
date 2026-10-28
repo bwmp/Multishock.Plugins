@@ -1,31 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>WebSocketControl</AssemblyName>
-    <RootNamespace>WebSocketControl</RootNamespace>
-    <PluginVersion>0.1.0</PluginVersion> <!-- x-release-please-version -->
-    <Version>$(PluginVersion)</Version>
-    <OutputPath>bin\$(Configuration)\net10.0\</OutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-    <PackageReference Include="PiShock.MultiShock.PluginSdk" Version="1.15.0" ExcludeAssets="runtime" />
-  </ItemGroup>
-  <Target Name="PackPluginPackage" AfterTargets="Build" Condition="'$(SkipPluginPackaging)' != 'true'">
     <PropertyGroup>
-      <LocalPluginDir>$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
-      <PluginStagingDir>$(IntermediateOutputPath)msplugin-staging</PluginStagingDir>
-      <PluginPackagePath>$(LocalPluginDir)\$(AssemblyName).msplugin</PluginPackagePath>
+        <PluginVersion>0.1.0</PluginVersion> <!-- x-release-please-version -->
     </PropertyGroup>
-    <RemoveDir Directories="$(PluginStagingDir)" />
-    <MakeDir Directories="$(PluginStagingDir);$(LocalPluginDir)" />
-    <Copy SourceFiles="$(MSBuildProjectDirectory)\plugin.json;$(TargetPath)" DestinationFolder="$(PluginStagingDir)" />
-    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginStagingDir)" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
-    <Copy SourceFiles="$(TargetDir)$(TargetName).deps.json" DestinationFolder="$(PluginStagingDir)" Condition="Exists('$(TargetDir)$(TargetName).deps.json')" />
-    <ZipDirectory SourceDirectory="$(PluginStagingDir)" DestinationFile="$(PluginPackagePath)" Overwrite="true" />
-    <Message Importance="High" Text="Created plugin package: $(PluginPackagePath)" />
-  </Target>
 </Project>

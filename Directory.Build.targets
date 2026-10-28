@@ -1,0 +1,91 @@
+<Project>
+    <PropertyGroup Condition="'$(IsPluginProject)' == 'true'">
+        <Version>$(PluginVersion)</Version>
+        <InformationalVersion Condition="'$(Configuration)' == 'Release'">$(PluginVersion)</InformationalVersion>
+        <InformationalVersion Condition="'$(Configuration)' != 'Release'">$(PluginVersion)+$(PluginBuildStamp)</InformationalVersion>
+
+        <!-- Assemblies the host already loads; shipping them inside a package would only risk version conflicts. -->
+        <PluginHostProvidedAssemblyPattern Condition="'$(PluginHostProvidedAssemblyPattern)' == ''">^(PiShock\.MultiShock\.PluginSdk|MultiShock\.PluginSdk|Microsoft\.AspNetCore\.|Microsoft\.Extensions\.|Microsoft\.JSInterop|System\.)</PluginHostProvidedAssemblyPattern>
+
+        <LocalPluginDir Condition="'$(LocalPluginDir)' == '' and $([MSBuild]::IsOSPlatform('windows'))">$(LOCALAPPDATA)\PiShock\MultiShock\Plugins</LocalPluginDir>
+        <LocalPluginDir Condition="'$(LocalPluginDir)' == '' and $([MSBuild]::IsOSPlatform('osx'))">$(HOME)/Library/Application Support/PiShock/MultiShock/Plugins</LocalPluginDir>
+        <LocalPluginDir Condition="'$(LocalPluginDir)' == ''">$(HOME)/.local/share/PiShock/MultiShock/Plugins</LocalPluginDir>
+        <PluginPackageDir Condition="'$(PluginPackageDir)' == ''">$(LocalPluginDir)</PluginPackageDir>
+
+        <PluginManifestPath Condition="'$(PluginManifestPath)' == '' and $([MSBuild]::IsOSPlatform('osx')) and Exists('$(MSBuildProjectDirectory)/plugin.macos.json')">$(MSBuildProjectDirectory)/plugin.macos.json</PluginManifestPath>
+        <PluginManifestPath Condition="'$(PluginManifestPath)' == '' and $([MSBuild]::IsOSPlatform('linux')) and Exists('$(MSBuildProjectDirectory)/plugin.linux.json')">$(MSBuildProjectDirectory)/plugin.linux.json</PluginManifestPath>
+        <PluginManifestPath Condition="'$(PluginManifestPath)' == ''">$(MSBuildProjectDirectory)/plugin.json</PluginManifestPath>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(IsPluginProject)' == 'true'">
+        <Compile Remove="Generated\BuildStamp.g.cs" />
+    </ItemGroup>
+
+    <!-- Writes Generated/BuildStamp.g.cs so plugins can display their version and build time at runtime. -->
+    <Target Name="GenerateBuildStamp" BeforeTargets="BeforeCompile" Condition="'$(IsPluginProject)' == 'true'">
+        <MakeDir Directories="$(MSBuildProjectDirectory)\Generated" />
+        <ItemGroup>
+            <StampLines Include="namespace $(RootNamespace)%3B" />
+            <StampLines Include=" " />
+            <StampLines Include="public static class BuildStamp" />
+            <StampLines Include="{" />
+            <StampLines Include="    public const string Stamp = &quot;$(PluginBuildStamp)&quot;%3B" />
+            <StampLines Include="    public const string Version = &quot;$(InformationalVersion)&quot;%3B" />
+            <StampLines Include="}" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(MSBuildProjectDirectory)\Generated\BuildStamp.g.cs" Lines="@(StampLines)" Overwrite="true" />
+        <ItemGroup>
+            <Compile Include="Generated\BuildStamp.g.cs" />
+        </ItemGroup>
+    </Target>
+
+    <!--
+        Lays out the .msplugin contents in $(PluginStagingDir): plugin.json, the plugin assembly, and every
+        build output the host does not already provide (managed dependencies, runtimes/ native libraries).
+        Plugins add files outside the build output with <PluginPackageFile Include="..." PackagePath="..." />.
+        The release script calls this target directly and zips the result itself.
+    -->
+    <Target Name="StagePluginPackage" Condition="'$(IsPluginProject)' == 'true'">
+        <PropertyGroup>
+            <PluginStagingDir Condition="'$(PluginStagingDir)' == ''">$(MSBuildProjectDirectory)\$(IntermediateOutputPath)msplugin-staging\</PluginStagingDir>
+            <PluginStagingDir Condition="!HasTrailingSlash('$(PluginStagingDir)')">$(PluginStagingDir)\</PluginStagingDir>
+        </PropertyGroup>
+
+        <Error Text="Plugin manifest not found: $(PluginManifestPath)" Condition="!Exists('$(PluginManifestPath)')" />
+
+        <RemoveDir Directories="$(PluginStagingDir)" />
+        <MakeDir Directories="$(PluginStagingDir)" />
+
+        <ItemGroup>
+            <_PluginOutputFile Include="$(TargetDir)**\*" Exclude="$(TargetDir)**\*.xml;$(TargetDir)**\*.staticwebassets.*;$(TargetDir)plugin.json" />
+            <_PluginExtraFile Include="@(PluginPackageFile)" />
+            <_PluginExtraFile Condition="'%(_PluginExtraFile.PackagePath)' == ''">
+                <PackagePath>%(Filename)%(Extension)</PackagePath>
+            </_PluginExtraFile>
+        </ItemGroup>
+
+        <Copy SourceFiles="@(_PluginOutputFile)"
+              DestinationFiles="@(_PluginOutputFile->'$(PluginStagingDir)%(RecursiveDir)%(Filename)%(Extension)')"
+              Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(_PluginOutputFile.Filename)', '$(PluginHostProvidedAssemblyPattern)'))" />
+        <Copy SourceFiles="@(_PluginExtraFile)"
+              DestinationFiles="@(_PluginExtraFile->'$(PluginStagingDir)%(PackagePath)')"
+              Condition="'@(_PluginExtraFile)' != ''" />
+        <Copy SourceFiles="$(PluginManifestPath)" DestinationFiles="$(PluginStagingDir)plugin.json" />
+    </Target>
+
+    <!-- Developer loop: every build drops a fresh .msplugin into the local MultiShock plugin folder. -->
+    <Target Name="PackPluginPackage" AfterTargets="Build" DependsOnTargets="StagePluginPackage" Condition="'$(IsPluginProject)' == 'true' and '$(SkipPluginPackaging)' != 'true'">
+        <PropertyGroup>
+            <PluginPackagePath>$(PluginPackageDir)\$(AssemblyName).msplugin</PluginPackagePath>
+        </PropertyGroup>
+
+        <MakeDir Directories="$(PluginPackageDir)" />
+        <Delete Files="$(PluginPackagePath)" Condition="Exists('$(PluginPackagePath)')" />
+        <ZipDirectory SourceDirectory="$(PluginStagingDir)" DestinationFile="$(PluginPackagePath)" Overwrite="true" />
+
+        <!-- Loose assemblies from the old copy-the-DLL workflow would be loaded alongside the package. -->
+        <Delete Files="$(LocalPluginDir)\$(AssemblyName).dll;$(LocalPluginDir)\$(AssemblyName).pdb;$(LocalPluginDir)\$(AssemblyName).deps.json" />
+
+        <Message Importance="High" Text="Created plugin package: $(PluginPackagePath)" />
+    </Target>
+</Project>

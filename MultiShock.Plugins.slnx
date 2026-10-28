@@ -1,0 +1,25 @@
+<Solution>
+    <Folder Name="/Plugins/">
+        <Project Path="Plugins/FanslyIntegration/FanslyIntegration.csproj" />
+        <Project Path="Plugins/HeartRateIntegration/HeartRateIntegration.csproj" />
+        <Project Path="Plugins/ImageDetection/ImageDetection.csproj" />
+        <Project Path="Plugins/JoystickIntegration/JoystickIntegration.csproj" />
+        <Project Path="Plugins/OBSIntegration/OBSIntegration.csproj" />
+        <Project Path="Plugins/RandomNodes/RandomNodes.csproj" />
+        <Project Path="Plugins/SpeechToText/SpeechToText.csproj" />
+        <Project Path="Plugins/SteamVROverlay/SteamVROverlay.csproj" />
+        <Project Path="Plugins/StreamElementsIntegration/StreamElementsIntegration.csproj" />
+        <Project Path="Plugins/StreamlabsIntegration/StreamlabsIntegration.csproj" />
+        <Project Path="Plugins/ThroneIntegration/ThroneIntegration.csproj" />
+        <Project Path="Plugins/TikTokIntegration/TikTokIntegration.csproj" />
+        <Project Path="Plugins/TwitchIntegration/TwitchIntegration.csproj" />
+        <Project Path="Plugins/VRChatOSC/VRChatOSC.csproj" />
+        <Project Path="Plugins/WebSocketControl/WebSocketControl.csproj" />
+    </Folder>
+    <Folder Name="/Tests/">
+        <Project Path="Tests/HeartRateIntegration.Tests/HeartRateIntegration.Tests.csproj" />
+        <Project Path="Tests/SteamVROverlay.Tests/SteamVROverlay.Tests.csproj" />
+        <Project Path="Tests/TwitchIntegration.Tests/TwitchIntegration.Tests.csproj" />
+        <Project Path="Tests/WebSocketControl.Tests/WebSocketControl.Tests.csproj" />
+    </Folder>
+</Solution>

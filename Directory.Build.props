@@ -1,0 +1,48 @@
+<Project>
+    <!--
+        Shared settings for every project in this repo. Plugin projects live under Plugins/,
+        test projects under Tests/. Per-plugin csproj files only declare what differs:
+        the release-please version line, extra package references, and TFM overrides.
+    -->
+    <PropertyGroup>
+        <PluginSdkVersion>1.15.0</PluginSdkVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <IsPluginProject Condition="$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)Plugins'))">true</IsPluginProject>
+        <IsPluginTestProject Condition="$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)Tests'))">true</IsPluginTestProject>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(IsPluginProject)' == 'true'">
+        <TargetFramework>net10.0</TargetFramework>
+        <RazorLangVersion>Latest</RazorLangVersion>
+        <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+        <RootNamespace>$(MSBuildProjectName)</RootNamespace>
+        <PluginBuildStamp>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</PluginBuildStamp>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <!-- NuGet dependencies must land in the output directory so the .msplugin package can include them. -->
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(IsPluginProject)' == 'true'">
+        <PackageReference Include="Microsoft.AspNetCore.Components" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+        <!-- The host provides the SDK at runtime; it must never ship inside a plugin package. -->
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" ExcludeAssets="runtime" />
+        <EmbeddedResource Include="wwwroot\styles.css" LogicalName="$(MSBuildProjectName).styles.css" Condition="Exists('$(MSBuildProjectDirectory)\wwwroot\styles.css')" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(IsPluginTestProject)' == 'true'">
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(IsPluginTestProject)' == 'true'">
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit" />
+        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+        <PackageReference Include="PiShock.MultiShock.PluginSdk" />
+        <Using Include="Xunit" />
+    </ItemGroup>
+</Project>

@@ -1,45 +1,30 @@
 @page "/plugins/com-multishock-tiktokintegration/events-config"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
-@using TikTokIntegration.Components.Config
 @implements IDisposable
 
-<div class="space-y-4">
-    <div>
-        <h1 class="text-xl font-bold text-app-text">Follows, Shares &amp; Subs</h1>
-        <p class="text-sm mt-1 text-app-muted">
-            Configure reactions for non-gift TikTok events. Each is off by default.
-        </p>
-    </div>
+<PageHeader Title="Follows, shares and subs" Icon="user-plus"
+            Description="Run a shocker action for follows, shares, subscriptions, viewer joins and likes. Each reaction runs only while its switch is on; you can set it up first. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+</PageHeader>
 
-    <SimpleActionCard Title="New Follower" Icon="user-plus" Config="Service.Config.Follow"
-        Description="Fires the first time each viewer follows during a stream."
-        OnChanged="Save" />
-
-    <SimpleActionCard Title="Stream Shared" Icon="share-2" Config="Service.Config.Share"
-        Description="Fires when a viewer shares the live stream."
-        OnChanged="Save" />
-
-    <SimpleActionCard Title="New Subscriber" Icon="star" Config="Service.Config.Subscribe"
-        Description="Fires when a viewer subscribes to the streamer."
-        OnChanged="Save" />
-
-    <SimpleActionCard Title="Viewer Joined" Icon="log-in" Config="Service.Config.Join"
-        Description="Fires when a viewer joins the room. Can be very frequent on busy streams."
-        OnChanged="Save" />
-
-    <SimpleActionCard Title="Likes" Icon="heart" Config="Service.Config.Likes"
-        Description="TikTok delivers likes in batches. Trigger once per threshold of accumulated likes."
-        OnChanged="Save">
-        <ExtraTop>
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-app-muted">Trigger every</span>
-                <NumberInput Value="@((double)Service.Config.Likes.EveryNLikes)" Min="1" Max="100000" Class="w-24"
-                    ValueChanged="@(v => UpdateLikeThreshold(v))" />
-                <span class="text-xs text-app-muted">likes</span>
-            </div>
-        </ExtraTop>
-    </SimpleActionCard>
+<div class="max-w-4xl space-y-4">
+    <Card Title="Event reactions">
+        <div class="divide-y divide-app-border">
+            <EventReactionRow Title="New follower" Icon="user-plus" Config="Service.Config.Follow"
+                              Description="The first time each viewer follows during a stream." OnChanged="Save" />
+            <EventReactionRow Title="Stream shared" Icon="share-2" Config="Service.Config.Share"
+                              Description="When a viewer shares the live stream." OnChanged="Save" />
+            <EventReactionRow Title="New subscriber" Icon="star" Config="Service.Config.Subscribe"
+                              Description="When a viewer subscribes to you." OnChanged="Save" />
+            <EventReactionRow Title="Viewer joined" Icon="log-in" Config="Service.Config.Join"
+                              Description="When a viewer joins the room. This can fire very often on busy streams." OnChanged="Save" />
+            <EventReactionRow Title="Likes" Icon="heart" Config="Service.Config.Likes"
+                              Description="TikTok sends likes in batches, so this fires once each time the total passes another threshold."
+                              OnChanged="Save">
+                <NumberField Label="Fire every" Suffix="likes" Min="1" Max="100000"
+                             Value="Service.Config.Likes.EveryNLikes" ValueChanged="UpdateLikeThreshold" />
+            </EventReactionRow>
+        </div>
+    </Card>
 </div>
 
 @code {
@@ -55,9 +40,9 @@
 
     private void Save() => Service.SaveConfig();
 
-    private void UpdateLikeThreshold(double? value)
+    private void UpdateLikeThreshold(double value)
     {
-        Service.Config.Likes.EveryNLikes = (int)Math.Clamp(value ?? 100, 1, 100000);
+        Service.Config.Likes.EveryNLikes = (int)Math.Clamp(Math.Round(value), 1, 100000);
         Service.SaveConfig();
     }
 

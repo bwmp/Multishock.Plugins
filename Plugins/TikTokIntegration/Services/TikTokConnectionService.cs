@@ -175,7 +175,7 @@ public class TikTokConnectionService : IAsyncDisposable
                     break;
                 }
 
-                OnStatusMessage?.Invoke($"Checking if @{username} is live...");
+                OnStatusMessage?.Invoke($"Checking if @{username} is live…");
                 await TryConnectOnceAsync(username, ct);
             }
         }
@@ -323,7 +323,7 @@ public class TikTokConnectionService : IAsyncDisposable
                     return;
                 }
 
-                OnStatusMessage?.Invoke("Reconnecting...");
+                OnStatusMessage?.Invoke("Reconnecting…");
                 var connected = await TryConnectOnceAsync(username, ct);
                 if (!connected && IsWaitingForLive)
                 {

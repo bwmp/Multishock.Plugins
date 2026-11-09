@@ -16,11 +16,11 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     public string Id => PluginId;
 
-    public string Name => "Twitch Integration";
+    public string Name => "Twitch";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "Twitch EventSub integration for channel events like cheers, subs, follows, raids, and more";
+    public string Description => "Run shocker reactions and flow triggers from Twitch cheers, subscriptions, follows, hype trains and channel points.";
 
     private TwitchEventSubService? _eventSubService;
     private static ILogger? _logger;
@@ -134,51 +134,51 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     [
         new NavigationItem
         {
-            Text = "Twitch Integration",
+            Text = "Twitch",
             Href = "/twitchintegration",
-            Icon = "plug",
+            Icon = "tv-minimal-play",
             Order = 50
         },
         new NavigationItem
         {
-            Text = "Bits/Cheers",
+            Text = "Cheers",
             Href = "/cheer-config",
             Icon = "coins",
             Order = 51
         },
         new NavigationItem
         {
-            Text = "Subs / Gifted Subs",
+            Text = "Subscriptions",
             Href = "/sub-config",
-            Icon = "user-plus",
+            Icon = "users",
             Order = 52
         },
         new NavigationItem
         {
             Text = "Follows",
             Href = "/follow-config",
-            Icon = "heart",
+            Icon = "user-plus",
             Order = 53
         },
         new NavigationItem
         {
-            Text = "Hype Trains",
+            Text = "Hype trains",
             Href = "/hype-train-config",
-            Icon = "zap",
+            Icon = "train-front",
             Order = 54
         },
         new NavigationItem
         {
-            Text = "Channel Points",
+            Text = "Channel points",
             Href = "/redeem-config",
-            Icon = "gift",
+            Icon = "ticket",
             Order = 55
         },
         new NavigationItem
         {
-            Text = "Chat Messages",
+            Text = "Chat messages",
             Href = "/chat-messages",
-            Icon = "message-square",
+            Icon = "messages-square",
             Order = 56
         }
     ];
@@ -187,7 +187,7 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     [
         new GuidedSetupDefinition(
             Id: "cheers-and-subs",
-            Title: "Twitch Cheers + Subs Setup",
+            Title: "Set up Twitch cheers and subs",
             Description: "Connect Twitch, map cheers to brackets, and configure how subscription events trigger actions.",
             StartRoute: "/twitchintegration",
             Order: 0,
@@ -202,26 +202,26 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
                 new GuidedSetupStep(
                     Id: "twitch-home-login-button",
                     Title: "Use the Twitch login button for the easiest setup",
-                    Description: "This button handles the normal authorization flow and requests the scopes the plugin needs. If you already have a valid token, the same area can reconnect with it instead. Manual token entry is still available lower in the connection card, but the guided login path is usually the least painful option.",
+                    Description: "This button handles the normal authorization flow and requests the scopes the plugin needs. If you already have a valid token, the same area can reconnect with it instead. Manual token entry is still available under Advanced, but the guided login path is usually the least painful option.",
                     TargetSelector: "[data-guided-setup='twitch-home-login-button']",
                     NextMode: GuidedSetupNextMode.Manual),
                 new GuidedSetupStep(
                     Id: "twitch-home-auto-connect",
                     Title: "Decide how reconnects should work",
-                    Description: "Auto-connect makes the plugin reconnect on app startup so you do not have to babysit it every time MultiShock launches. The local CLI toggle is mostly for testing and troubleshooting, so most users can leave that off unless they know they need it.",
+                    Description: "Connect on startup makes the plugin reconnect when MultiShock starts so you do not have to babysit it every time MultiShock launches. The local Twitch CLI option under Advanced is only for testing, so most users can leave that off unless they know they need it.",
                     TargetSelector: "[data-guided-setup='twitch-home-auto-connect']",
                     NextMode: GuidedSetupNextMode.Manual),
                 new GuidedSetupStep(
                     Id: "twitch-home-open-cheers",
                     Title: "Next, open the cheers configuration",
-                    Description: "Use this quick link to jump straight into Bits/Cheers setup. That page lets you define keyword-based sections and bit brackets so different cheers can trigger different actions and intensities.",
+                    Description: "Use this quick link to jump straight into cheers setup. That page lets you define keyword-based sections and bit brackets so different cheers can trigger different actions and intensities.",
                     TargetSelector: "[data-guided-setup='twitch-home-open-cheers']",
                     NextMode: GuidedSetupNextMode.WaitForRoute,
                     ExpectedRoute: "/cheer-config"),
                 new GuidedSetupStep(
                     Id: "twitch-cheers-toolbar",
                     Title: "Enable cheers and add sections here",
-                    Description: "The master toggle turns all cheer handling on or off without deleting your work. Add Section creates a new matching rule. A good pattern is one default section as a fallback plus optional keyword sections for themed commands like shock, buzz, or celebration.",
+                    Description: "The master toggle turns all cheer handling on or off without deleting your work. Add section creates a new matching rule. A good pattern is one default section as a fallback plus optional keyword sections for themed commands like shock, buzz, or celebration.",
                     TargetSelector: "[data-guided-setup='twitch-cheers-toolbar']",
                     NextMode: GuidedSetupNextMode.Manual),
                 new GuidedSetupStep(
@@ -284,7 +284,9 @@ public class TwitchIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     // ========== FLOW NODES (IFlowNodeProvider) ==========
 
-    public IEnumerable<IFlowNode> GetNodeTypes()
+    public IEnumerable<IFlowNode> GetNodeTypes() => CreateNodeTypes();
+
+    internal static IEnumerable<IFlowNode> CreateNodeTypes()
     {
         // Twitch event trigger nodes
         yield return new CheerTriggerNode();

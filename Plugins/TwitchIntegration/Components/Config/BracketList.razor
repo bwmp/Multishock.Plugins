@@ -1,93 +1,58 @@
 @namespace TwitchIntegration.Components.Config
 @typeparam TBracket
 
-<div class="space-y-2">
-    @if (Brackets.Any())
-    {
-        <div class="twitch-bracket-header">
-            <span class="w-12"></span>
-            <span class="w-20">@CountLabel</span>
-            <span class="flex-1">Intensity</span>
-            <span class="flex-1">Duration</span>
-            <span class="w-28">Mode</span>
-            <span class="w-8"></span>
-        </div>
-    }
+@* Rows run edge to edge inside the parent panel; the outer cells carry the panel's horizontal padding. *@
+@if (Brackets.Any())
+{
+    var unit = CountLabel.ToLowerInvariant();
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] text-sm">
+            <thead>
+                <tr class="border-b border-app-border text-left text-xs text-app-muted">
+                    <th scope="col" class="w-36 py-2 pl-4 pr-3 font-medium">From</th>
+                    <th scope="col" class="w-32 px-3 py-2 font-medium">Intensity</th>
+                    <th scope="col" class="w-32 px-3 py-2 font-medium">Duration</th>
+                    <th scope="col" class="w-52 px-3 py-2 font-medium">Mode</th>
+                    <th scope="col" class="py-2 pl-3 pr-4"><span class="sr-only">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-app-border">
+            @foreach (var bracket in Brackets.OrderBy(CountSelector))
+            {
+                var name = BracketName(bracket);
+                <tr @key="bracket">
+                    <td class="py-2 pl-4 pr-3 align-top"><NumberField Label="@($"Bracket starts at ({unit})")" Class="[&_label]:sr-only" Disabled="Disabled" Suffix="@unit" Min="1" Max="CountMax" Value="@CountSelector(bracket)" ValueChanged="@(v => OnCountChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)v)))" /></td>
+                    <td class="px-3 py-2 align-top"><NumberField Label="@($"Intensity for {name}")" Class="[&_label]:sr-only" Disabled="Disabled" Suffix="%" Min="1" Max="100" Value="@IntensitySelector(bracket)" ValueChanged="@(v => OnIntensityChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)v)))" /></td>
+                    <td class="px-3 py-2 align-top"><NumberField Label="@($"Duration for {name}")" Class="[&_label]:sr-only" Disabled="Disabled" Suffix="s" Min="0.1" Max="15" Step="0.1" Value="DurationSelector(bracket)" ValueChanged="@(v => OnDurationChanged.InvokeAsync(new BracketValueChange<TBracket, double>(bracket, v)))" /></td>
+                    <td class="px-3 py-2 align-top"><Select TValue="string" Label="@($"Mode for {name}")" Class="[&_label]:sr-only" Disabled="Disabled" Value="@ModeSelector(bracket)" Options="ActionOptions.Modes" ValueChanged="@(EventCallback.Factory.Create<string>(this, value => OnModeChanged.InvokeAsync(new BracketValueChange<TBracket, string>(bracket, value))))" /></td>
+                    <td class="py-2 pl-3 pr-4 text-right align-top"><Button Variant="ghost" Size="icon-sm" Icon="trash-2" AriaLabel="@($"Remove {name}")" Title="Remove bracket" Disabled="Disabled" OnClick="@(() => _pendingRemoval = (bracket, name))" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <p class="flex items-center gap-1.5 px-4 pb-3 text-xs text-app-warning">
+        <LucideIcon Name="alert-triangle" Size="12" Class="shrink-0" />
+        <span>@EmptyText</span>
+    </p>
+}
 
-    @for (var i = 0; i < Brackets.Count; i++)
-    {
-        var bracket = Brackets[i];
-        var isFirst = i == 0;
-        var isLast = i == Brackets.Count - 1;
-        <div class="twitch-bracket">
-            <div class="flex gap-1 w-16">
-                <Button Variant="outline" Size="icon-sm" Disabled="@isFirst"
-                    OnClick="@(() => OnMoveUp.InvokeAsync(bracket))"
-                    Class="w-8 h-8 flex items-center justify-center">
-                    <LucideIcon Name="arrow-up" Class="w-4 h-4" />
-                </Button>
-                <Button Variant="outline" Size="icon-sm" Disabled="@isLast"
-                    OnClick="@(() => OnMoveDown.InvokeAsync(bracket))"
-                    Class="w-8 h-8 flex items-center justify-center">
-                    <LucideIcon Name="arrow-down" Class="w-4 h-4" />
-                </Button>
-            </div>
-
-            <div class="w-20">
-                <NumberInput Value="@((double)CountSelector(bracket))" Min="1"
-                    ValueChanged="@(v => OnCountChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)(v ?? 1))))" />
-            </div>
-
-            <div class="flex items-center gap-2 flex-1">
-                <Slider Min="1" Max="100" Value="IntensitySelector(bracket)"
-                    ValueChanged="@(v => OnIntensityChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)v)))"
-                    Class="flex-1 min-w-0" ShowValue="false" />
-                <NumberInput Value="@((double)IntensitySelector(bracket))" Min="1" Max="100"
-                    ValueChanged="@(v => OnIntensityChanged.InvokeAsync(new BracketValueChange<TBracket, int>(bracket, (int)Math.Clamp(v ?? 50, 1, 100))))"
-                    Class="w-16" />
-                <span class="text-xs text-app-muted shrink-0">%</span>
-            </div>
-
-            <div class="flex items-center gap-2 flex-1">
-                <Slider Min="0.1" Max="15" Step="0.1" Value="DurationSelector(bracket)"
-                    ValueChanged="@(v => OnDurationChanged.InvokeAsync(new BracketValueChange<TBracket, double>(bracket, v)))"
-                    Class="flex-1 min-w-0" ShowValue="false" />
-                <NumberInput Value="DurationSelector(bracket)" Min="0.1" Max="15" Step="0.1"
-                    ValueChanged="@(v => OnDurationChanged.InvokeAsync(new BracketValueChange<TBracket, double>(bracket, Math.Clamp(v ?? 1.0, 0.1, 15.0))))"
-                    Class="w-16" />
-                <span class="text-xs text-app-muted shrink-0">s</span>
-            </div>
-
-            <div class="w-28">
-                <Select Label="" Value="@ModeSelector(bracket)"
-                    ValueChanged="@(EventCallback.Factory.Create<string>(this, value => OnModeChanged.InvokeAsync(new BracketValueChange<TBracket, string>(bracket, value))))"
-                    Options="@SelectionModeOptions" />
-            </div>
-
-            <Button Variant="danger" Size="icon-sm"  OnClick="@(() => OnRemove.InvokeAsync(bracket))"
-                Class="w-8 h-8 p-0 flex items-center justify-center">
-                <LucideIcon Name="trash2" Class="w-4 h-4" />
-            </Button>
-        </div>
-    }
-
-    @if (!Brackets.Any())
-    {
-        <div class="twitch-empty">
-            <p>@EmptyTitle</p>
-            <p class="text-xs">@EmptyDescription</p>
-        </div>
-    }
-</div>
+<ConfirmDialog IsOpen="@(_pendingRemoval != null)" Title="Remove bracket?"
+               Message="@($"The {_pendingRemoval?.Name} and its intensity, duration and mode will be removed.")"
+               ConfirmText="Remove bracket" OnCancel="@(() => _pendingRemoval = null)" OnConfirm="ConfirmRemove" />
 
 @code {
+    [Parameter] public bool Disabled { get; set; }
     [Parameter] public string CountLabel { get; set; } = "Count";
+    [Parameter] public int CountMax { get; set; } = 1_000_000;
     [Parameter] public IReadOnlyList<TBracket> Brackets { get; set; } = Array.Empty<TBracket>();
     [Parameter] public Func<TBracket, int> CountSelector { get; set; } = default!;
     [Parameter] public Func<TBracket, int> IntensitySelector { get; set; } = default!;
     [Parameter] public Func<TBracket, double> DurationSelector { get; set; } = default!;
     [Parameter] public Func<TBracket, string> ModeSelector { get; set; } = default!;
-    [Parameter] public IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions { get; set; } = Array.Empty<Select<string>.SelectOption<string>>();
     [Parameter] public EventCallback<TBracket> OnMoveUp { get; set; }
     [Parameter] public EventCallback<TBracket> OnMoveDown { get; set; }
     [Parameter] public EventCallback<BracketValueChange<TBracket, int>> OnCountChanged { get; set; }
@@ -95,8 +60,20 @@
     [Parameter] public EventCallback<BracketValueChange<TBracket, double>> OnDurationChanged { get; set; }
     [Parameter] public EventCallback<BracketValueChange<TBracket, string>> OnModeChanged { get; set; }
     [Parameter] public EventCallback<TBracket> OnRemove { get; set; }
-    [Parameter] public string EmptyTitle { get; set; } = "No brackets configured";
-    [Parameter] public string EmptyDescription { get; set; } = "Add a bracket to define behavior";
+    [Parameter] public string EmptyText { get; set; } = "No brackets yet. Nothing runs until you add one.";
+
+    private (TBracket Bracket, string Name)? _pendingRemoval;
+
+    private string BracketName(TBracket bracket) => $"bracket from {CountSelector(bracket):N0} {CountLabel.ToLowerInvariant()}";
+
+    private async Task ConfirmRemove()
+    {
+        if (_pendingRemoval is { } pending)
+        {
+            _pendingRemoval = null;
+            await OnRemove.InvokeAsync(pending.Bracket);
+        }
+    }
 
     public record BracketValueChange<TBracketValue, TValue>(TBracketValue Bracket, TValue Value);
 }

@@ -4,78 +4,63 @@
 @using MultiShock.PluginSdk.Components
 @using VRChatOSC.Services
 @implements IDisposable
+@inject NavigationManager Navigation
 
 <div class="space-y-4">
-    <div class="flex items-center gap-3">
-        <div class="w-3 h-3 rounded-full @(ConnectionManager.IsConnected ? "bg-app-success" : "bg-app-subtle")"></div>
-        <span class="font-semibold">VRChat OSC</span>
-        <span class="text-sm text-app-subtle">
-            @(ConnectionManager.IsConnected ? "Connected" : (ConnectionManager.IsConnecting ? "Connecting..." : "Disconnected"))
-        </span>
-        <div class="flex-1"></div>
-        @if (ConnectionManager.IsRunning)
-        {
-            <Button Text="Stop" Variant="danger" Size="sm" OnClick="Stop" />
-        }
-        else
-        {
-            <Button Text="Start" Variant="primary" Size="sm" OnClick="Start" />
-        }
-    </div>
+    <PageHeader Title="VRChat OSC" Icon="radio" Description="Send OSC messages and use incoming avatar parameters in flows.">
+        <Meta><span class="chip @(HasConnectionError ? "chip-danger" : ConnectionManager.IsConnected ? "chip-ok" : ConnectionManager.IsConnecting ? "chip-info" : "chip-neutral")" role="status"><span class="status-dot @(HasConnectionError ? "bg-app-danger" : ConnectionManager.IsConnected ? "bg-app-success" : ConnectionManager.IsConnecting ? "bg-app-info" : "bg-app-subtle")"></span> @(HasConnectionError ? "Error" : ConnectionManager.IsConnected ? "OSC ready" : ConnectionManager.IsConnecting ? "Starting…" : "Stopped")</span></Meta>
+        <Actions><Button Text="Settings" Icon="settings" Variant="ghost" OnClick="OpenSettings" />@if (ConnectionManager.IsRunning) { <Button Text="Stop" Variant="secondary" OnClick="Stop" /> } else { <Button Text="Start" Disabled="@(!Settings.Enabled)" Title="@(!Settings.Enabled ? "Turn on OSC enabled in Settings and save first" : null)" OnClick="Start" /> }</Actions>
+    </PageHeader>
+<div class="max-w-4xl space-y-4">
 
-    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    @if (HasConnectionError) { <Alert Variant="danger">@ConnectionManager.LastError</Alert> }
+    @if (!string.IsNullOrWhiteSpace(StatusMessage) && (!HasConnectionError || StatusMessage != ConnectionManager.LastError))
     {
-        <div class="text-sm @(StatusIsError ? "text-app-danger" : "text-app-muted")">@StatusMessage</div>
+        @if (StatusIsError) { <Alert Variant="danger">@StatusMessage</Alert> } else { <p class="text-sm text-app-muted" role="status">@StatusMessage</p> }
     }
 
-    <div class="rounded border border-app-border p-3 space-y-1 text-sm">
-        <div><strong>Active Send Target:</strong> @ConnectionManager.ActiveRemoteHost:@ConnectionManager.ActiveRemotePort</div>
-        <div>
-            <strong>OSCQuery:</strong>
-            @if (ConnectionManager.IsOscQueryActive)
+    @if (!Settings.Enabled) { <p class="text-sm text-app-muted">Turn on OSC enabled in <a class="text-app-primary" href="@($"settings/plugins?open={PluginIdValue}")">Settings</a> and save to make Start available.</p> }
+    <Card Title="Connection" Description="OSC ready means the UDP transport is open; it does not confirm that VRChat is receiving messages.">
+        <dl class="space-y-2 text-sm">
+            @if (ConnectionManager.IsConnected) { <div class="flex flex-wrap gap-2"><dt class="w-44 text-app-muted">Local receive endpoint</dt><dd class="break-all">@Settings.ReceiveBindHost:@ConnectionManager.LocalReceivePort (UDP)</dd></div> }
+            <div class="flex flex-wrap gap-2"><dt class="w-44 text-app-muted">Last incoming message</dt><dd>@LastMessageText</dd></div>
+            <div class="flex flex-wrap gap-2"><dt class="w-44 text-app-muted">Active send target</dt><dd class="break-all">@ConnectionManager.ActiveRemoteHost:@ConnectionManager.ActiveRemotePort</dd></div>
+            <div class="flex flex-wrap gap-2"><dt class="w-44 text-app-muted">OSCQuery</dt><dd>@(ConnectionManager.IsOscQueryActive ? $"Advertising TCP {ConnectionManager.LocalOscQueryPort} and UDP {ConnectionManager.LocalReceivePort}" : "Not running")</dd></div>
+            @if (ConnectionManager.DiscoveredVrChatAddress != null)
             {
-                <span>Advertising TCP @ConnectionManager.LocalOscQueryPort and UDP @ConnectionManager.LocalReceivePort</span>
+                <div class="flex flex-wrap gap-2"><dt class="w-44 text-app-muted">Discovered VRChat OSC</dt><dd>@ConnectionManager.DiscoveredVrChatAddress:@ConnectionManager.DiscoveredVrChatOscPort</dd></div>
+                <div class="flex flex-wrap gap-2"><dt class="w-44 text-app-muted">Discovered OSCQuery</dt><dd>@ConnectionManager.DiscoveredVrChatAddress:@ConnectionManager.DiscoveredVrChatQueryPort</dd></div>
             }
-            else
-            {
-                <span>Not running</span>
-            }
-        </div>
-        @if (ConnectionManager.DiscoveredVrChatAddress != null && ConnectionManager.DiscoveredVrChatOscPort.HasValue)
-        {
-            <div><strong>Discovered VRChat OSC:</strong> @ConnectionManager.DiscoveredVrChatAddress:@ConnectionManager.DiscoveredVrChatOscPort</div>
-        }
-        @if (ConnectionManager.DiscoveredVrChatAddress != null && ConnectionManager.DiscoveredVrChatQueryPort.HasValue)
-        {
-            <div><strong>Discovered VRChat OSCQuery:</strong> @ConnectionManager.DiscoveredVrChatAddress:@ConnectionManager.DiscoveredVrChatQueryPort</div>
-        }
-    </div>
+        </dl>
+    </Card>
 
-    <div class="rounded border border-app-border p-3 space-y-3">
-        <div class="font-medium">Send Test OSC Message</div>
+    <Card Title="Send test OSC message" Description="Sends one message to the active send target.">
 
-        <TextInput Label="Address"
+        <SettingRow Label="Address" Description="OSC address to send to VRChat, beginning with a slash."><TextInput Class="[&_label]:sr-only" Label="Address"
                    Placeholder="/avatar/parameters/MyBool"
                    Value="@SendAddress"
-                   ValueChanged="@(value => SendAddress = value?.Trim() ?? string.Empty)" />
+                   ValueChanged="@(value => SendAddress = value?.Trim() ?? string.Empty)" /></SettingRow>
 
-        <TextInput Label="Arguments"
+        <SettingRow Label="Arguments" Description="Enter a single value or a JSON array of values."><TextInput Class="[&_label]:sr-only" Label="Arguments"
                    Placeholder="true or [true, 1]"
                    Value="@SendArguments"
-                   ValueChanged="@(value => SendArguments = value ?? string.Empty)" />
+                   ValueChanged="@(value => SendArguments = value ?? string.Empty)" /></SettingRow>
 
-        <Button Text="Send" Variant="secondary" Disabled="@(!ConnectionManager.IsConnected)" OnClick="SendTest" />
-    </div>
-
-    <div class="rounded border border-app-border p-3 space-y-2">
-        <div class="flex items-center justify-between">
-            <div class="font-medium">Incoming OSC Messages</div>
-            <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
+        <div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
+        @if (!ConnectionManager.IsConnected) { <p class="text-sm text-app-muted" role="status">Start OSC before sending a test message.</p> }
+        <Button Text="Send" Variant="secondary" Disabled="@(!ConnectionManager.IsConnected)" Title="@(!ConnectionManager.IsConnected ? "Start OSC before sending a test message" : null)" OnClick="SendTest" />
         </div>
+    </Card>
+
+    <Card Title="Incoming OSC messages">
+        <Actions>
+            @if (ReceivedMessages.Count > 0) { <Button Text="Clear" Variant="ghost" Size="sm" OnClick="ClearLog" /> }
+        </Actions>
+        <ChildContent>
 
         @if (ReceivedMessages.Count == 0)
         {
-            <div class="text-sm text-app-subtle">No OSC packets received yet.</div>
+            <div class="py-2 text-sm text-app-muted"><p>No OSC messages yet</p><p class="text-xs text-app-subtle">@(ConnectionManager.IsConnected ? "Enable OSC in VRChat and change an avatar parameter to send a message here." : "Start OSC and enable OSC in VRChat to receive avatar parameters.")</p></div>
         }
         else
         {
@@ -83,32 +68,50 @@
                 @foreach (var message in ReceivedMessages.TakeLast(150).Reverse())
                 {
                     <div class="text-sm">
-                        <span class="text-app-subtle">[@message.TimestampUtc.ToLocalTime().ToString("HH:mm:ss")]</span>
+                        <span class="font-mono text-xs text-app-subtle">[@message.TimestampUtc.ToLocalTime().ToString("HH:mm:ss")]</span>
                         <span class="text-app-info"> @message.Address</span>
                         <span> @JsonSerializer.Serialize(message.Arguments)</span>
                     </div>
                 }
             </div>
         }
-    </div>
+        </ChildContent>
+    </Card>
+</div>
 </div>
 
 @code {
+    private void OpenSettings() => Navigation.NavigateTo($"settings/plugins?open={PluginIdValue}");
     private static readonly string PluginIdValue = VRChatOSCPlugin.PluginId;
+
+    private VRChatOscSettingsService Settings => PluginServiceLocator.GetRequiredService<VRChatOscSettingsService>(PluginIdValue);
 
     private VRChatOscConnectionManager ConnectionManager =>
         PluginServiceLocator.GetRequiredService<VRChatOscConnectionManager>(PluginIdValue);
 
     private readonly List<OscReceivedMessage> ReceivedMessages = [];
 
+    private OscReceivedMessage? LastReceivedMessage;
+    private Timer? FreshnessTimer;
+    private DateTimeOffset FreshnessNow = DateTimeOffset.UtcNow;
+    private string LastMessageText => LastReceivedMessage is { } last
+        ? $"{last.TimestampUtc.ToLocalTime():HH:mm:ss} ({Math.Max(0, (FreshnessNow - last.TimestampUtc).TotalSeconds):0}s ago)"
+        : "None this session";
+
     private string SendAddress = "/avatar/parameters/MultiShock";
     private string SendArguments = "true";
 
     private string? StatusMessage;
     private bool StatusIsError;
+    private bool HasConnectionError => !string.IsNullOrWhiteSpace(ConnectionManager.LastError);
 
     protected override void OnInitialized()
     {
+        FreshnessTimer = new Timer(_ => InvokeAsync(() =>
+        {
+            FreshnessNow = DateTimeOffset.UtcNow;
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         ConnectionManager.MessageReceived += OnMessageReceivedAsync;
         ConnectionManager.StatusMessage += OnStatus;
         ConnectionManager.ErrorOccurred += OnError;
@@ -150,6 +153,7 @@
     {
         return InvokeAsync(() =>
         {
+            LastReceivedMessage = message;
             ReceivedMessages.Add(message);
             if (ReceivedMessages.Count > 500)
             {
@@ -192,6 +196,7 @@
 
     public void Dispose()
     {
+        FreshnessTimer?.Dispose();
         ConnectionManager.MessageReceived -= OnMessageReceivedAsync;
         ConnectionManager.StatusMessage -= OnStatus;
         ConnectionManager.ErrorOccurred -= OnError;

@@ -2,71 +2,79 @@
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
 @using WebSocketControl.Services
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 @implements IDisposable
 
-<div class="space-y-6">
-    <header>
-        <h1 class="text-xl font-semibold">WebSocket Control</h1>
-        <p class="mt-1 text-sm text-app-muted">Let local applications send device commands to MultiShock.</p>
-    </header>
-
-    <section class="space-y-3 border-b border-app-border pb-5" aria-label="Server status">
-        <p class="text-sm" role="status">
-            <span class="font-medium">@(Server.IsRunning ? "Listening" : "Stopped")</span>
-            @if (Server.IsRunning)
-            {
-                <span class="text-app-muted"> at @Endpoint · @Server.ClientCount connected client@(Server.ClientCount == 1 ? "" : "s")</span>
-            }
-        </p>
-        @if (Server.LastError is { } error)
-        {
-            <p class="text-sm text-app-danger" role="alert">@error</p>
-        }
-    </section>
-
-    <section class="space-y-4" aria-label="Connection settings">
-        <Toggle Label="Enable WebSocket server" Value="Enabled" ValueChanged="OnEnabledChanged" />
-
-        <div class="w-48">
-            <NumberInput Label="Local port" Min="1" Max="65535" Step="1"
-                         Value="@((double)Port)" ValueChanged="OnPortChanged" />
-        </div>
-
-        <div class="space-y-2">
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="min-w-0 flex-1">
-                    <TextInput Label="Authentication key" InputType="password" Value="@AuthKey"
-                               ValueChanged="@(value => AuthKey = value ?? string.Empty)"
-                               autocomplete="off" spellcheck="false" />
-                </div>
-                <Button Text="Generate new key" Variant="secondary" OnClick="GenerateKey" />
+<div class="space-y-4">
+    <PageHeader Title="WebSocket control" Icon="network" Description="Let local applications send device commands to MultiShock.">
+        <Meta><span class="chip @(Server.LastError is not null ? "chip-danger" : Server.IsRunning ? "chip-ok" : "chip-neutral")" role="status"><span class="status-dot @(Server.LastError is not null ? "bg-app-danger" : Server.IsRunning ? "bg-app-success" : "bg-app-subtle")"></span> @(Server.LastError is not null ? "Error" : Server.IsRunning ? "Listening" : "Stopped")</span></Meta>
+        <Actions>
+            <Button Text="@(Server.IsRunning ? "Stop server" : "Start server")" Icon="@(Server.IsRunning ? "circle-stop" : "play")"
+                    Variant="@(Server.IsRunning ? "secondary" : "primary")" Title="Uses saved settings; stopping disconnects active clients" OnClick="ToggleServer" />
+        </Actions>
+    </PageHeader>
+<div class="max-w-4xl space-y-4">
+    @if (Server.LastError is { } error) { <Alert Variant="danger" Title="Server error">@error</Alert> }
+    <Card Title="Connection" Description="Saving applies changes. A running server restarts and disconnects active clients; the startup preference can also start a stopped server.">
+        <SettingRow Label="Run server on startup" Description="Start the server when MultiShock opens. Saving restarts a running server."><Toggle AriaLabel="Run WebSocket server on startup" Value="Enabled" ValueChanged="OnEnabledChanged" /></SettingRow>
+        <SettingRow Label="Local port" Description="Only applications on this computer can connect."><div class="w-28"><NumberInput Class="[&_label]:sr-only" Label="Local port" Min="1" Max="65535" Step="1" Value="Port" ValueChanged="OnPortChanged" Error="@PortError" /></div></SettingRow>
+        <SettingRow Label="Authentication key" Description="Include this private key in every message.">
+            <div class="space-y-2">
+                <TextInput Class="[&_label]:sr-only" Label="Authentication key" InputType="password" Value="@AuthKey" ValueChanged="OnKeyChanged" autocomplete="off" spellcheck="false" Error="@(KeyValid ? null : "Enter an authentication key or generate one.")" />
+                <div class="flex flex-wrap items-end gap-2"><Button Text="Generate new key" Variant="secondary" Size="sm" OnClick="GenerateKey" /><Button Text="@(KeyPending ? "Copy pending key" : "Copy key")" Icon="copy" Variant="secondary" Size="sm" OnClick="@(() => Copy(AuthKey, "Key"))" /><span class="empty:hidden text-xs @(KeyCopyFailed ? "text-app-warning" : "text-app-muted")" role="status">@KeyCopyMessage</span></div>
+                @if (KeyPending) { <p class="text-xs text-app-warning">Pending key; save before using.</p> }
             </div>
-            <p class="text-xs text-app-muted">Changing the key disconnects clients when you save. Keep it private.</p>
+        </SettingRow>
+        <div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
+        <p class="text-sm text-app-muted" role="status">@(IsDirty ? "Unsaved changes" : HasSaved ? "Saved" : null)</p>
+        <Button Text="Save changes" Disabled="@(!IsDirty || !PortValid || !KeyValid)" Title="@(!PortValid ? "Enter a whole port from 1 to 65535" : !KeyValid ? "Enter an authentication key or generate one" : !IsDirty ? "No unsaved changes" : null)" OnClick="Save" />
         </div>
-
-        <Button Text="Save settings" OnClick="Save" />
-        @if (Message is not null)
-        {
-            <p class="text-sm @(MessageIsError ? "text-app-danger" : "text-app-muted")" role="status">@Message</p>
-        }
-    </section>
-
-    <section class="space-y-2 border-t border-app-border pt-5" aria-label="Connect a client">
-        <h2 class="font-semibold">Connect a client</h2>
-        <p class="text-sm">Use <code>@Endpoint</code> and include <code>auth_key</code> in every JSON message.</p>
-        <pre class="overflow-x-auto rounded-md bg-app-surface-2 p-3 text-xs"><code>{"cmd":"get_devices","auth_key":"YOUR_KEY"}</code></pre>
-        <p class="text-xs text-app-muted">The server listens on this computer only. See the plugin README for commands and migration details.</p>
-    </section>
+        @if (Message is not null) { <Alert Variant="danger">@Message</Alert> }
+    </Card>
+    <Card Title="Connect a client" Description="Use the saved endpoint and include the authentication key in every JSON message.">
+        <SettingRow Label="Saved endpoint" Description="@($"{Server.ClientCount} connected client{(Server.ClientCount == 1 ? "" : "s")}")">
+            <div class="flex flex-wrap items-center justify-end gap-2"><code class="break-all text-sm font-mono">@Endpoint</code><Button Text="Copy endpoint" Icon="copy" Size="sm" Variant="secondary" OnClick="@(() => Copy(Endpoint, "Endpoint"))" /><span class="empty:hidden text-xs @(EndpointCopyFailed ? "text-app-warning" : "text-app-muted")" role="status">@EndpointCopyMessage</span></div>
+        </SettingRow>
+        <pre class="overflow-x-auto rounded-ctl bg-app-surface-2 p-3 text-xs"><code>{"cmd":"get_devices","auth_key":"YOUR_KEY"}</code></pre>
+    </Card>
+    <Card Title="Command reference" Description="Send UTF-8 JSON text frames. Device limits and cooldowns still apply.">
+        <dl class="space-y-3 text-sm">
+            <div><dt class="font-mono">get_devices</dt><dd class="text-app-muted">Returns an array of loaded devices and shockers.</dd></div>
+            <div><dt class="font-mono">operate</dt><dd class="text-app-muted">Set <code>value.action</code> to shock, vibrate, beep, end or end_now. Set intensity from 1-100 and duration from greater than 0 to 15 seconds, or use <code>duration_ms</code>.</dd></div>
+            <div><dt class="font-mono">device_ids / shocker_ids</dt><dd class="text-app-muted">Target IDs inside <code>value</code>. Omitting both targets all loaded shockers. <code>shocker_option</code> is <code>all</code> or <code>random</code>. Group IDs are unsupported.</dd></div>
+        </dl>
+        <pre class="mt-3 overflow-x-auto rounded-ctl bg-app-surface-2 p-3 text-xs"><code>{"cmd":"operate","auth_key":"YOUR_KEY","value":{"action":"vibrate","intensity":25,"duration":0.5,"shocker_ids":[456]}}</code></pre>
+        <p class="mt-2 text-sm text-app-muted">Successful operate requests have no response. Invalid requests return an error frame. Accepted requests do not confirm physical execution.</p>
+    </Card>
+</div>
 </div>
 
 @code {
     private WebSocketControlServer Server => PluginServiceLocator.GetRequiredService<WebSocketControlServer>(WebSocketControlPlugin.PluginId);
+    private bool IsDirty => Enabled != Server.Settings.Enabled || Port != Server.Settings.Port || AuthKey != Server.Settings.AuthKey;
+    private bool HasSaved;
+    private bool KeyCopyFailed;
+    private bool EndpointCopyFailed;
+    private bool KeyValid => !string.IsNullOrWhiteSpace(AuthKey);
     private bool Enabled;
-    private int Port;
+    private double? Port;
+    private string? PortError => Port is null ? "Enter a value. Not saved."
+        : Port is not (>= 1 and <= 65535) ? "Enter 1 to 65535. Not saved."
+        : Port != Math.Truncate(Port.Value) ? "Enter a whole number. Not saved." : null;
+    private bool PortValid => PortError is null;
+    private bool KeyPending => AuthKey != Server.Settings.AuthKey;
+    private string? KeyCopyMessage;
+    private string? EndpointCopyMessage;
     private string AuthKey = "";
     private string? Message;
-    private bool MessageIsError;
     private string Endpoint => $"ws://localhost:{Server.Settings.Port}/";
+
+    private void ToggleServer()
+    {
+        if (Server.IsRunning) Server.Stop();
+        else Server.Start();
+    }
 
     protected override void OnInitialized()
     {
@@ -84,24 +92,55 @@
 
     private Task OnPortChanged(double? value)
     {
-        Port = (int)Math.Clamp(value ?? 8765, 1, 65535);
+        Port = value;
         return Task.CompletedTask;
     }
 
-    private Task GenerateKey() { AuthKey = WebSocketControlSettings.CreateKey(); return Task.CompletedTask; }
+    private void OnKeyChanged(string? value) { AuthKey = value ?? string.Empty; KeyCopyMessage = null; KeyCopyFailed = false; }
+
+    private Task GenerateKey() { OnKeyChanged(WebSocketControlSettings.CreateKey()); return Task.CompletedTask; }
+
+    private async Task Copy(string value, string label)
+    {
+        if (label == "Key") KeyCopyFailed = false;
+        else EndpointCopyFailed = false;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", value);
+            if (label == "Key") KeyCopyMessage = KeyPending ? "Pending key copied; save before using." : "Key copied.";
+            else EndpointCopyMessage = "Endpoint copied.";
+        }
+        catch (JSException)
+        {
+            if (label == "Key")
+            {
+                KeyCopyFailed = true;
+                KeyCopyMessage = "Clipboard unavailable. Reveal the key and copy it manually.";
+            }
+            else
+            {
+                EndpointCopyFailed = true;
+                EndpointCopyMessage = "Clipboard unavailable. Select and copy the endpoint manually.";
+            }
+        }
+    }
 
     private Task Save()
     {
+        if (!PortValid || !KeyValid) return Task.CompletedTask;
         try
         {
-            Server.Settings.Update(Enabled, Port, AuthKey);
+            Server.Settings.Update(Enabled, (int)Port!.Value, AuthKey);
+            KeyCopyMessage = null;
+            EndpointCopyMessage = null;
+            KeyCopyFailed = false;
+            EndpointCopyFailed = false;
             Server.Restart();
-            MessageIsError = Server.LastError is not null;
-            Message = Server.LastError ?? "Settings saved.";
+            HasSaved = true;
+            Message = null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            MessageIsError = true;
             Message = ex.Message;
         }
         return Task.CompletedTask;

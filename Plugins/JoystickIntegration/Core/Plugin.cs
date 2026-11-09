@@ -16,11 +16,11 @@ public class JoystickIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRo
 
     public string Id => PluginId;
 
-    public string Name => "Joystick.tv Integration";
+    public string Name => "Joystick.tv";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "Joystick.tv integration for tips, tip-menu items, follows, subscriptions, chat, wheel spins, and stream events";
+    public string Description => "Run shocker reactions and flow triggers from Joystick.tv tips, tip menu items, follows and subscriptions.";
 
     private JoystickConnectionService? _connectionService;
     private static ILogger? _logger;
@@ -108,28 +108,28 @@ public class JoystickIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRo
         {
             Text = "Joystick.tv",
             Href = "/joystickintegration",
-            Icon = "gamepad",
+            Icon = "gamepad-2",
             Order = 60
         },
         new NavigationItem
         {
-            Text = "Tip Brackets",
+            Text = "Tip brackets",
             Href = "/tip-brackets",
             Icon = "coins",
             Order = 61
         },
         new NavigationItem
         {
-            Text = "Tip Menu Items",
+            Text = "Tip menu items",
             Href = "/tip-menu-rules",
             Icon = "list",
             Order = 62
         },
         new NavigationItem
         {
-            Text = "Follows / Subs / More",
+            Text = "Follows, subs and more",
             Href = "/events-config",
-            Icon = "heart",
+            Icon = "user-plus",
             Order = 63
         }
     ];

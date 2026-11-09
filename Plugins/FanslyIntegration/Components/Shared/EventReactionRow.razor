@@ -1,0 +1,65 @@
+<div class="py-3 first:pt-0 last:pb-0">
+    <div class="flex items-start gap-3">
+        <button type="button" class="flex min-w-0 flex-1 items-start gap-3 rounded-ctl py-1 text-left"
+                aria-expanded="@(_expanded ? "true" : "false")" aria-controls="@(_expanded ? _panelId : null)"
+                @onclick="@(() => _expanded = !_expanded)">
+            <LucideIcon Name="chevron-right" Size="14"
+                        Class="@($"mt-0.5 shrink-0 text-app-muted transition-transform {(_expanded ? "rotate-90" : "")}")" />
+            <LucideIcon Name="@Icon" Size="16" Class="shrink-0 text-app-muted" />
+            <span class="min-w-0">
+                <span class="setting-label block">@Title</span>
+                <span class="setting-desc block">@Description</span>
+                @if (Config.Enabled && Config.SelectedShockerIds.Count > 0)
+                {
+                    <span class="mt-1 block text-xs text-app-subtle">
+                        @ActionOptions.Describe(Config.CommandType, Config.Intensity, Config.Duration, Config.SelectedShockerIds.Count)
+                    </span>
+                }
+            </span>
+        </button>
+        @if (Config.Enabled && Config.SelectedShockerIds.Count == 0)
+        {
+            <span class="chip chip-warn mt-1 shrink-0"><span class="status-dot bg-app-warning"></span>No shockers</span>
+        }
+        <Toggle AriaLabel="@($"React to {Title.ToLowerInvariant()}")" Class="mt-1.5 shrink-0" Value="Config.Enabled"
+                ValueChanged="@(v => Update(c => c.Enabled = v))" />
+    </div>
+
+    @if (_expanded)
+    {
+        <div id="@_panelId" class="mt-3 pb-1 sm:pl-14">
+            <ActionFields ShockerIds="Config.SelectedShockerIds"
+                          ShockerIdsChanged="@(ids => Update(c => c.SelectedShockerIds = ids))"
+                          Command="@Config.CommandType"
+                          CommandChanged="@(v => Update(c => c.CommandType = v))"
+                          Mode="Config.Mode"
+                          ModeChanged="@(v => Update(c => c.Mode = v))"
+                          Intensity="Config.Intensity"
+                          IntensityChanged="@(v => Update(c => c.Intensity = v))"
+                          Duration="Config.Duration"
+                          DurationChanged="@(v => Update(c => c.Duration = v))"
+                          WarningVibrate="Config.WarningVibrate"
+                          WarningVibrateChanged="@(v => Update(c => c.WarningVibrate = v))">
+                @ChildContent
+            </ActionFields>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter] public string? Description { get; set; }
+    [Parameter, EditorRequired] public SimpleActionConfig Config { get; set; } = new();
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private readonly string _panelId = $"reaction-{Guid.NewGuid():N}";
+    private bool _expanded;
+
+    private async Task Update(Action<SimpleActionConfig> mutate)
+    {
+        mutate(Config);
+        await OnChanged.InvokeAsync();
+    }
+}

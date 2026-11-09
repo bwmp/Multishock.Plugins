@@ -2,117 +2,81 @@
 @using MultiShock.PluginSdk
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">Follow Configuration</h1>
-            <p class="text-sm mt-1 text-app-muted">Configure how new followers trigger
-                actions and control tracking.</p>
-        </div>
-        <Toggle Label="@(FollowConfigService.Config.Enabled ? "Enabled" : "Disabled")"
-            Value="FollowConfigService.Config.Enabled" ValueChanged="@(enabled => ToggleEnabled(enabled))" />
-    </div>
+<PageHeader Title="Follows" Icon="user-plus" Description="React when a viewer follows your channel for the first time. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" AriaLabel="Enable follow reactions" Value="Config.Enabled" ValueChanged="ToggleEnabled" />
+    </Actions>
+</PageHeader>
 
-    <div class="grid gap-4 lg:grid-cols-2">
-        <div class="twitch-card h-full">
-            <div class="twitch-card-header flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span>Follower Tracking</span>
-                    <span class="twitch-badge">@FollowConfigService.KnownFollowerCount known</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Toggle Label="Startup Fetch" Value="FollowConfigService.Config.FetchFollowersOnStartup"
-                        ValueChanged="@(v => ToggleFetchOnStartup(v))" />
-                    <Button Text="Refresh Followers" Variant="secondary" Size="icon-sm"
-                        Disabled="@FollowConfigService.IsFetchingFollowers" OnClick="@(() => RefreshFollowers())">
-                        @if (FollowConfigService.IsFetchingFollowers)
-                        {
-                            <LucideIcon Name="refresh-cw" Class="w-4 h-4 animate-spin" />
-                        }
-                        else
-                        {
-                            <LucideIcon Name="refresh-cw" Class="w-4 h-4" />
-                        }
-                    </Button>
-                </div>
-            </div>
-            <div class="twitch-card-body space-y-3 text-sm text-app-muted">
-                <div class="flex items-center justify-between">
-                    <span>Last fetched</span>
-                    @if (FollowConfigService.Config.LastFetchedUtc.HasValue)
-                    {
-                        <span>@FollowConfigService.Config.LastFetchedUtc.Value.ToLocalTime().ToString("g")</span>
-                    }
-                    else
-                    {
-                        <span class="italic">Never</span>
-                    }
-                </div>
-                <p class="text-xs">We store follower IDs so repeat follow/unfollow actions cannot re-trigger the follow
-                    action.</p>
-                @if (!string.IsNullOrEmpty(StatusMessage))
+<div class="max-w-4xl space-y-4">
+    @if (!Config.Enabled)
+    {
+        <Alert Variant="neutral">Follow reactions are off. You can set up the action now; nothing runs until you switch on Enabled. Follows still reach your flows.</Alert>
+    }
+
+    <Card Title="Action" Description="Runs once for each viewer's first follow.">
+        <SettingRow Label="Shockers" Description="The shockers a follow can run on.">
+            <Help>
+                @if (Config.SelectedShockerIds.Count == 0)
                 {
-                    <div class="text-xs px-3 py-2 rounded"
-                        style="background: @(StatusIsSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(StatusIsSuccess ? "rgb(var(--ms-primary-rgb))" : "rgb(var(--ms-danger-rgb))");">
-                        @StatusMessage
-                    </div>
+                    <NoShockersHint />
                 }
-            </div>
-        </div>
+            </Help>
+            <ChildContent>
+                <ShockerSelect Label="Shockers" Class="[&_label]:sr-only" MultiSelect="true" SelectedIds="Config.SelectedShockerIds"
+                               SelectedIdsChanged="UpdateShockers" />
+            </ChildContent>
+        </SettingRow>
+        <SettingRow Label="Mode" Description="Which of the selected shockers react.">
+            <Select TValue="string" Label="Mode" Class="[&_label]:sr-only" Value="@Config.Mode.ToString()" Options="ActionOptions.Modes"
+                    ValueChanged="@(value => UpdateMode(ActionOptions.ParseMode(value)))" />
+        </SettingRow>
+        <SettingRow Label="Command" Description="What the shockers do.">
+            <Select TValue="string" Label="Command" Class="[&_label]:sr-only" Value="@Config.CommandType" Options="ActionOptions.Commands"
+                    ValueChanged="@(value => UpdateCommandType(value ?? "Shock"))" />
+        </SettingRow>
+        @if (Config.CommandType == "Shock")
+        {
+            <SettingRow Label="Warning vibrate" Description="Vibrate briefly before each shock.">
+                <Toggle AriaLabel="Warning vibrate" Value="Config.WarningVibrate" ValueChanged="UpdateWarningVibrate" />
+            </SettingRow>
+        }
+        <SettingRow Label="Intensity" Description="How strong the action is.">
+            <NumberField Label="Intensity" Class="w-28 [&_label]:sr-only" Suffix="%" Min="1" Max="100" Value="Config.Intensity"
+                         ValueChanged="@(v => UpdateIntensity((int)v))" />
+        </SettingRow>
+        <SettingRow Label="Duration" Description="How long the action lasts.">
+            <NumberField Label="Duration" Class="w-28 [&_label]:sr-only" Suffix="s" Min="0.1" Max="15" Step="0.1" Value="Config.Duration"
+                         ValueChanged="UpdateDuration" />
+        </SettingRow>
+    </Card>
 
-        <div class="twitch-card h-full">
-            <div class="twitch-card-header">
-                <span>Follow Action</span>
-            </div>
-            <div class="twitch-card-body space-y-4">
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="grow">
-                        <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
-                        <ShockerSelect Label="" MultiSelect="true"
-                            SelectedIds="FollowConfigService.Config.SelectedShockerIds"
-                            SelectedIdsChanged="@(async ids => await UpdateShockers(ids))" />
-                    </div>
-                    <div class="w-40">
-                        <Select Label="Mode" Value="@FollowConfigService.Config.Mode.ToString()"
-                            ValueChanged="@((string value) => UpdateMode(ParseSelectionMode(value)))"
-                            Options="@SelectionModeOptions" />
-                    </div>
-                    <div class="w-40">
-                        <Select Label="Device Command" Value="@FollowConfigService.Config.CommandType"
-                            ValueChanged="@((string value) => UpdateCommandType(value ?? "Shock"))"
-                            Options="@CommandTypeOptions" />
-                    </div>
-                    @if (FollowConfigService.Config.CommandType == "Shock")
-                    {
-                        <div>
-                            <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
-                            <Toggle Value="FollowConfigService.Config.WarningVibrate"
-                                ValueChanged="@(v => UpdateWarningVibrate(v))" />
-                        </div>
-                    }
-                </div>
-
-                <div class="space-y-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
-                        <Slider Min="1" Max="100" Value="FollowConfigService.Config.Intensity"
-                            ValueChanged="@(v => UpdateIntensity((int)v))" Class="flex-1" ShowValue="false" />
-                        <NumberInput Value="@((double)FollowConfigService.Config.Intensity)" Min="1" Max="100"
-                            ValueChanged="@(v => UpdateIntensity((int)Math.Clamp(v ?? 50, 1, 100)))" Class="w-16" />
-                        <span class="text-xs text-app-muted">%</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
-                        <Slider Min="0.1" Max="15" Step="0.1" Value="FollowConfigService.Config.Duration"
-                            ValueChanged="@(v => UpdateDuration(v))" Class="flex-1" ShowValue="false" />
-                        <NumberInput Value="FollowConfigService.Config.Duration" Min="0.1" Max="15" Step="0.1"
-                            ValueChanged="@(v => UpdateDuration(Math.Clamp(v ?? 1.0, 0.1, 15.0)))" Class="w-16" />
-                        <span class="text-xs text-app-muted">s</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <Card Title="Follower tracking" Description="MultiShock remembers who has followed, so unfollowing and following again doesn't run the action twice.">
+        <Actions>
+            <Button Text="Refresh followers" Icon="refresh-cw" Variant="secondary" Size="sm"
+                    Loading="FollowConfigService.IsFetchingFollowers" OnClick="RefreshFollowers" />
+        </Actions>
+        <ChildContent>
+            <SettingRow Label="Known followers" Description="@LastFetchedText">
+                <span class="text-sm tabular-nums text-app-text">@FollowConfigService.KnownFollowerCount</span>
+            </SettingRow>
+            <SettingRow Label="Fetch followers on startup" Description="Load your current followers when MultiShock connects, so existing followers don't trigger the action.">
+                <Toggle AriaLabel="Fetch followers on startup" Value="Config.FetchFollowersOnStartup" ValueChanged="ToggleFetchOnStartup" />
+            </SettingRow>
+            @if (!string.IsNullOrEmpty(StatusMessage))
+            {
+                @if (StatusIsSuccess)
+                {
+                    <p role="status" class="mt-3 text-sm text-app-muted">@StatusMessage</p>
+                }
+                else
+                {
+                    <Alert Variant="danger" Class="mt-3">@StatusMessage</Alert>
+                }
+            }
+        </ChildContent>
+    </Card>
 </div>
 
 @code {
@@ -120,23 +84,15 @@
     // This survives hot-reload where the DI container has stale types
     private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
     private FollowConfigService FollowConfigService => PluginServiceLocator.GetRequiredService<FollowConfigService>(PluginId);
-    
+
     private string? StatusMessage;
     private bool StatusIsSuccess;
 
-    private readonly Select<string>.SelectOption<string>[] SelectionModeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("All", "All"),
-new Select<string>.SelectOption<string>("Random", "Random"),
-new Select<string>.SelectOption<string>("RoundRobin", "Round Robin"),
-};
+    private FollowConfig Config => FollowConfigService.Config;
 
-    private readonly Select<string>.SelectOption<string>[] CommandTypeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("Shock", "Shock"),
-new Select<string>.SelectOption<string>("Vibrate", "Vibrate"),
-new Select<string>.SelectOption<string>("Beep", "Beep"),
-};
+    private string LastFetchedText => Config.LastFetchedUtc.HasValue
+        ? $"Last fetched {Config.LastFetchedUtc.Value.ToLocalTime():g}."
+        : "Not fetched yet.";
 
     protected override void OnInitialized()
     {
@@ -178,12 +134,6 @@ new Select<string>.SelectOption<string>("Beep", "Beep"),
         ? $"{result.Message} (+{result.AddedCount} new)"
         : result.Message;
         await InvokeAsync(StateHasChanged);
-    }
-
-    private static SelectionMode ParseSelectionMode(object? value)
-    {
-        if (value == null) return SelectionMode.All;
-        return Enum.TryParse<SelectionMode>(value.ToString(), out var mode) ? mode : SelectionMode.All;
     }
 
     public void Dispose()

@@ -15,6 +15,9 @@ public class EventLogService : IDisposable
     private readonly object _lock = new();
 
     public event Action? LogChanged;
+    public string? LastConnectionError { get; private set; }
+    public string? ConnectionStatus { get; private set; }
+    public bool IsReconnecting { get; private set; }
 
     public EventLogService(StreamElementsConnectionService connection)
     {
@@ -53,11 +56,37 @@ public class EventLogService : IDisposable
 
     private void OnConnectionStateChanged(bool connected)
     {
-        if (connected) AddLog("Authenticated with StreamElements!");
+        if (connected)
+        {
+            LastConnectionError = null;
+            IsReconnecting = false;
+            ConnectionStatus = null;
+            AddLog("Authenticated with StreamElements.");
+        }
     }
 
-    private void OnError(string error) => AddLog($"Error: {error}", isError: true);
-    private void OnStatus(string message) => AddLog(message);
+    private void OnError(string error)
+    {
+        LastConnectionError = error;
+        ConnectionStatus = null;
+        IsReconnecting = false;
+        AddLog(error, isError: true);
+    }
+
+    private void OnStatus(string message)
+    {
+        ConnectionStatus = message;
+        if (message.StartsWith("Reconnecting", StringComparison.Ordinal))
+            IsReconnecting = true;
+        else if (message.StartsWith("Connecting", StringComparison.Ordinal))
+        {
+            IsReconnecting = false;
+            LastConnectionError = null;
+        }
+        else if (message.StartsWith("Disconnected", StringComparison.Ordinal))
+            IsReconnecting = false;
+        AddLog(message);
+    }
 
     private void OnEvent(StreamElementsEvent e)
     {

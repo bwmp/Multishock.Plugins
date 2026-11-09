@@ -43,7 +43,6 @@ public sealed class WebSocketControlServer : IDisposable
         {
             if (_disposed) throw new ObjectDisposedException(nameof(WebSocketControlServer));
             if (_listener?.IsListening == true) return true;
-            if (!Settings.Enabled) return false;
 
             var listener = new HttpListener();
             listener.Prefixes.Add($"http://localhost:{Settings.Port}/");
@@ -88,8 +87,9 @@ public sealed class WebSocketControlServer : IDisposable
 
     public void Restart()
     {
+        var wasRunning = IsRunning;
         Stop();
-        if (Settings.Enabled) Start();
+        if (wasRunning || Settings.Enabled) Start();
     }
 
     private async Task AcceptLoopAsync(HttpListener listener, CancellationToken cancellationToken)

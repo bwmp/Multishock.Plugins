@@ -1,365 +1,261 @@
 @page "/plugins/com-multishock-twitchintegration/sub-config"
 @using MultiShock.PluginSdk
-@inject IDeviceActions DeviceActions
 @implements IDisposable
 @using global::TwitchIntegration.Components.Config
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">Subscriptions Configuration</h1>
-            <p class="text-sm mt-1 text-app-muted">Configure actions triggered by
-                subscriptions and gifted subs</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <Toggle Label="@(SubConfigService.Config.Enabled ? "Enabled" : "Disabled")"
-                Value="SubConfigService.Config.Enabled" ValueChanged="@((value) => ToggleMasterEnabled(value))" />
-        </div>
-    </div>
+<PageHeader Title="Subscriptions" Icon="users" Description="Set how subscriptions and gifted subs control your shockers, per tier. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" AriaLabel="Enable subscription reactions" Value="SubConfigService.Config.Enabled" ValueChanged="ToggleMasterEnabled" />
+    </Actions>
+</PageHeader>
 
-    <div class="twitch-card mb-4">
-        <div class="twitch-card-header">
-            <span>Setup Path</span>
-        </div>
-        <div class="twitch-card-body">
-            <div class="flex flex-wrap gap-2">
-                <a href="/plugins/com-multishock-twitchintegration/cheer-config"
-                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
-                    <LucideIcon Name="coins" Size="16" />
-                    <span>Back to Bits/Cheers</span>
-                </a>
-                <a href="/plugins/com-multishock-twitchintegration/twitchintegration"
-                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
-                    <LucideIcon Name="plug" Size="16" />
-                    <span>Back to Connection</span>
-                </a>
-            </div>
-        </div>
-    </div>
+<div class="max-w-4xl space-y-4">
+    @if (!SubConfigService.Config.Enabled)
+    {
+        <Alert Variant="neutral">Subscription reactions are off. You can set up tiers now; nothing runs until you switch on Enabled. Subscriptions still reach your flows.</Alert>
+    }
 
     <div class="space-y-3" data-guided-setup="twitch-subs-sections">
         @foreach (var sec in SubConfigService.Config.Sections.OrderBy(s => s.Tier))
         {
-            <div class="twitch-card @(!sec.Enabled ? "opacity-50" : "")">
-                <div class="twitch-card-header cursor-pointer hover:opacity-80"
-                    @onclick="@(() => ToggleSectionExpanded(sec.Id))">
-                    <div class="flex items-center gap-2">
-                        <div @onclick:stopPropagation="true">
-                            <Toggle Value="sec.Enabled" ValueChanged="@((e) => ToggleSectionEnabled(sec, e))" />
-                        </div>
-                        <span>Tier @sec.Tier</span>
-                        <span class="twitch-badge">@sec.SelectedShockerIds.Count shockers</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ExpandedSections.Contains(sec.Id) ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
+            var expanded = ExpandedSections.Contains(sec.Id);
+            var name = $"Tier {sec.Tier}";
+            var issue = SectionIssue(sec);
+            <section class="panel" @key="sec.Id" aria-label="@name">
+                <div class="@($"flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 {(expanded ? "border-b border-app-border" : "")}")">
+                    <button type="button" class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl py-1 text-left"
+                            aria-expanded="@(expanded ? "true" : "false")" aria-controls="@(expanded ? $"section-{sec.Id}" : null)"
+                            @onclick="@(() => ToggleSectionExpanded(sec.Id))">
+                        <LucideIcon Name="chevron-right" Size="16" Class="@($"shrink-0 text-app-muted transition-transform {(expanded ? "rotate-90" : "")}")" />
+                        <span class="min-w-0">
+                            <span class="block truncate text-sm font-medium text-app-text">@name</span>
+                            <span class="block truncate text-xs text-app-subtle">@SectionDetail(sec)</span>
+                        </span>
+                    </button>
+                    @if (sec.Enabled && issue != null)
+                    {
+                        <SummaryChip Summary="@(new ReactionSummary(SubConfigService.Config.Enabled ? ReactionStatus.Attention : ReactionStatus.Off, issue))" />
+                    }
+                    <Toggle AriaLabel="@($"Enable {name.ToLowerInvariant()} reactions")" Value="sec.Enabled" ValueChanged="@(e => ToggleSectionEnabled(sec, e))" />
                 </div>
 
-                @if (ExpandedSections.Contains(sec.Id))
+                @if (expanded)
                 {
-                    <div class="twitch-card-body space-y-4">
-                        <div class="flex flex-wrap items-end gap-2" data-guided-setup="twitch-subs-mode">
-                            <div class="w-40">
-                                <Select Label="Mode" Value="@sec.Mode.ToString()"
-                                    ValueChanged="@((string value) => UpdateSectionMode(sec, ParseSubscriptionMode(value)))"
-                                    Options="@SubscriptionModeOptions" />
-                            </div>
-
-                            <div class="grow">
-                                <ShockerSelect Label="" MultiSelect="true" SelectedIds="sec.SelectedShockerIds"
-                                    SelectedIdsChanged="@(async (ids) => { sec.SelectedShockerIds = ids; SubConfigService.UpdateSection(sec); })" />
+                    <div id="@($"section-{sec.Id}")">
+                        <div class="panel-body grid gap-4 sm:grid-cols-2" data-guided-setup="twitch-subs-mode">
+                            <Select TValue="string" Label="Scaling" Value="@sec.Mode.ToString()" Options="SubscriptionModeOptions"
+                                    ValueChanged="@(value => UpdateSectionMode(sec, ParseSubscriptionMode(value)))" />
+                            <p class="self-end pb-2 text-xs text-app-muted">
+                                @(sec.Mode == SubscriptionMode.Brackets
+                                    ? "Brackets pick a fixed action by sub count."
+                                    : "Each extra sub adds to the action, up to a maximum.")
+                            </p>
+                            <div class="sm:col-span-2">
+                                <ShockerSelect Label="Shockers" MultiSelect="true" SelectedIds="sec.SelectedShockerIds"
+                                               SelectedIdsChanged="@(ids => UpdateSectionShockers(sec, ids))" />
+                                @if (sec.SelectedShockerIds.Count == 0)
+                                {
+                                    <NoShockersHint Class="mt-1.5" />
+                                }
                             </div>
                         </div>
+
                         @if (sec.Mode == SubscriptionMode.Brackets)
                         {
-                            <div class="pt-3 border-t border-app-border" data-guided-setup="twitch-subs-brackets">
-                                <div class="flex flex-wrap items-end gap-3 mb-3">
-                                    <div class="grow">
-                                        <Select Label="Command Type" Value="@sec.BracketCommandType"
-                                            ValueChanged="@((string value) => UpdateBracketCommandType(sec, value ?? "Vibrate"))"
-                                            Options="@CommandTypeOptions" />
-                                    </div>
+                            <div data-guided-setup="twitch-subs-brackets">
+                                <div class="panel-body grid gap-4 border-t border-app-border sm:grid-cols-2">
+                                    <Select TValue="string" Label="Command" Value="@sec.BracketCommandType" Options="ActionOptions.Commands"
+                                            ValueChanged="@(value => UpdateBracketCommandType(sec, value ?? "Vibrate"))" />
+                                    <Select TValue="string" Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")" Options="ActionOptions.Matching"
+                                            ValueChanged="@(value => UpdateSectionFixedAmount(sec, value == "exact"))" />
                                     @if (sec.BracketCommandType == "Shock")
                                     {
-                                        <div>
-                                            <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
-                                            <Toggle Value="sec.WarningVibrate"
-                                                ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
-                                        </div>
-                                    }
-                                    <div class="w-40">
-                                        <Select Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")"
-                                            ValueChanged="@((string value) => UpdateSectionFixedAmount(sec, value == "exact"))"
-                                            Options="@MatchingModeOptions" />
-                                    </div>
-                                    <Button Text="Add Bracket" Variant="secondary" Size="sm" OnClick="@(() => AddBracket(sec))">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 4v16m8-8H4" />
-                                        </svg>
-                                    </Button>
-                                    @if (CheerConfigService.Config.Sections.Any())
-                                    {
-                                        <div class="flex items-end gap-2">
-                                            <div>
-                                                <Select Label="Import from Cheers" Value="@SelectedCheerSectionIdForImport"
-                                                    ValueChanged="@((string value) => SelectedCheerSectionIdForImport = value)"
-                                                    Options="@CheerConfigService.Config.Sections.Select(cs => new Select<string?>.SelectOption<string?>(cs.Id, cs.Name))" />
-                                            </div>
-                                            <Button Text="Convert" Variant="secondary" Size="sm"
-                                                OnClick="@(() => ConvertFromCheerSection(sec))" />
+                                        <div class="sm:col-span-2">
+                                            <Toggle Label="Vibrate as a warning before each shock" Value="sec.WarningVibrate"
+                                                    ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
                                         </div>
                                     }
                                 </div>
 
-                                <BracketList TBracket="SubscriptionBracket" CountLabel="Subs" Brackets="sec.Brackets"
-                                    SelectionModeOptions="SelectionModeOptions"
-                                    CountSelector="@(b => b.Count)"
-                                    IntensitySelector="@(b => b.Intensity)"
-                                    DurationSelector="@(b => b.Duration)"
-                                    ModeSelector="@(b => b.Mode.ToString())"
-                                    OnMoveUp="@(bracket => MoveBracket(sec, bracket, -1))"
-                                    OnMoveDown="@(bracket => MoveBracket(sec, bracket, 1))"
-                                    OnCountChanged="@(change => UpdateBracketCount(sec, change.Bracket, change.Value))"
-                                    OnIntensityChanged="@(change => UpdateBracketIntensity(sec, change.Bracket, change.Value))"
-                                    OnDurationChanged="@(change => UpdateBracketDuration(sec, change.Bracket, change.Value))"
-                                    OnModeChanged="@(change => UpdateBracketMode(sec, change.Bracket, ParseSelectionMode(change.Value)))"
-                                    OnRemove="@(bracket => RemoveBracket(sec, bracket))"
-                                    EmptyTitle="No brackets configured"
-                                    EmptyDescription="Add a bracket to define behavior at different sub counts" />
+                                <div class="border-t border-app-border">
+                                    <div class="flex items-start justify-between gap-3 px-4 py-3">
+                                        <div>
+                                            <h3 class="text-sm font-medium text-app-text">Sub brackets</h3>
+                                            <p class="text-xs text-app-muted">
+                                                @(sec.FixedAmount
+                                                    ? "Fires the bracket whose amount matches the sub count exactly. A single sub counts as 1; a gift counts its subs."
+                                                    : "Fires the highest bracket at or below the sub count. A single sub counts as 1; a gift counts its subs.")
+                                            </p>
+                                        </div>
+                                        <Button Text="Add bracket" Variant="secondary" Size="sm" Icon="plus" OnClick="@(() => AddBracket(sec))" />
+                                    </div>
+
+                                    <BracketList TBracket="SubscriptionBracket" CountLabel="Subs" Brackets="sec.Brackets"
+                                                 CountSelector="@(b => b.Count)" IntensitySelector="@(b => b.Intensity)"
+                                                 DurationSelector="@(b => b.Duration)" ModeSelector="@(b => b.Mode.ToString())"
+                                                 OnCountChanged="@(change => UpdateBracketCount(sec, change.Bracket, change.Value))"
+                                                 OnIntensityChanged="@(change => UpdateBracketIntensity(sec, change.Bracket, change.Value))"
+                                                 OnDurationChanged="@(change => UpdateBracketDuration(sec, change.Bracket, change.Value))"
+                                                 OnModeChanged="@(change => UpdateBracketMode(sec, change.Bracket, ActionOptions.ParseMode(change.Value)))"
+                                                 OnRemove="@(bracket => RemoveBracket(sec, bracket))"
+                                                 EmptyText="No brackets yet. This tier won't run until you add one." />
+                                </div>
+
+                                @if (CheerConfigService.Config.Sections.Any())
+                                {
+                                    var source = CheerConfigService.Config.Sections.FirstOrDefault(cs => cs.Id == SelectedCheerSectionIdForImport);
+                                    <div class="panel-body flex flex-wrap items-end gap-2 border-t border-app-border">
+                                        <Select TValue="string" Label="Copy brackets from a cheer section" Class="w-64" Placeholder="Choose a section"
+                                                Value="@SelectedCheerSectionIdForImport" Options="CheerSectionOptions"
+                                                ValueChanged="@(value => SelectedCheerSectionIdForImport = value)" />
+                                        <Button Text="Copy brackets" Variant="secondary" Size="sm"
+                                                Disabled="@(source == null || source.Brackets.Count == 0)"
+                                                Title="@(source == null ? "Choose a cheer section first" : source.Brackets.Count == 0 ? "That section has no brackets" : null)"
+                                                OnClick="@(() => RequestCopyBrackets(sec))" />
+                                        <p class="basis-full text-xs text-app-muted">
+                                            Replaces this tier's brackets and command, converting @BitsPerSub(sec.Tier) bits to one sub.
+                                        </p>
+                                    </div>
+                                }
                             </div>
                         }
 
                         @if (sec.Mode == SubscriptionMode.Incremental)
                         {
-                            <div class="pt-3 border-t border-app-border" data-guided-setup="twitch-subs-incremental">
-                                <div class="flex items-center justify-between mb-2">
-                                    <div>
-                                        <label class="text-sm font-medium text-app-text">Incremental
-                                            Subs</label>
-                                        <p class="text-xs mt-0.5 text-app-muted">
-                                            Base values apply to 1 sub. Each additional sub (including gifts) increases intensity
-                                            and duration by the increment values, up to the max.
-                                        </p>
+                            <div class="border-t border-app-border px-4 py-2" data-guided-setup="twitch-subs-incremental">
+                                <SettingRow Label="Command" Description="What the shockers do.">
+                                    <Select TValue="string" Label="Command" Class="[&_label]:sr-only" Value="@sec.Incremental.CommandType" Options="ActionOptions.Commands"
+                                            ValueChanged="@(value => UpdateIncrementalCommandType(sec, value ?? "Vibrate"))" />
+                                </SettingRow>
+                                @if (sec.Incremental.CommandType == "Shock")
+                                {
+                                    <SettingRow Label="Warning vibrate" Description="Vibrate briefly before each shock.">
+                                        <Toggle AriaLabel="Warning vibrate" Value="sec.Incremental.WarningVibrate"
+                                                ValueChanged="@(v => UpdateIncrementalWarningVibrate(sec, v))" />
+                                    </SettingRow>
+                                }
+                                <SettingRow Label="Mode" Description="Which of the selected shockers react.">
+                                    <Select TValue="string" Label="Mode" Class="[&_label]:sr-only" Value="@sec.Incremental.Mode.ToString()" Options="ActionOptions.Modes"
+                                            ValueChanged="@(value => UpdateIncrementalMode(sec, ActionOptions.ParseMode(value)))" />
+                                </SettingRow>
+                                <SettingRow Label="One sub" Description="Intensity and duration for a single sub.">
+                                    <div class="flex gap-2">
+                                        <NumberField Label="Intensity for one sub" Class="w-28 [&_label]:sr-only" Suffix="%" Min="1" Max="100" Value="sec.Incremental.BaseIntensity"
+                                                     ValueChanged="@(v => UpdateIncrementalBaseIntensity(sec, (int)v))" />
+                                        <NumberField Label="Duration for one sub" Class="w-28 [&_label]:sr-only" Suffix="s" Min="0.1" Max="15" Step="0.1" Value="sec.Incremental.BaseDuration"
+                                                     ValueChanged="@(v => UpdateIncrementalBaseDuration(sec, v))" />
                                     </div>
-                                </div>
-
-                                <div class="space-y-2 mb-3">
-                                    <div class="flex flex-wrap items-start gap-3">
-                                        <span class="text-xs font-semibold text-app-muted min-w-[4rem] pt-1.5">Intensity</span>
-                                        <div class="flex-1 min-w-0 space-y-1">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-xs text-app-muted">Base</span>
-                                                <Slider Min="1" Max="100" Value="sec.Incremental.BaseIntensity"
-                                                    ValueChanged="@((v) => UpdateIncrementalBaseIntensity(sec, (int)v))"
-                                                    Class="flex-1" ShowValue="false" />
-                                                <NumberInput Value="@((double)sec.Incremental.BaseIntensity)" Min="1" Max="100"
-                                                    ValueChanged="@((v) => UpdateIncrementalBaseIntensity(sec, (int)Math.Clamp(v ?? 50, 1, 100)))"
-                                                    Class="w-16" />
-                                                <span class="text-xs text-app-muted">%</span>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-xs text-app-muted">Max</span>
-                                                <Slider Min="1" Max="100" Value="sec.Incremental.MaxIntensity"
-                                                    ValueChanged="@((v) => UpdateIncrementalMaxIntensity(sec, (int)v))"
-                                                    Class="flex-1" ShowValue="false" />
-                                                <NumberInput Value="@((double)sec.Incremental.MaxIntensity)" Min="1" Max="100"
-                                                    ValueChanged="@((v) => UpdateIncrementalMaxIntensity(sec, (int)Math.Clamp(v ?? 100, 1, 100)))"
-                                                    Class="w-16" />
-                                                <span class="text-xs text-app-muted">%</span>
-                                            </div>
-                                        </div>
-                                        <div class="flex flex-col gap-1">
-                                            <span class="text-xs text-app-muted">+ /sub</span>
-                                            <div class="flex items-center gap-2">
-                                                <NumberInput Value="@((double)sec.Incremental.IncrementIntensity)" Min="0" Max="100"
-                                                    ValueChanged="@((v) => UpdateIncrementalIntensityIncrement(sec, (int)Math.Clamp(v ?? 5, 0, 100)))"
-                                                    Class="w-16" />
-                                                <span class="text-xs text-app-muted">%</span>
-                                            </div>
-                                        </div>
+                                </SettingRow>
+                                <SettingRow Label="Increase per extra sub" Description="Added for each sub after the first, including gifted subs.">
+                                    <div class="flex gap-2">
+                                        <NumberField Label="Intensity increase per extra sub" Class="w-28 [&_label]:sr-only" Suffix="%" Min="0" Max="100" Value="sec.Incremental.IncrementIntensity"
+                                                     ValueChanged="@(v => UpdateIncrementalIntensityIncrement(sec, (int)v))" />
+                                        <NumberField Label="Duration increase per extra sub" Class="w-28 [&_label]:sr-only" Suffix="s" Min="0" Max="15" Step="0.1" Value="sec.Incremental.IncrementDuration"
+                                                     ValueChanged="@(v => UpdateIncrementalDurationIncrement(sec, v))" />
                                     </div>
-
-                                    <div class="flex flex-wrap items-start gap-3">
-                                        <span class="text-xs font-semibold text-app-muted min-w-[4rem] pt-1.5">Duration</span>
-                                        <div class="flex-1 min-w-0 space-y-1">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-xs text-app-muted">Base</span>
-                                                <Slider Min="0.1" Max="15" Step="0.1" Value="sec.Incremental.BaseDuration"
-                                                    ValueChanged="@((v) => UpdateIncrementalBaseDuration(sec, v))" Class="flex-1"
-                                                    ShowValue="false" />
-                                                <NumberInput Value="sec.Incremental.BaseDuration" Min="0.1" Max="15" Step="0.1"
-                                                    ValueChanged="@((v) => UpdateIncrementalBaseDuration(sec, Math.Clamp(v ?? 1.0, 0.1, 15.0)))"
-                                                    Class="w-16" />
-                                                <span class="text-xs text-app-muted">s</span>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-xs text-app-muted">Max</span>
-                                                <Slider Min="0.1" Max="15" Step="0.1" Value="sec.Incremental.MaxDuration"
-                                                    ValueChanged="@((v) => UpdateIncrementalMaxDuration(sec, v))" Class="flex-1"
-                                                    ShowValue="false" />
-                                                <NumberInput Value="sec.Incremental.MaxDuration" Min="0.1" Max="15" Step="0.1"
-                                                    ValueChanged="@((v) => UpdateIncrementalMaxDuration(sec, Math.Clamp(v ?? 5.0, 0.1, 15.0)))"
-                                                    Class="w-16" />
-                                                <span class="text-xs text-app-muted">s</span>
-                                            </div>
-                                        </div>
-                                        <div class="flex flex-col gap-1">
-                                            <span class="text-xs text-app-muted">+ /sub</span>
-                                            <div class="flex items-center gap-2">
-                                                <NumberInput Value="sec.Incremental.IncrementDuration" Min="0" Max="15" Step="0.1"
-                                                    ValueChanged="@((v) => UpdateIncrementalDurationIncrement(sec, Math.Clamp(v ?? 0.5, 0.0, 15.0)))"
-                                                    Class="w-16" />
-                                                <span class="text-xs text-app-muted">s</span>
-                                            </div>
-                                        </div>
+                                </SettingRow>
+                                <SettingRow Label="Maximum" Description="The action never goes above these, however many subs.">
+                                    <div class="flex gap-2">
+                                        <NumberField Label="Maximum intensity" Class="w-28 [&_label]:sr-only" Suffix="%" Min="1" Max="100" Value="sec.Incremental.MaxIntensity"
+                                                     ValueChanged="@(v => UpdateIncrementalMaxIntensity(sec, (int)v))" />
+                                        <NumberField Label="Maximum duration" Class="w-28 [&_label]:sr-only" Suffix="s" Min="0.1" Max="15" Step="0.1" Value="sec.Incremental.MaxDuration"
+                                                     ValueChanged="@(v => UpdateIncrementalMaxDuration(sec, v))" />
                                     </div>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <span class="text-xs font-semibold text-app-muted">Mode / Type</span>
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-xs text-app-muted">Mode &amp; Command</span>
-                                        <div class="flex gap-2">
-                                            <Select Label="" Value="@sec.Incremental.Mode.ToString()"
-                                                ValueChanged="@((string value) => UpdateIncrementalMode(sec, ParseSelectionMode(value)))"
-                                                Options="@SelectionModeOptions" Class="flex-1" />
-                                            <Select Label="" Value="@sec.Incremental.CommandType"
-                                                ValueChanged="@((string value) => UpdateIncrementalCommandType(sec, value ?? "Vibrate"))"
-                                                Options="@CommandTypeOptions" Class="flex-1" />
-                                        </div>
-                                        @if (sec.Incremental.CommandType == "Shock")
-                                        {
-                                            <div class="mt-1">
-                                                <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
-                                                <Toggle Value="sec.Incremental.WarningVibrate"
-                                                    ValueChanged="@(v => UpdateIncrementalWarningVibrate(sec, v))" />
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
+                                </SettingRow>
                             </div>
                         }
                     </div>
                 }
-
-                @if (!SubConfigService.Config.Sections.Any())
-                {
-                    <div class="twitch-card">
-                        <div class="twitch-card-body">
-                            <div class="twitch-empty py-8">
-                                <p>No subscription tiers configured</p>
-                                <p class="text-xs text-app-muted">This plugin normally creates one
-                                    section per tier automatically.</p>
-                            </div>
-                        </div>
-                    </div>
-                }
-
-                <div class="twitch-card" data-guided-setup="twitch-subs-help">
-                    <div class="twitch-card-header cursor-pointer" @onclick="@(() => ShowHelpCard = !ShowHelpCard)">
-                        <div class="flex items-center gap-2">
-                            <svg class="w-4 h-4 text-app-primary" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>How It Works</span>
-                        </div>
-                        <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ShowHelpCard ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
-                    @if (ShowHelpCard)
-                    {
-                        <div class="twitch-card-body text-sm text-app-muted">
-                            <p class="mb-2">When a subscription event arrives, the matching tier section is used.</p>
-                            <ul class="list-disc list-inside space-y-1 text-xs">
-                                <li>In <strong>Brackets</strong> mode, subs use the matching bracket based on sub count (1 for
-                                    single, gift count for gifts).</li>
-                                <li>In <strong>Incremental</strong> mode, both single subs and gifts use the incremental scaling
-                                    based on sub count.</li>
-                            </ul>
-                        </div>
-                    }
-                </div>
-            </div>
+            </section>
         }
     </div>
+    @if (!SubConfigService.Config.Sections.Any())
+    {
+        <Card>
+            <EmptyState Icon="users" Title="No subscription tiers" Description="Tiers 1, 2 and 3 are normally created automatically. Restart MultiShock to recreate them." />
+        </Card>
+    }
+
+    <details class="panel group/help" data-guided-setup="twitch-subs-help">
+        <summary class="flex cursor-pointer list-none items-center gap-2 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/help:rotate-90" />
+            <span class="panel-title">How it works</span>
+        </summary>
+        <div class="space-y-2 border-t border-app-border p-4 text-sm text-app-muted">
+            <p>When a subscription event arrives, the section for its tier is used.</p>
+            <p>Brackets match the sub count: 1 for a single sub, or the number of subs in a gift.</p>
+            <p>Incremental scaling uses the one-sub values, then adds the increase for each extra sub up to the maximum.</p>
+            <p>Resubs only arrive when the viewer shares the resub message in chat.</p>
+        </div>
+    </details>
 </div>
+
+<ConfirmDialog IsOpen="@(PendingCopyTarget != null)" Title="Replace brackets?"
+               Message="@($"Tier {PendingCopyTarget?.Tier}'s {ActionOptions.Count(PendingCopyTarget?.Brackets.Count ?? 0, "bracket", "brackets")} and command will be replaced with the ones from {SelectedCheerSectionName}.")"
+               ConfirmText="Replace brackets" OnCancel="@(() => PendingCopyTarget = null)" OnConfirm="ConfirmCopyBrackets" />
+
 @code {
     // Use service locator instead of @inject for plugin-specific services
     // This survives hot-reload where the DI container has stale types
     private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
     private SubscriptionConfigService SubConfigService => PluginServiceLocator.GetRequiredService<SubscriptionConfigService>(PluginId);
     private CheerConfigService CheerConfigService => PluginServiceLocator.GetRequiredService<CheerConfigService>(PluginId);
-    
+
     private HashSet<string> ExpandedSections = new();
-    private bool ShowHelpCard = false;
     private string? SelectedCheerSectionIdForImport;
+    private SubscriptionTierSection? PendingCopyTarget;
 
-    private Select<string>.SelectOption<string>[] CommandTypeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("Shock", "Shock"),
-new Select<string>.SelectOption<string>("Vibrate", "Vibrate"),
-new Select<string>.SelectOption<string>("Beep", "Beep")
-};
+    private string SelectedCheerSectionName =>
+        CheerConfigService.Config.Sections.FirstOrDefault(cs => cs.Id == SelectedCheerSectionIdForImport) is { } cs && !string.IsNullOrWhiteSpace(cs.Name)
+            ? cs.Name
+            : "the selected cheer section";
 
-    private Select<string>.SelectOption<string>[] MatchingModeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("round", "Round Down"),
-new Select<string>.SelectOption<string>("exact", "Exact")
-};
+    private static readonly Select<string>.SelectOption<string>[] SubscriptionModeOptions =
+    [
+        new(nameof(SubscriptionMode.Brackets), "Brackets"),
+        new(nameof(SubscriptionMode.Incremental), "Incremental"),
+    ];
 
-    private Select<string>.SelectOption<string>[] SelectionModeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("All", "All"),
-new Select<string>.SelectOption<string>("Random", "Random"),
-new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
-};
-
-    private Select<string>.SelectOption<string>[] SubscriptionModeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("Brackets", "Brackets"),
-new Select<string>.SelectOption<string>("Incremental", "Incremental")
-};
+    private IReadOnlyList<Select<string>.SelectOption<string>> CheerSectionOptions =>
+        CheerConfigService.Config.Sections
+            .Select(cs => new Select<string>.SelectOption<string>(cs.Id, string.IsNullOrWhiteSpace(cs.Name) ? "Unnamed section" : cs.Name))
+            .ToList();
 
     protected override void OnInitialized()
     {
         SubConfigService.ConfigChanged += OnConfigChanged;
-        foreach (var sec in SubConfigService.Config.Sections)
+        var first = SubConfigService.Config.Sections.OrderBy(s => s.Tier).FirstOrDefault();
+        if (first != null) ExpandedSections.Add(first.Id);
+    }
+
+    private static string SectionDetail(SubscriptionTierSection sec) =>
+        sec.Mode == SubscriptionMode.Incremental
+            ? $"Incremental · {sec.Incremental.CommandType}"
+            : $"{sec.BracketCommandType} · {ActionOptions.Count(sec.Brackets.Count, "bracket", "brackets")}";
+
+    private static string? SectionIssue(SubscriptionTierSection sec)
+    {
+        var noBrackets = sec.Mode == SubscriptionMode.Brackets && sec.Brackets.Count == 0;
+        var noShockers = sec.SelectedShockerIds.Count == 0;
+        return (noBrackets, noShockers) switch
         {
-            ExpandedSections.Add(sec.Id);
-        }
+            (true, true) => "No brackets or shockers",
+            (true, false) => "No brackets",
+            (false, true) => "No shockers",
+            _ => null,
+        };
     }
 
-    private IEnumerable<ShockerInfo> GetLoadedShockers() => DeviceActions.GetLoadedShockers();
-
-    private static int ParseInt(object? value, int defaultValue)
+    private static int BitsPerSub(int tier) => tier switch
     {
-        if (value == null) return defaultValue;
-        return int.TryParse(value.ToString(), out var result) ? result : defaultValue;
-    }
+        2 => 500,
+        3 => 1250,
+        _ => 250
+    };
 
-    private static double ParseDouble(object? value, double defaultValue)
-    {
-        if (value == null) return defaultValue;
-        return double.TryParse(value.ToString(), out var result) ? result : defaultValue;
-    }
-
-    private static SelectionMode ParseSelectionMode(object? value)
-    {
-        if (value == null) return SelectionMode.All;
-        return Enum.TryParse<SelectionMode>(value.ToString(), out var result) ? result : SelectionMode.All;
-    }
-
-    private static SubscriptionMode ParseSubscriptionMode(object? value)
-    {
-        if (value == null) return SubscriptionMode.Brackets;
-        return Enum.TryParse<SubscriptionMode>(value.ToString(), out var result) ? result : SubscriptionMode.Brackets;
-    }
+    private static SubscriptionMode ParseSubscriptionMode(string? value) =>
+        Enum.TryParse<SubscriptionMode>(value, out var result) ? result : SubscriptionMode.Brackets;
 
     private void OnConfigChanged() => InvokeAsync(StateHasChanged);
 
@@ -367,9 +263,7 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
 
     private void ToggleSectionExpanded(string sectionId)
     {
-        if (ExpandedSections.Contains(sectionId))
-            ExpandedSections.Remove(sectionId);
-        else
+        if (!ExpandedSections.Remove(sectionId))
             ExpandedSections.Add(sectionId);
     }
 
@@ -385,40 +279,45 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
         SubConfigService.UpdateSection(sec);
     }
 
-    // Incremental action updates
+    private void UpdateSectionShockers(SubscriptionTierSection sec, List<string> ids)
+    {
+        sec.SelectedShockerIds = ids;
+        SubConfigService.UpdateSection(sec);
+    }
+
     private void UpdateIncrementalBaseIntensity(SubscriptionTierSection sec, int value)
     {
-        sec.Incremental.BaseIntensity = Math.Clamp(value, 1, 100);
+        sec.Incremental.BaseIntensity = value;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateIncrementalBaseDuration(SubscriptionTierSection sec, double value)
     {
-        sec.Incremental.BaseDuration = Math.Clamp(value, 0.1, 15.0);
+        sec.Incremental.BaseDuration = value;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateIncrementalMaxIntensity(SubscriptionTierSection sec, int value)
     {
-        sec.Incremental.MaxIntensity = Math.Clamp(value, 1, 100);
+        sec.Incremental.MaxIntensity = value;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateIncrementalMaxDuration(SubscriptionTierSection sec, double value)
     {
-        sec.Incremental.MaxDuration = Math.Clamp(value, 0.1, 15.0);
+        sec.Incremental.MaxDuration = value;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateIncrementalIntensityIncrement(SubscriptionTierSection sec, int value)
     {
-        sec.Incremental.IncrementIntensity = Math.Max(0, value);
+        sec.Incremental.IncrementIntensity = value;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateIncrementalDurationIncrement(SubscriptionTierSection sec, double value)
     {
-        sec.Incremental.IncrementDuration = Math.Max(0.0, value);
+        sec.Incremental.IncrementDuration = value;
         SubConfigService.UpdateSection(sec);
     }
 
@@ -434,7 +333,6 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
         SubConfigService.UpdateSection(sec);
     }
 
-    // Bracket updates
     private void UpdateSectionFixedAmount(SubscriptionTierSection sec, bool fixedAmount)
     {
         sec.FixedAmount = fixedAmount;
@@ -456,19 +354,19 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
 
     private void UpdateBracketCount(SubscriptionTierSection sec, SubscriptionBracket bracket, int count)
     {
-        bracket.Count = Math.Max(1, count);
+        bracket.Count = count;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateBracketIntensity(SubscriptionTierSection sec, SubscriptionBracket bracket, int intensity)
     {
-        bracket.Intensity = Math.Clamp(intensity, 1, 100);
+        bracket.Intensity = intensity;
         SubConfigService.UpdateSection(sec);
     }
 
     private void UpdateBracketDuration(SubscriptionTierSection sec, SubscriptionBracket bracket, double duration)
     {
-        bracket.Duration = Math.Clamp(duration, 0.1, 15.0);
+        bracket.Duration = duration;
         SubConfigService.UpdateSection(sec);
     }
 
@@ -481,18 +379,6 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
     private void RemoveBracket(SubscriptionTierSection sec, SubscriptionBracket bracket)
     {
         sec.Brackets.RemoveAll(b => b.Id == bracket.Id);
-        SubConfigService.UpdateSection(sec);
-    }
-
-    private void MoveBracket(SubscriptionTierSection sec, SubscriptionBracket bracket, int direction)
-    {
-        var index = sec.Brackets.FindIndex(b => b.Id == bracket.Id);
-        if (index < 0) return;
-
-        var newIndex = index + direction;
-        if (newIndex < 0 || newIndex >= sec.Brackets.Count) return;
-
-        (sec.Brackets[index], sec.Brackets[newIndex]) = (sec.Brackets[newIndex], sec.Brackets[index]);
         SubConfigService.UpdateSection(sec);
     }
 
@@ -514,40 +400,39 @@ new Select<string>.SelectOption<string>("Incremental", "Incremental")
         SubConfigService.UpdateSection(sec);
     }
 
+    private void RequestCopyBrackets(SubscriptionTierSection sec)
+    {
+        if (sec.Brackets.Count > 0)
+        {
+            PendingCopyTarget = sec;
+            return;
+        }
+
+        ConvertFromCheerSection(sec);
+    }
+
+    private void ConfirmCopyBrackets()
+    {
+        if (PendingCopyTarget != null) ConvertFromCheerSection(PendingCopyTarget);
+        PendingCopyTarget = null;
+    }
+
     private void ConvertFromCheerSection(SubscriptionTierSection sec)
     {
-        var cheerSections = CheerConfigService?.Config.Sections;
-        if (cheerSections == null || !cheerSections.Any()) return;
-
-        var sourceId = SelectedCheerSectionIdForImport;
-        var source = !string.IsNullOrEmpty(sourceId)
-        ? cheerSections.FirstOrDefault(s => s.Id == sourceId)
-        : cheerSections.FirstOrDefault();
-
+        var source = CheerConfigService.Config.Sections.FirstOrDefault(s => s.Id == SelectedCheerSectionIdForImport);
         if (source == null || !source.Brackets.Any()) return;
 
-        var bitsPerSub = sec.Tier switch
-        {
-            1 => 250,
-            2 => 500,
-            3 => 1250,
-            _ => 250
-        };
-
-        if (bitsPerSub <= 0) return;
-
-        var newBrackets = source.Brackets
-        .OrderBy(b => b.BitAmount)
-        .Select(b => new SubscriptionBracket
-        {
-            Count = Math.Max(1, (int)Math.Round((double)b.BitAmount / bitsPerSub)),
-            Intensity = b.Intensity,
-            Duration = b.Duration,
-            Mode = b.Mode
-        })
-        .ToList();
-
-        sec.Brackets = newBrackets;
+        var bitsPerSub = BitsPerSub(sec.Tier);
+        sec.Brackets = source.Brackets
+            .OrderBy(b => b.BitAmount)
+            .Select(b => new SubscriptionBracket
+            {
+                Count = Math.Max(1, (int)Math.Round((double)b.BitAmount / bitsPerSub)),
+                Intensity = b.Intensity,
+                Duration = b.Duration,
+                Mode = b.Mode
+            })
+            .ToList();
         sec.BracketCommandType = source.CommandType;
         sec.FixedAmount = source.FixedAmount;
 

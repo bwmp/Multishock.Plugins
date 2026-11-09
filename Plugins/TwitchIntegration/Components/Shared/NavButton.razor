@@ -1,0 +1,12 @@
+<a href="@Href" aria-label="@AriaLabel" @attributes="AdditionalAttributes"
+   class="inline-flex h-7 items-center gap-1.5 rounded-ctl border border-app-border bg-app-surface-2 px-2.5 text-xs font-medium text-app-text no-underline transition-colors hover:border-app-border-strong hover:bg-app-surface-3 hover:text-app-text">
+    <span>@Text</span>
+    <LucideIcon Name="chevron-right" Size="14" Class="shrink-0 text-app-muted" />
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+    [Parameter] public string Text { get; set; } = "Configure";
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

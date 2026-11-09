@@ -255,7 +255,7 @@ public sealed class SpeechRecognitionService : IAsyncDisposable
             throw new FileNotFoundException($"Whisper model not found at '{modelPath}'. Enable auto-download or set a model path.");
         }
 
-        PublishStatus($"Downloading Whisper model '{modelType}'...");
+        PublishStatus($"Downloading Whisper model '{modelType}'\u2026");
         var downloadStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(modelType, default, cancellationToken);
 
         var tempPath = $"{modelPath}.download";

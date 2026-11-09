@@ -121,10 +121,10 @@ public sealed class TikTokLiveClient : IAsyncDisposable
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var ct = _cts.Token;
 
-        StatusMessage?.Invoke($"Looking up room for @{UniqueId}...");
+        StatusMessage?.Invoke($"Looking up room for @{UniqueId}…");
         await ResolveRoomIdAsync(ct);
 
-        StatusMessage?.Invoke($"Fetching room info (room {RoomId})...");
+        StatusMessage?.Invoke($"Fetching room info (room {RoomId})…");
         Room = await FetchRoomInfoAsync(ct);
         if (Room is { IsLive: false })
         {
@@ -142,7 +142,7 @@ public sealed class TikTokLiveClient : IAsyncDisposable
             StatusMessage?.Invoke($"Could not load gift catalog: {ex.Message}");
         }
 
-        StatusMessage?.Invoke("Requesting signed webcast access from sign server...");
+        StatusMessage?.Invoke("Requesting signed webcast access from sign server…");
         var initialResponse = await FetchInitialRoomDataAsync(ct);
 
         if (string.IsNullOrEmpty(initialResponse.WsUrl))
@@ -150,13 +150,13 @@ public sealed class TikTokLiveClient : IAsyncDisposable
             throw new TikTokLiveException("TikTok did not offer a websocket upgrade. Try again in a moment.");
         }
 
-        StatusMessage?.Invoke("Connecting to webcast websocket...");
+        StatusMessage?.Invoke("Connecting to webcast websocket…");
         await ConnectWebSocketAsync(initialResponse, ct);
 
         // Deliver events that arrived with the initial fetch (room stats etc.)
         ProcessResponse(initialResponse);
 
-        StatusMessage?.Invoke("Connected to TikTok LIVE");
+        StatusMessage?.Invoke("Connected to TikTok Live");
     }
 
     public async Task DisconnectAsync(string reason = "Disconnected")
@@ -222,7 +222,7 @@ public sealed class TikTokLiveClient : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            StatusMessage?.Invoke($"Live page lookup failed ({ex.Message}), trying API fallback...");
+            StatusMessage?.Invoke($"Live page lookup failed ({ex.Message}), trying API fallback…");
         }
 
         if (roomId == null)

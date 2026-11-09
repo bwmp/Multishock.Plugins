@@ -1,58 +1,41 @@
 @using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center gap-2">
-        <div class="w-3 h-3 rounded-full @(Connection.IsConnected ? "bg-app-success" : "bg-app-subtle")"></div>
-        <span class="text-sm font-medium">
-            @if (Connection.IsConnected)
-            {
-                <span>Connected to Streamlabs</span>
-            }
-            else if (Connection.IsConnecting)
-            {
-                <span>Connecting...</span>
-            }
-            else
-            {
-                <span>Not connected</span>
-            }
-        </span>
-    </div>
-
-    <p class="text-sm text-app-subtle">
-        Set up your socket token and connection on the
-        <a href="/plugins/com-multishock-streamlabsintegration/streamlabsintegration" class="sl-brand hover:underline">
-            Streamlabs page
-        </a>.
-    </p>
-
-    <div class="text-xs text-app-muted space-y-1">
-        <div><strong>Supported Events:</strong></div>
-        <ul class="list-disc list-inside ml-2">
-            <li>Donations (with minimum amount)</li>
-            <li>Subscriptions &amp; resubs</li>
-            <li>Follows</li>
-            <li>Bits / cheers (with minimum)</li>
-            <li>Hosts &amp; raids</li>
-            <li>YouTube super chats</li>
-        </ul>
-    </div>
+<div class="space-y-3">
+    <span class="chip @ConnectionChip" role="status">
+        <span class="status-dot @ConnectionDot"></span>
+        @ConnectionLabel
+    </span>
+    <p class="text-sm text-app-muted">Set up the connection and reactions on the Streamlabs page.</p>
+    <NavButton Href="/plugins/com-multishock-streamlabsintegration/streamlabsintegration" Text="Open Streamlabs page" />
 </div>
 
 @code {
-    private static readonly string PluginId = StreamlabsIntegrationPlugin.PluginId;
-    private StreamlabsConnectionService Connection => PluginServiceLocator.GetRequiredService<StreamlabsConnectionService>(PluginId);
+    private static readonly string OwnPluginId = StreamlabsIntegrationPlugin.PluginId;
+    private StreamlabsConnectionService Connection => PluginServiceLocator.GetRequiredService<StreamlabsConnectionService>(OwnPluginId);
+
+    private EventLogService Log => PluginServiceLocator.GetRequiredService<EventLogService>(OwnPluginId);
+    private string ConnectionLabel => Connection.IsConnected ? "Connected" : Log.IsReconnecting ? "Reconnecting…" : Connection.IsConnecting ? "Connecting…" : Log.LastConnectionError != null ? "Error" : "Disconnected";
+    private string ConnectionChip => Connection.IsConnected ? "chip-ok" : Log.IsReconnecting ? "chip-info" : Connection.IsConnecting ? "chip-info" : Log.LastConnectionError != null ? "chip-danger" : "chip-neutral";
+    private string ConnectionDot => Connection.IsConnected ? "bg-app-success" : Log.IsReconnecting ? "bg-app-info" : Connection.IsConnecting ? "bg-app-info" : Log.LastConnectionError != null ? "bg-app-danger" : "bg-app-subtle";
+
+    [Parameter]
+    public string? PluginId { get; set; }
 
     protected override void OnInitialized()
     {
         Connection.ConnectionStateChanged += OnConnectionChanged;
+        Log.LogChanged += OnLogChanged;
     }
+
+    private void OnLogChanged() => InvokeAsync(StateHasChanged);
 
     private void OnConnectionChanged(bool connected) => InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         Connection.ConnectionStateChanged -= OnConnectionChanged;
+        Log.LogChanged -= OnLogChanged;
     }
 }

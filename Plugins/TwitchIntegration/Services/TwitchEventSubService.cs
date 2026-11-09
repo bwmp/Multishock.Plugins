@@ -43,6 +43,8 @@ public class TwitchEventSubService : IAsyncDisposable
 
     public bool IsConnecting => _isConnecting;
 
+    public bool IsReconnecting => Volatile.Read(ref _reconnectLoopActive) == 1 && _reconnectCts?.IsCancellationRequested == false;
+
     public string? CurrentUserName { get; private set; }
 
     public string? CurrentUserId => _userId;
@@ -221,10 +223,10 @@ public class TwitchEventSubService : IAsyncDisposable
 
             var websocketUrl = _authService.EventSubWebSocketUrl;
             var connectionType = _useLocalCli ? $"local CLI ({websocketUrl})" : "production";
-            ReportStatus($"Connecting to {connectionType} WebSocket...");
+            ReportStatus($"Connecting to {connectionType} WebSocket…");
 
             await _webSocket.ConnectAsync(new Uri(websocketUrl), _connectionCts.Token);
-            ReportStatus("WebSocket connected, waiting for welcome message...");
+            ReportStatus("WebSocket connected, waiting for welcome message…");
 
             // Started before the welcome so a connection that never receives one is also retried.
             _isSessionReconnect = false;
@@ -418,7 +420,7 @@ public class TwitchEventSubService : IAsyncDisposable
         var reconnect = JsonSerializer.Deserialize<ReconnectPayload>(payload);
         if (reconnect?.Session.ReconnectUrl == null) return;
 
-        ReportStatus("Reconnecting to new URL...");
+        ReportStatus("Reconnecting to new URL…");
 
         var newWebSocket = new ClientWebSocket();
         await newWebSocket.ConnectAsync(new Uri(reconnect.Session.ReconnectUrl), _connectionCts?.Token ?? CancellationToken.None);
@@ -492,7 +494,7 @@ public class TwitchEventSubService : IAsyncDisposable
                     var hypeBegin = JsonSerializer.Deserialize<HypeTrainBeginEvent>(eventJson);
                     if (hypeBegin != null)
                     {
-                        ReportStatus($"Hype Train started at level {hypeBegin.Level}!");
+                        ReportStatus($"Hype train started at level {hypeBegin.Level}");
                         Dispatch(OnHypeTrainBegin, hypeBegin);
                     }
                     break;
@@ -501,7 +503,7 @@ public class TwitchEventSubService : IAsyncDisposable
                     var hypeProgress = JsonSerializer.Deserialize<HypeTrainProgressEvent>(eventJson);
                     if (hypeProgress != null)
                     {
-                        ReportStatus($"Hype Train level {hypeProgress.Level}: {hypeProgress.Progress}/{hypeProgress.Goal}");
+                        ReportStatus($"Hype train level {hypeProgress.Level}: {hypeProgress.Progress}/{hypeProgress.Goal}");
                         Dispatch(OnHypeTrainProgress, hypeProgress);
                     }
                     break;
@@ -510,7 +512,7 @@ public class TwitchEventSubService : IAsyncDisposable
                     var hypeEnd = JsonSerializer.Deserialize<HypeTrainEndEvent>(eventJson);
                     if (hypeEnd != null)
                     {
-                        ReportStatus($"Hype Train ended at level {hypeEnd.Level}!");
+                        ReportStatus($"Hype train ended at level {hypeEnd.Level}");
                         Dispatch(OnHypeTrainEnd, hypeEnd);
                     }
                     break;
@@ -742,7 +744,7 @@ public class TwitchEventSubService : IAsyncDisposable
     {
         if (Interlocked.Exchange(ref _reconnectLoopActive, 1) == 1) return;
 
-        ReportError($"{reason}, reconnecting...");
+        ReportError($"{reason}, reconnecting…");
         var cts = new CancellationTokenSource();
         _reconnectCts = cts;
         _ = Task.Run(() => ReconnectLoopAsync(cts.Token));
@@ -750,6 +752,7 @@ public class TwitchEventSubService : IAsyncDisposable
 
     private async Task ReconnectLoopAsync(CancellationToken cancellationToken)
     {
+        string? stopReason = null;
         try
         {
             for (var attempt = 1; ; attempt++)
@@ -764,7 +767,7 @@ public class TwitchEventSubService : IAsyncDisposable
                 if (await ConnectAsync(_usesManagedToken ? null : _oauthToken)) return;
                 if (_authRejected)
                 {
-                    ReportError("Stopped reconnecting: Twitch rejected the login. Log in again to reconnect.");
+                    stopReason = "Stopped reconnecting: Twitch rejected the login. Log in again to reconnect.";
                     return;
                 }
             }
@@ -775,11 +778,13 @@ public class TwitchEventSubService : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            ReportError($"Reconnect stopped: {ex.Message}");
+            stopReason = $"Reconnect stopped: {ex.Message}";
         }
         finally
         {
             Interlocked.Exchange(ref _reconnectLoopActive, 0);
+            // Reported after the flag clears so listeners no longer see a reconnect in progress.
+            if (stopReason != null) ReportError(stopReason);
         }
     }
 

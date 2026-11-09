@@ -1,4 +1,7 @@
 using SkiaSharp;
+using System.Collections.Concurrent;
+using System.Globalization;
+using System.Text;
 
 namespace SteamVROverlay.Overlay;
 
@@ -7,6 +10,8 @@ namespace SteamVROverlay.Overlay;
 /// </summary>
 public static class OverlayText
 {
+    private static readonly ConcurrentDictionary<int, Lazy<SKTypeface?>> FallbackTypefaces = new();
+
     private const string Ellipsis = "…";
 
     public static SKFont CreateFont(SKTypeface typeface, float size) => new(typeface, size)
@@ -21,18 +26,67 @@ public static class OverlayText
         return rect.MidY - (metrics.Ascent + metrics.Descent) / 2f;
     }
 
+    private static IEnumerable<(string Text, SKFont Font)> Runs(string text, SKFont font)
+    {
+        var plain = new StringBuilder();
+        var elements = StringInfo.GetTextElementEnumerator(text);
+        while (elements.MoveNext())
+        {
+            var element = elements.GetTextElement();
+            var missing = element.EnumerateRunes().FirstOrDefault(r =>
+                Rune.GetUnicodeCategory(r) != UnicodeCategory.Format
+                && r.Value is not (0xFE0E or 0xFE0F) && font.GetGlyph(r.Value) == 0);
+            if (missing.Value == 0)
+            {
+                plain.Append(element);
+                continue;
+            }
+            if (plain.Length > 0)
+            {
+                yield return (plain.ToString(), font);
+                plain.Clear();
+            }
+            var typeface = FallbackTypefaces.GetOrAdd(missing.Value,
+                static codepoint => new Lazy<SKTypeface?>(() => SKFontManager.Default.MatchCharacter(codepoint))).Value;
+            if (typeface == null)
+            {
+                yield return (element, font);
+                continue;
+            }
+            using var fallback = CreateFont(typeface, font.Size);
+            yield return (element, fallback);
+        }
+        if (plain.Length > 0) yield return (plain.ToString(), font);
+    }
+
+    public static float MeasureText(string text, SKFont font) =>
+        Runs(text, font).Sum(run => run.Font.MeasureText(run.Text));
+
+    public static void DrawText(SKCanvas canvas, string text, float x, float baseline,
+        SKTextAlign align, SKFont font, SKPaint paint)
+    {
+        var width = MeasureText(text, font);
+        x -= align == SKTextAlign.Center ? width / 2 : align == SKTextAlign.Right ? width : 0;
+        foreach (var run in Runs(text, font))
+        {
+            canvas.DrawText(run.Text, x, baseline, SKTextAlign.Left, run.Font, paint);
+            x += run.Font.MeasureText(run.Text);
+        }
+    }
+
     public static string Truncate(string text, SKFont font, float maxWidth)
     {
-        if (maxWidth <= 0 || font.MeasureText(text) <= maxWidth)
+        if (maxWidth <= 0 || MeasureText(text, font) <= maxWidth)
         {
             return text;
         }
 
-        var ellipsisWidth = font.MeasureText(Ellipsis);
-        for (var length = text.Length - 1; length > 0; length--)
+        var ellipsisWidth = MeasureText(Ellipsis, font);
+        var boundaries = StringInfo.ParseCombiningCharacters(text);
+        for (var index = boundaries.Length - 1; index > 0; index--)
         {
-            var candidate = text[..length].TrimEnd();
-            if (font.MeasureText(candidate) + ellipsisWidth <= maxWidth)
+            var candidate = text[..boundaries[index]].TrimEnd();
+            if (MeasureText(candidate, font) + ellipsisWidth <= maxWidth)
             {
                 return candidate + Ellipsis;
             }
@@ -60,7 +114,7 @@ public static class OverlayText
             }
 
             var line = words[index++];
-            while (index < words.Length && font.MeasureText(line + " " + words[index]) <= maxWidth)
+            while (index < words.Length && MeasureText(line + " " + words[index], font) <= maxWidth)
             {
                 line += " " + words[index++];
             }

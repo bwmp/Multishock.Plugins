@@ -6,27 +6,22 @@
 @inject ObsConfigService ConfigService
 @implements IDisposable
 
-@* Uses the host page header, chip and section-label conventions so the page
-   reads as part of MultiShock rather than as an embedded app. PageHeader is
-   not in the published SDK yet, so the band is built from host CSS classes. *@
-@* PageHeader/Card/Alert come from the shared SDK, so this page inherits the host
-   title band, spacing and status language rather than restating them. *@
-<PageHeader Title="OBS Integration"
+<PageHeader Title="OBS"
             Icon="monitor"
             Description="Connect to OBS Studio to switch scenes, toggle sources and react to stream events from a flow.">
     <Meta>
         @if (ObsService.IsConnected)
         {
-            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
+            <span class="chip chip-ok" role="status"><span class="status-dot bg-app-success"></span> Connected</span>
             <span class="text-xs text-app-subtle">@ObsService.ConnectedHost@(string.IsNullOrEmpty(ObsService.ObsVersion) ? "" : $" · OBS {ObsService.ObsVersion}")</span>
         }
         else if (ObsService.IsConnecting)
         {
-            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
+            <span class="chip chip-info" role="status"><span class="status-dot bg-app-info"></span> Connecting</span>
         }
         else
         {
-            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
+            <span class="chip chip-neutral" role="status"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
         }
     </Meta>
     <Actions>
@@ -36,49 +31,48 @@
         }
         else
         {
-            <Button Variant="primary" Icon="plug" Text="@(ObsService.IsConnecting ? "Connecting..." : "Connect")"
-                    Disabled="@ObsService.IsConnecting" OnClick="Connect" />
+            <Button Variant="primary" Icon="plug" Text="@(ObsService.IsConnecting ? "Connecting…" : "Connect")"
+                    Title="@(ObsService.IsConnecting ? "Waiting for OBS to connect" : !PortValid || string.IsNullOrWhiteSpace(Host) ? "Enter an OBS host and a valid port first" : null)" Disabled="@(ObsService.IsConnecting || !PortValid || string.IsNullOrWhiteSpace(Host))" OnClick="Connect" />
         }
     </Actions>
 </PageHeader>
 
-<div class="space-y-4">
+<div class="max-w-4xl space-y-4">
 
-    <Card Title="Connection" Description="Where MultiShock reaches your OBS WebSocket server.">
-        <div class="space-y-4">
-            <div class="grid gap-4 sm:grid-cols-2">
-                <TextInput Label="Host" Placeholder="localhost" Value="@Host"
-                           ValueChanged="@((value) => Host = value ?? "localhost")" />
-                <TextInput Label="Port" Placeholder="4455" Value="@PortString"
-                           ValueChanged="@((value) => PortString = value ?? "4455")" />
+    <Card Title="Connection" Description="Host, port and password apply on the next connection. Save changes or connect to save all settings.">
+        <SettingRow Label="Host" Description="Address of the computer running OBS."><TextInput Class="[&_label]:sr-only" Label="OBS host" Value="@Host" ValueChanged="@(value => Host = value ?? string.Empty)" /></SettingRow>
+        <SettingRow Label="Port" Description="WebSocket server port, from 1 to 65535."><div class="w-28"><NumberInput Class="[&_label]:sr-only" Label="OBS port" Min="1" Max="65535" Step="1" Value="Port" ValueChanged="@(value => Port = value)" Error="@PortError" /></div></SettingRow>
+        <SettingRow Label="Password" Description="Leave empty if OBS has no password."><TextInput Class="[&_label]:sr-only" Label="OBS password" InputType="password" Value="@Password" ValueChanged="@(value => Password = value ?? string.Empty)" /></SettingRow>
+        <SettingRow Label="Auto-connect on startup" Description="Connect when MultiShock opens."><Toggle AriaLabel="Auto-connect to OBS on startup" Value="AutoConnect" ValueChanged="@ToggleAutoConnect" /></SettingRow>
+        @if (string.IsNullOrWhiteSpace(Host) || !PortValid) { <p class="text-sm text-app-muted">Enter an OBS host and a whole port from 1 to 65535 to connect and save.</p> }
+        <details class="group/obs-setup border-t border-app-border">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-panel py-3 [&::-webkit-details-marker]:hidden">
+                <span class="min-w-0">
+                    <span class="panel-title block">Enable the OBS WebSocket server</span>
+                    <span class="panel-desc block">Find the server settings in OBS Studio.</span>
+                </span>
+                <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/obs-setup:rotate-90" />
+            </summary>
+            <div class="space-y-2 border-t border-app-border py-3 text-sm text-app-muted">
+                <ol class="list-inside list-decimal space-y-1">
+                    <li>Open OBS Studio.</li>
+                    <li>Go to <strong class="font-medium text-app-text">Tools</strong> &rarr; <strong class="font-medium text-app-text">WebSocket Server Settings</strong>.</li>
+                    <li>Tick <strong class="font-medium text-app-text">Enable WebSocket server</strong>.</li>
+                    <li>Set a password if you want one, and note the port (default 4455).</li>
+                    <li>Click <strong class="font-medium text-app-text">Apply</strong>.</li>
+                </ol>
+                <p>The WebSocket server ships with OBS Studio 28.0 and later.</p>
             </div>
-            <TextInput Label="Password" InputType="password"
-                       Description="Leave empty if no password is set in OBS."
-                       Placeholder="Optional"
-                       Value="@Password" ValueChanged="@((value) => Password = value ?? "")" />
-
-            <Toggle Label="Auto-connect on startup" Value="AutoConnect" ValueChanged="@ToggleAutoConnect" />
-
-            <div class="flex gap-2 pt-1">
-                @if (!ObsService.IsConnected)
-                {
-                    <Button Text="@(ObsService.IsConnecting ? "Connecting..." : "Connect")"
-                            Variant="primary" Disabled="@ObsService.IsConnecting" OnClick="Connect" />
-                    <Button Text="Save settings" Variant="secondary" OnClick="SaveSettings" />
-                }
-                else
-                {
-                    <Button Text="Disconnect" Variant="secondary" OnClick="Disconnect" />
-                    <Button Text="Save settings" Variant="secondary" OnClick="SaveSettings" />
-                }
-            </div>
+        </details>
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <Alert Variant="danger" Title="@ErrorTitle">@ErrorMessage</Alert>
+        }
+        <div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
+            <p class="text-sm text-app-muted" role="status">@(IsDirty ? "Unsaved changes" : HasSaved ? "Saved" : null)</p>
+            <Button Text="Save changes" Disabled="@(!IsDirty || !PortValid || string.IsNullOrWhiteSpace(Host))" Title="@(!PortValid || string.IsNullOrWhiteSpace(Host) ? "Enter an OBS host and a valid port first" : !IsDirty ? "No unsaved changes" : null)" OnClick="SaveSettings" />
         </div>
     </Card>
-
-    @if (!string.IsNullOrEmpty(ErrorMessage))
-    {
-        <Alert Variant="danger" Title="OBS connection failed">@ErrorMessage</Alert>
-    }
 
     @if (ObsService.IsConnected)
     {
@@ -99,6 +93,8 @@
                             <Button Text="@scene"
                                     Variant="@(scene == CurrentScene ? "primary" : "secondary")"
                                     Size="sm"
+                                    Icon="@(scene == CurrentScene ? "check" : null)"
+                                    aria-pressed="@(scene == CurrentScene ? "true" : "false")"
                                     OnClick="@(() => SwitchToScene(scene))" />
                         }
                     </div>
@@ -107,24 +103,22 @@
         </Card>
     }
 
-    @if (ObsService.IsConnected || EventLog.Count > 0)
-    {
         <Card Title="Event log" Description="Recent OBS events seen by this plugin.">
             <Actions>
-                <Button Text="Clear" Variant="ghost" Size="sm" Icon="eraser" OnClick="ClearLog" />
+                @if (EventLog.Count > 0) { <Button Text="Clear" Variant="ghost" Size="sm" Icon="eraser" OnClick="ClearLog" /> }
             </Actions>
             <ChildContent>
                 @if (EventLog.Count == 0)
                 {
-                    <p class="text-sm text-app-muted">No events yet.</p>
+                    <div class="py-2 text-sm text-app-muted"><p>No OBS events yet</p><p class="text-xs text-app-subtle">@(ObsService.IsConnected ? "Scene and stream events will appear here as OBS sends them." : "Connect to OBS to see scene and stream events.")</p></div>
                 }
                 else
                 {
                     <div class="scrollable-area max-h-64 space-y-0.5 overflow-y-auto">
                         @foreach (var log in EventLog.TakeLast(50).Reverse())
                         {
-                            <div class="flex gap-2 rounded-ctl bg-app-surface-2 px-2 py-1 font-mono text-xs">
-                                <span class="shrink-0 tabular-nums text-app-subtle">@log.Time.ToString("HH:mm:ss")</span>
+                            <div class="flex gap-2 rounded-ctl bg-app-surface-2 px-2 py-1 text-sm">
+                                <span class="shrink-0 font-mono text-xs tabular-nums text-app-subtle">@log.Time.ToString("HH:mm:ss")</span>
                                 <span class="@(log.IsError ? "text-app-danger" : "text-app-text")">@log.Message</span>
                             </div>
                         }
@@ -132,7 +126,6 @@
                 }
             </ChildContent>
         </Card>
-    }
 
     <Card Title="Flow nodes" Description="What this plugin adds to the flow editor.">
         <div class="grid gap-6 md:grid-cols-2">
@@ -163,26 +156,22 @@
         </div>
     </Card>
 
-    <Card Title="Enabling the OBS WebSocket server">
-        <div class="space-y-2 text-sm text-app-muted">
-            <ol class="list-inside list-decimal space-y-1">
-                <li>Open OBS Studio.</li>
-                <li>Go to <strong class="font-medium text-app-text">Tools</strong> &rarr; <strong class="font-medium text-app-text">WebSocket Server Settings</strong>.</li>
-                <li>Tick <strong class="font-medium text-app-text">Enable WebSocket server</strong>.</li>
-                <li>Set a password if you want one, and note the port (default 4455).</li>
-                <li>Click <strong class="font-medium text-app-text">Apply</strong>.</li>
-            </ol>
-            <p>The WebSocket server ships with OBS Studio 28.0 and later.</p>
-        </div>
-    </Card>
+
 </div>
 
 @code {
     private string Host = "localhost";
-    private string PortString = "4455";
+    private double? Port = 4455;
+    private string? PortError => Port is null ? "Enter a value. Not saved."
+        : Port is not (>= 1 and <= 65535) ? "Enter 1 to 65535. Not saved."
+        : Port != Math.Truncate(Port.Value) ? "Enter a whole number. Not saved." : null;
+    private bool PortValid => PortError is null;
+    private bool IsDirty => Host != ConfigService.Host || Port != ConfigService.Port || Password != (ConfigService.Password ?? "") || AutoConnect != ConfigService.AutoConnect;
     private string Password = "";
     private bool AutoConnect;
     private string? ErrorMessage;
+    private string ErrorTitle = "OBS error";
+    private bool HasSaved;
     private List<LogEntry> EventLog = new();
     private List<string> Scenes = new();
     private string? CurrentScene;
@@ -219,7 +208,7 @@
 
         // Load saved settings
         Host = ConfigService.Host;
-        PortString = ConfigService.Port.ToString();
+        Port = ConfigService.Port;
         Password = ConfigService.Password ?? "";
         AutoConnect = ConfigService.AutoConnect;
 
@@ -232,13 +221,10 @@
     private async Task Connect()
     {
         ErrorMessage = null;
+        if (!PortValid || string.IsNullOrWhiteSpace(Host)) { ErrorMessage = "Enter a whole port from 1 to 65535."; return; }
         SaveSettings();
-        AddLog($"Connecting to {Host}:{PortString}...");
-
-        if (!int.TryParse(PortString, out var port))
-        {
-            port = 4455;
-        }
+        var port = (int)Port!.Value;
+        AddLog($"Connecting to {Host}:{port}…");
 
         var success = await ObsService.ConnectAsync(Host, port, string.IsNullOrEmpty(Password) ? null : Password);
         if (success)
@@ -257,20 +243,18 @@
 
     private void SaveSettings()
     {
+        if (!PortValid || string.IsNullOrWhiteSpace(Host)) { ErrorMessage = "Enter a whole port from 1 to 65535."; return; }
         ConfigService.Host = Host;
-        if (int.TryParse(PortString, out var port))
-        {
-            ConfigService.Port = port;
-        }
+        ConfigService.Port = (int)Port!.Value;
+        ConfigService.AutoConnect = AutoConnect;
         ConfigService.Password = string.IsNullOrEmpty(Password) ? null : Password;
-        AddLog("Settings saved");
+        HasSaved = true;
     }
 
     private void ToggleAutoConnect(bool enabled)
     {
         AutoConnect = enabled;
-        ConfigService.AutoConnect = enabled;
-        AddLog(enabled ? "Auto-connect enabled" : "Auto-connect disabled");
+
     }
 
     private async Task RefreshScenes()
@@ -310,9 +294,10 @@
     {
         InvokeAsync(() =>
         {
-            AddLog(connected ? "Connected to OBS!" : "Disconnected from OBS");
+            AddLog(connected ? "Connected to OBS" : "Disconnected from OBS");
             if (connected)
             {
+                ErrorMessage = null;
                 _ = RefreshScenes();
             }
             StateHasChanged();
@@ -321,10 +306,12 @@
 
     private void OnError(string error)
     {
+        var connectionFailed = ObsService.IsConnecting && !ObsService.IsConnected;
         InvokeAsync(() =>
         {
+            ErrorTitle = connectionFailed ? "OBS connection failed" : "OBS error";
             ErrorMessage = error;
-            AddLog($"Error: {error}", isError: true);
+            AddLog(error, isError: true);
             StateHasChanged();
         });
     }

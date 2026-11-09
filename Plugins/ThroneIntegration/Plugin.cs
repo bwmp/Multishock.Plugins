@@ -20,13 +20,13 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     public string Id => PluginId;
 
     /// <summary>Display name shown in the UI</summary>
-    public string Name => "Throne Integration";
+    public string Name => "Throne";
 
     /// <summary>Plugin version (uses auto-generated build stamp)</summary>
     public string Version => BuildStamp.Version;
 
     /// <summary>Short description of what the plugin does</summary>
-    public string Description => "A simple multishock integration to add flow trigger nodes that activate when a throne gift is purchased";
+    public string Description => "Fire a flow trigger for Throne wishlist gifts, crowdfund contributions and tips.";
 
     // ========== DEPENDENCY INJECTION ==========
 
@@ -76,14 +76,7 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     // ========== STYLES (IPluginWithStyles) ==========
 
-    public string GetStylesheet() => @"
-        .throneintegration-card {
-            border: 1px solid #374151;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            background: #1f2937;
-        }
-    ";
+    public string GetStylesheet() => string.Empty;
 
     public string? GetStylesheetId() => "throneintegration-styles";
 
@@ -93,9 +86,9 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     [
         new NavigationItem
         {
-            Text = "Throne Integration",
+            Text = "Throne",
             Href = "/throneintegration",
-            Icon = "plug",
+            Icon = "gift",
             Order = 50
         }
     ];

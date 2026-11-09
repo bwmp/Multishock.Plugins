@@ -1,99 +1,53 @@
 @using ImageDetection.Models
 @using MultiShock.PluginSdk.Components
 
-@if (IsVisible)
-{
-    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[1000] flex items-center justify-center p-5">
-        <div class="bg-app-surface-2 border border-app-border rounded-xl max-w-[500px] w-full shadow-2xl">
-            <div class="px-5 py-5 border-b border-app-border">
-                <h4 class="m-0 mb-1 text-xl font-semibold">Set Image Resolution</h4>
-                <p class="m-0 text-sm text-app-muted">This helps the detector match the image correctly</p>
+<Modal IsOpen="IsVisible" Title="Image resolution" OnClose="Cancel">
+    <ChildContent>
+        <div class="space-y-4">
+            <p class="text-sm text-app-muted">
+                Enter the screen resolution this image was captured at. Matching works best when it equals the resolution detection runs at.
+            </p>
+
+            <div class="grid grid-cols-2 gap-3">
+                <NumberInput Label="Width" Value="Width" Error="@WidthError" ValueChanged="OnWidthChanged" Min="1" Max="10000" Step="1" Suffix="px" />
+                <NumberInput Label="Height" Value="Height" Error="@HeightError" ValueChanged="OnHeightChanged" Min="1" Max="10000" Step="1" Suffix="px" />
             </div>
-            
-            <div class="px-5 py-5 flex flex-col gap-5">
-                <div class="flex gap-3 p-3 bg-app-info/10 border border-app-info/30 rounded-lg">
-                    <svg class="w-5 h-5 text-app-info flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <p class="m-0 text-sm text-app-text">
-                        What resolution was this image captured at? 
-                        Template matching works best when detection resolution matches the upload resolution.
-                    </p>
+
+            <div>
+                <div class="mb-1.5 text-xs font-medium text-app-muted">Presets</div>
+                <div class="flex flex-wrap gap-2">
+                    <Button Text="720p" Size="sm" Variant="secondary" OnClick="() => SetPreset(1280, 720)" />
+                    <Button Text="1080p" Size="sm" Variant="secondary" OnClick="() => SetPreset(1920, 1080)" />
+                    <Button Text="1440p" Size="sm" Variant="secondary" OnClick="() => SetPreset(2560, 1440)" />
+                    <Button Text="4K" Size="sm" Variant="secondary" OnClick="() => SetPreset(3840, 2160)" />
+                    <Button Text="Current monitor" Icon="monitor" Size="sm" Variant="secondary"
+                            Disabled="@(CurrentMonitorResolution == null)"
+                            OnClick="UseCurrentMonitor" />
                 </div>
-                
-                <div class="flex items-end gap-3">
-                    <div class="flex-1 flex flex-col gap-1.5">
-                        <label class="text-xs text-app-muted uppercase tracking-wider">Width (pixels)</label>
-                        <TextInput @bind-Value="_widthString" />
-                    </div>
-                    
-                    <span class="text-xl text-app-muted pb-2">&times;</span>
-                    
-                    <div class="flex-1 flex flex-col gap-1.5">
-                        <label class="text-xs text-app-muted uppercase tracking-wider">Height (pixels)</label>
-                        <TextInput @bind-Value="_heightString" />
-                    </div>
-                </div>
-                
-                <div class="flex flex-col gap-2">
-                    <span class="text-xs text-app-muted">Quick presets:</span>
-                    <div class="flex flex-wrap gap-2">
-                        <Button Text="1080p" Size="xs" Variant="secondary" OnClick="() => SetPreset(1920, 1080)" />
-                        <Button Text="1440p" Size="xs" Variant="secondary" OnClick="() => SetPreset(2560, 1440)" />
-                        <Button Text="4K" Size="xs" Variant="secondary" OnClick="() => SetPreset(3840, 2160)" />
-                        <Button Text="720p" Size="xs" Variant="secondary" OnClick="() => SetPreset(1280, 720)" />
-                        <Button Text="Current Monitor" Size="xs" Variant="secondary" OnClick="UseCurrentMonitor" />
-                    </div>
-                </div>
-                
-                @if (ShowWarning)
-                {
-                    <div class="flex gap-3 p-3 bg-app-warning/10 border border-app-warning/30 rounded-lg">
-                        <svg class="w-5 h-5 text-app-warning flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                        <p class="m-0 text-sm text-app-text">
-                            <strong>Resolution mismatch:</strong> This image was captured at @Width&times;@Height 
-                            but your current monitor is @CurrentMonitorResolution. 
-                            Detection may not work accurately unless you resize the image or adjust your monitor resolution.
-                        </p>
-                    </div>
-                }
             </div>
-            
-            <div class="flex justify-end gap-3 px-5 py-4 border-t border-app-border bg-app-surface-2">
-                <Button Text="Cancel" Variant="ghost" OnClick="Cancel" />
-                <Button Text="Upload with this Resolution" Variant="primary" OnClick="Confirm" />
-            </div>
+
+            @if (ShowWarning)
+            {
+                <Alert Variant="warning" Title="Resolution differs from your monitor">
+                    This image is @(Width) × @(Height) but your current monitor is @CurrentMonitorResolution.
+                    Detection may be inaccurate unless the image is resized or your monitor resolution changes.
+                </Alert>
+            }
         </div>
-    </div>
-}
+    </ChildContent>
+    <Footer>
+        <Button Text="Cancel" Variant="ghost" OnClick="Cancel" />
+        <Button Text="Upload image" Icon="upload" Variant="primary" Disabled="@(WidthError != null || HeightError != null)" OnClick="Confirm" />
+    </Footer>
+</Modal>
 
 @code {
-    private int Width { get; set; } = 1920;
-    private int Height { get; set; } = 1080;
-    private string _widthString 
-    { 
-        get => Width.ToString(); 
-        set
-        {
-            if (int.TryParse(value, out var w))
-            {
-                Width = Math.Clamp(w, 1, 10000);
-            }
-        }
-    }
-    private string _heightString 
-    { 
-        get => Height.ToString(); 
-        set
-        {
-            if (int.TryParse(value, out var h))
-            {
-                Height = Math.Clamp(h, 1, 10000);
-            }
-        }
-    }
+    private double? Width { get; set; } = 1920;
+    private double? Height { get; set; } = 1080;
+    private string? WidthError => ValidSize(Width) ? null : "Enter a whole number from 1 to 10000.";
+    private string? HeightError => ValidSize(Height) ? null : "Enter a whole number from 1 to 10000.";
+    private static bool ValidSize(double? value) => value is { } v && double.IsFinite(v) && v >= 1 && v <= 10000 && v == Math.Truncate(v);
+    private bool _wasVisible;
 
     [Parameter]
     public bool IsVisible { get; set; }
@@ -116,6 +70,12 @@
 
     protected override void OnParametersSet()
     {
+        // The editor re-renders every 500 ms while detection runs; only seed the
+        // fields when the dialog opens so typed values are not overwritten.
+        var opening = IsVisible && !_wasVisible;
+        _wasVisible = IsVisible;
+        if (!opening) return;
+
         if (DefaultResolution != null)
         {
             Width = DefaultResolution.Width;
@@ -126,6 +86,16 @@
             Width = CurrentMonitorResolution.Width;
             Height = CurrentMonitorResolution.Height;
         }
+    }
+
+    private void OnWidthChanged(double? value)
+    {
+        Width = value;
+    }
+
+    private void OnHeightChanged(double? value)
+    {
+        Height = value;
     }
 
     private void SetPreset(int width, int height)
@@ -145,9 +115,8 @@
 
     private async Task Confirm()
     {
-        Width = Math.Clamp(Width, 1, 10000);
-        Height = Math.Clamp(Height, 1, 10000);
-        await OnConfirm.InvokeAsync(new Resolution(Width, Height));
+        if (WidthError != null || HeightError != null) return;
+        await OnConfirm.InvokeAsync(new Resolution((int)Width!.Value, (int)Height!.Value));
     }
 
     private async Task Cancel()

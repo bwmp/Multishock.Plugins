@@ -174,7 +174,7 @@ public class TwitchAuthService : IDisposable
                     }
 
                     StoreTokens(token);
-                    StatusChanged?.Invoke("Authentication successful!");
+                    StatusChanged?.Invoke("Logged in to Twitch.");
                     return token.AccessToken;
                 }
 

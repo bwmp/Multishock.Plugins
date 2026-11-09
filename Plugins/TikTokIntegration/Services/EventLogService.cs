@@ -77,7 +77,7 @@ public class EventLogService : IDisposable
     {
         if (connected)
         {
-            AddLog("Connected to TikTok LIVE!");
+            AddLog("Connected to TikTok Live. Listening for events…");
         }
     }
 
@@ -89,25 +89,25 @@ public class EventLogService : IDisposable
     {
         var who = string.IsNullOrEmpty(e.DisplayName) ? e.UserName : e.DisplayName;
         var repeat = e.RepeatCount > 1 ? $" x{e.RepeatCount}" : "";
-        AddLog($"🎁 {who} sent {e.GiftName}{repeat} ({e.TotalCoins} coins)");
+        AddLog($"{who} sent {e.GiftName}{repeat} ({e.TotalCoins} coins)");
     }
 
     private void OnFollow(TikTokSocialEvent e)
     {
         var who = string.IsNullOrEmpty(e.DisplayName) ? e.UserName : e.DisplayName;
-        AddLog($"➕ {who} followed");
+        AddLog($"{who} followed");
     }
 
     private void OnShare(TikTokSocialEvent e)
     {
         var who = string.IsNullOrEmpty(e.DisplayName) ? e.UserName : e.DisplayName;
-        AddLog($"↗ {who} shared the stream");
+        AddLog($"{who} shared the stream");
     }
 
     private void OnSubscribe(TikTokSubscribeEvent e)
     {
         var who = string.IsNullOrEmpty(e.DisplayName) ? e.UserName : e.DisplayName;
-        AddLog($"⭐ {who} subscribed");
+        AddLog($"{who} subscribed");
     }
 
     public void Dispose()

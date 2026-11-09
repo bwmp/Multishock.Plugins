@@ -49,7 +49,7 @@ public class StreamlabsConnectionService : IDisposable
         IsConnecting = true;
         _intentionalDisconnect = false;
         _cts = new CancellationTokenSource();
-        OnStatusMessage?.Invoke("Connecting to Streamlabs...");
+        OnStatusMessage?.Invoke("Connecting to Streamlabs…");
 
         try
         {
@@ -84,7 +84,7 @@ public class StreamlabsConnectionService : IDisposable
     {
         IsConnecting = false;
         RaiseState(true);
-        OnStatusMessage?.Invoke("Connected! Listening for events...");
+        OnStatusMessage?.Invoke("Connected. Listening for events…");
     }
 
     private void OnSocketDisconnected(string reason)
@@ -113,7 +113,7 @@ public class StreamlabsConnectionService : IDisposable
         var cts = _cts;
         if (cts is null || cts.IsCancellationRequested) return;
 
-        OnStatusMessage?.Invoke($"Reconnecting in {ReconnectDelayMs / 1000}s...");
+        OnStatusMessage?.Invoke($"Reconnecting in {ReconnectDelayMs / 1000}s…");
         try
         {
             await Task.Delay(ReconnectDelayMs, cts.Token);

@@ -1,0 +1,20 @@
+<span class="chip @ChipClass" role="status"><span class="status-dot @DotClass"></span>@Text</span>
+
+@code {
+    [Parameter, EditorRequired] public ReactionState State { get; set; }
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+
+    private string ChipClass => State switch
+    {
+        ReactionState.Ready => "chip-ok",
+        ReactionState.NeedsAttention => "chip-warn",
+        _ => "chip-neutral",
+    };
+
+    private string DotClass => State switch
+    {
+        ReactionState.Ready => "bg-app-success",
+        ReactionState.NeedsAttention => "bg-app-warning",
+        _ => "bg-app-subtle",
+    };
+}

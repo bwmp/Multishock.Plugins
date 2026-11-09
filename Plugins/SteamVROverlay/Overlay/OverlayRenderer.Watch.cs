@@ -137,7 +137,7 @@ public sealed partial class OverlayRenderer
         font ??= _fontValue;
         var iconSize = font.Size + 4f;
         const float gap = 10f;
-        var labelWidth = font.MeasureText(label);
+        var labelWidth = OverlayText.MeasureText(label, font);
         var left = rect.MidX - (iconSize + gap + labelWidth + trailing) / 2f;
 
         OverlayIcons.Draw(_canvas, icon, new SKPoint(left + iconSize / 2f, rect.MidY), iconSize, color);
@@ -183,7 +183,7 @@ public sealed partial class OverlayRenderer
         // Text sits slightly above centre to leave room for the level bar along the bottom edge.
         var content = new SKRect(pill.Left + inset, pill.Top, pill.Right - inset, pill.Bottom - 6f);
         var percent = $"{MathF.Round(battery.Level * 100f):0}%";
-        var percentWidth = _fontValue.MeasureText(percent);
+        var percentWidth = OverlayText.MeasureText(percent, _fontValue);
         DrawText(percent, content.Right, OverlayText.BaselineFor(content, _fontValue), SKTextAlign.Right, _fontValue, OverlayTheme.Text);
 
         var reserved = percentWidth + 8f;
@@ -245,7 +245,7 @@ public sealed partial class OverlayRenderer
         var times = $"{FormatTime(position)} / {FormatTime(media.Duration)}";
         DrawText(times, row.Right, OverlayText.BaselineFor(row, _fontSmall), SKTextAlign.Right, _fontSmall, OverlayTheme.Muted);
 
-        var bar = new SKRect(row.Left, row.MidY - 2f, row.Right - _fontSmall.MeasureText(times) - 12f, row.MidY + 2f);
+        var bar = new SKRect(row.Left, row.MidY - 2f, row.Right - OverlayText.MeasureText(times, _fontSmall) - 12f, row.MidY + 2f);
         DrawMeter(bar, (float)(position / media.Duration), OverlayTheme.Text);
     }
 
@@ -496,7 +496,7 @@ public sealed partial class OverlayRenderer
         {
             var fittedStatus = OverlayText.Truncate(status, _fontLabel, card.Width * 0.4f);
             DrawText(fittedStatus, statusRight, OverlayText.BaselineFor(card, _fontLabel), SKTextAlign.Right, _fontLabel, OverlayTheme.Muted);
-            titleRight = statusRight - _fontLabel.MeasureText(fittedStatus) - 16f;
+            titleRight = statusRight - OverlayText.MeasureText(fittedStatus, _fontLabel) - 16f;
         }
 
         var fittedTitle = OverlayText.Truncate(title, _fontButton, titleRight - titleLeft);

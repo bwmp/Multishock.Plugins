@@ -67,13 +67,13 @@ public sealed class NotificationRenderer : IDisposable
         var baseline = (Height - blockHeight) / 2f + 32f;
 
         _fill.Color = OverlayTheme.Text;
-        _canvas.DrawText(title, TextLeft, baseline, SKTextAlign.Left, _fontTitle, _fill);
+        OverlayText.DrawText(_canvas, title, TextLeft, baseline, SKTextAlign.Left, _fontTitle, _fill);
 
         _fill.Color = OverlayTheme.Muted;
         for (var i = 0; i < message.Count; i++)
         {
             baseline += messageLineHeight + (i == 0 ? 4f : 0f);
-            _canvas.DrawText(message[i], TextLeft, baseline, SKTextAlign.Left, _fontMessage, _fill);
+            OverlayText.DrawText(_canvas, message[i], TextLeft, baseline, SKTextAlign.Left, _fontMessage, _fill);
         }
 
         _canvas.Flush();

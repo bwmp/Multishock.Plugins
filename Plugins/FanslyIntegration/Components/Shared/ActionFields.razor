@@ -1,0 +1,43 @@
+<div class="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="sm:col-span-2 lg:col-span-4">
+        <ShockerSelect Label="Shockers" MultiSelect="true" SelectedIds="ShockerIds" SelectedIdsChanged="ShockerIdsChanged" />
+        @if (ShockerIds.Count == 0)
+        {
+            <p class="mt-1.5 flex items-center gap-1.5 text-xs text-app-warning">
+                <LucideIcon Name="alert-triangle" Size="12" Class="shrink-0" />
+                <span>Select at least one shocker. Nothing runs until you do.</span>
+            </p>
+        }
+    </div>
+    <Select TValue="string" Label="Command" Value="@Command" Options="ActionOptions.Commands"
+            ValueChanged="@(v => CommandChanged.InvokeAsync(v ?? "Vibrate"))" />
+    <Select TValue="string" Label="Mode" Value="@Mode.ToString()" Options="ActionOptions.Modes"
+            ValueChanged="@(v => ModeChanged.InvokeAsync(ActionOptions.ParseMode(v)))" />
+    <NumberField Label="Intensity" Suffix="%" Min="ActionOptions.MinIntensity" Max="ActionOptions.MaxIntensity"
+                 Value="Intensity" ValueChanged="@(v => IntensityChanged.InvokeAsync(ActionOptions.ClampIntensity(v)))" />
+    <NumberField Label="Duration" Suffix="s" Min="ActionOptions.MinDuration" Max="ActionOptions.MaxDuration" Step="0.1"
+                 Value="Duration" ValueChanged="@(v => DurationChanged.InvokeAsync(ActionOptions.ClampDuration(v)))" />
+    @if (Command == "Shock")
+    {
+        <div class="sm:col-span-2 lg:col-span-4">
+            <Toggle Label="Vibrate as a warning before each shock" Value="WarningVibrate" ValueChanged="WarningVibrateChanged" />
+        </div>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public List<string> ShockerIds { get; set; } = [];
+    [Parameter] public EventCallback<List<string>> ShockerIdsChanged { get; set; }
+    [Parameter] public string Command { get; set; } = "Vibrate";
+    [Parameter] public EventCallback<string> CommandChanged { get; set; }
+    [Parameter] public SelectionMode Mode { get; set; }
+    [Parameter] public EventCallback<SelectionMode> ModeChanged { get; set; }
+    [Parameter] public int Intensity { get; set; }
+    [Parameter] public EventCallback<int> IntensityChanged { get; set; }
+    [Parameter] public double Duration { get; set; }
+    [Parameter] public EventCallback<double> DurationChanged { get; set; }
+    [Parameter] public bool WarningVibrate { get; set; }
+    [Parameter] public EventCallback<bool> WarningVibrateChanged { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

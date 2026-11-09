@@ -5,14 +5,14 @@
    OCR, and template region editors. *@
 
 <div class="grid grid-cols-2 gap-3">
-    <NumberInput Label="X Position" Value="(double)(Image.Region.CustomRegion?.X ?? 0)"
-                 ValueChanged="@(v => Update(x: (int)(v ?? 0)))" Min="0" />
-    <NumberInput Label="Y Position" Value="(double)(Image.Region.CustomRegion?.Y ?? 0)"
-                 ValueChanged="@(v => Update(y: (int)(v ?? 0)))" Min="0" />
-    <NumberInput Label="Width" Value="(double)(Image.Region.CustomRegion?.Width ?? 100)"
-                 ValueChanged="@(v => Update(width: (int)(v ?? 100)))" Min="1" />
-    <NumberInput Label="Height" Value="(double)(Image.Region.CustomRegion?.Height ?? 100)"
-                 ValueChanged="@(v => Update(height: (int)(v ?? 100)))" Min="1" />
+    <ValidatedNumberInput Label="X Position" Value="(double)(Image.Region.CustomRegion?.X ?? 0)"
+                 ValueChanged="@(v => Update(x: (int)(v ?? 0)))" Min="0" Max="@((double)int.MaxValue)" />
+    <ValidatedNumberInput Label="Y Position" Value="(double)(Image.Region.CustomRegion?.Y ?? 0)"
+                 ValueChanged="@(v => Update(y: (int)(v ?? 0)))" Min="0" Max="@((double)int.MaxValue)" />
+    <ValidatedNumberInput Label="Width" Value="(double)(Image.Region.CustomRegion?.Width ?? 100)"
+                 ValueChanged="@(v => Update(width: (int)(v ?? 100)))" Min="1" Max="@((double)int.MaxValue)" />
+    <ValidatedNumberInput Label="Height" Value="(double)(Image.Region.CustomRegion?.Height ?? 100)"
+                 ValueChanged="@(v => Update(height: (int)(v ?? 100)))" Min="1" Max="@((double)int.MaxValue)" />
 </div>
 
 @code {

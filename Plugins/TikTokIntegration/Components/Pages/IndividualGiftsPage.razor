@@ -1,173 +1,154 @@
 @page "/plugins/com-multishock-tiktokintegration/individual-gifts"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
 @using TikTokIntegration.Protocol
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">Individual Gifts</h1>
-            <p class="text-sm mt-1 text-app-muted">
-                Give specific gifts their own intensity, duration, and settings — separate from the coin brackets.
-            </p>
-        </div>
-        <Toggle Label="@(Service.Config.Enabled ? "Enabled" : "Disabled")" Value="Service.Config.Enabled"
-            ValueChanged="@(v => Service.SetEnabled(v))" />
-    </div>
+<PageHeader Title="Individual gifts" Icon="sparkles"
+            Description="Give specific gifts their own reaction, separate from the gift brackets. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" Value="Config.Enabled" ValueChanged="@(v => Service.SetEnabled(v))" />
+    </Actions>
+</PageHeader>
 
-    <div class="tiktok-card">
-        <div class="tiktok-card-body flex flex-wrap items-center justify-between gap-3">
-            <Toggle Label="Matching gifts skip the coin brackets" Value="Service.Config.RulesOverrideBrackets"
-                ValueChanged="@(v => Service.SetRulesOverrideBrackets(v))" />
-            <div class="flex items-center gap-2">
-                @if (AvailableGifts.Count > 0)
-                {
-                    <div class="w-64">
-                        <Select TValue="string" Placeholder="Add from live gift catalog..." Value="@_selectedCatalogId"
-                            ValueChanged="@(v => AddFromCatalog(v))" Options="@CatalogOptions" />
-                    </div>
-                }
-                <Button Text="Add Blank Rule" Variant="secondary" Size="sm" OnClick="AddBlankRule" />
-            </div>
-        </div>
-    </div>
-
-    @if (AvailableGifts.Count == 0)
+<div class="max-w-4xl space-y-4">
+    @if (!Config.Enabled)
     {
-        <div class="text-xs px-3 py-2 rounded"
-            style="background: rgba(255, 196, 0, 0.08); color: rgb(var(--ms-warning-rgb)); border: 1px solid rgba(255, 196, 0, 0.2);">
-            Connect to a live stream to load the gift catalog and pick gifts by name/icon. You can still add rules
-            manually and match by gift name.
-        </div>
+        <Alert Variant="neutral">Individual gift rules are off. Gifts still reach your flows through the Gift Received trigger.</Alert>
     }
 
-    @if (Service.Config.Rules.Count == 0)
-    {
-        <div class="tiktok-card">
-            <div class="tiktok-card-body">
-                <div class="tiktok-empty">
-                    <LucideIcon Name="sparkles" Class="w-8 h-8" />
-                    <p>No individual gift rules yet. Add one to give a specific gift its own reaction.</p>
-                </div>
-            </div>
-        </div>
-    }
-    else
-    {
-        @foreach (var rule in Service.Config.Rules)
-        {
-            <div class="tiktok-card" @key="rule.Id">
-                <div class="tiktok-card-header">
-                    <div class="flex items-center gap-2">
-                        @if (!string.IsNullOrEmpty(GetGiftImage(rule)))
-                        {
-                            <img src="@GetGiftImage(rule)" class="tiktok-gift-image" alt="" />
-                        }
-                        <span>@(string.IsNullOrWhiteSpace(rule.GiftName) ? "(unnamed gift)" : rule.GiftName)</span>
-                        @if (rule.GiftId > 0)
-                        {
-                            <span class="tiktok-badge">id @rule.GiftId</span>
-                        }
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <Toggle Value="rule.Enabled" ValueChanged="@(v => UpdateRule(rule, r => r.Enabled = v))" />
-                        <button class="tiktok-toolbar-btn-sm danger" @onclick="@(() => Service.RemoveRule(rule.Id))"
-                            title="Remove rule">
-                            <LucideIcon Name="trash-2" Class="w-4 h-4" />
-                        </button>
-                    </div>
-                </div>
-                <div class="tiktok-card-body space-y-4">
-                    <div class="flex flex-wrap items-end gap-3">
-                        <div class="grow min-w-[12rem]">
-                            <TextInput Label="Gift name" Value="@rule.GiftName"
-                                ValueChanged="@(v => UpdateRule(rule, r => r.GiftName = v ?? ""))" />
-                        </div>
-                        <div class="grow min-w-[16rem]">
-                            <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
-                            <ShockerSelect Label="" MultiSelect="true" SelectedIds="rule.SelectedShockerIds"
-                                SelectedIdsChanged="@(ids => UpdateRule(rule, r => r.SelectedShockerIds = ids))" />
-                        </div>
-                        <div class="w-36">
-                            <Select TValue="string" Label="Command" Value="@rule.CommandType"
-                                ValueChanged="@(v => UpdateRule(rule, r => r.CommandType = v ?? "Vibrate"))"
-                                Options="@CommandTypeOptions" />
-                        </div>
-                        <div class="w-36">
-                            <Select TValue="string" Label="Selection" Value="@rule.Mode.ToString()"
-                                ValueChanged="@(v => UpdateRule(rule, r => r.Mode = ParseMode(v)))"
-                                Options="@SelectionModeOptions" />
-                        </div>
-                    </div>
+    <Card>
+        <SettingRow Label="Skip gift brackets on a match"
+                    Description="When a rule matches a gift, don't also run the gift brackets for it.">
+            <Toggle AriaLabel="Skip gift brackets on a match" Value="Config.RulesOverrideBrackets"
+                    ValueChanged="@(v => Service.SetRulesOverrideBrackets(v))" />
+        </SettingRow>
+    </Card>
 
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
-                            <Slider Min="1" Max="100" Value="rule.Intensity"
-                                ValueChanged="@(v => UpdateRule(rule, r => r.Intensity = (int)v))" Class="flex-1"
-                                ShowValue="false" />
-                            <span class="text-xs text-app-muted w-12">@rule.Intensity%</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
-                            <Slider Min="0.1" Max="15" Step="0.1" Value="rule.Duration"
-                                ValueChanged="@(v => UpdateRule(rule, r => r.Duration = Math.Round(v, 1)))" Class="flex-1"
-                                ShowValue="false" />
-                            <span class="text-xs text-app-muted w-12">@rule.Duration.ToString("0.0")s</span>
-                        </div>
+    <Card Title="Rules"
+          Description="A rule fires once when a matching gift completes. The first enabled match wins."
+          NoPadding="@(Config.Rules.Count > 0)">
+        <Actions>
+            @if (AvailableGifts.Count > 0)
+            {
+                <Select TValue="string" Label="Add a rule from the gift catalog" Class="w-56 [&_label]:sr-only"
+                        Placeholder="Add from gift catalog" Value="@_selectedCatalogId"
+                        ValueChanged="AddFromCatalog" Options="CatalogOptions" />
+            }
+            @if (Config.Rules.Count > 0)
+            {
+                <Button Variant="secondary" Size="sm" Icon="plus" Text="Add rule" OnClick="AddBlankRule" />
+            }
+        </Actions>
+        <ChildContent>
+            @if (AvailableGifts.Count == 0)
+            {
+                <div class="@(Config.Rules.Count > 0 ? "border-b border-app-border px-4 py-3" : "")">
+                    <Alert Variant="info">
+                        Connect to a live stream to load TikTok's gift catalog and pick gifts by name. You can still add
+                        rules now and match gifts by their exact name.
+                    </Alert>
+                </div>
+            }
+            @if (Config.Rules.Count == 0)
+            {
+                <div class="@($"flex flex-wrap items-center justify-between gap-3 {(AvailableGifts.Count == 0 ? "mt-4" : "")}")">
+                    <div class="min-w-0">
+                        <p class="text-sm text-app-muted">No rules yet.</p>
+                        <p class="mt-0.5 text-xs text-app-subtle">Add a rule for a gift, then pick the shockers it runs on.</p>
                     </div>
-
-                    <div class="flex flex-wrap items-center gap-4">
-                        @if (rule.CommandType == "Shock")
-                        {
-                            <Toggle Label="Warning vibrate" Value="rule.WarningVibrate"
-                                ValueChanged="@(v => UpdateRule(rule, r => r.WarningVibrate = v))" />
-                        }
-                        <Toggle Label="Scale duration with combo count" Value="rule.ScaleWithRepeatCount"
-                            ValueChanged="@(v => UpdateRule(rule, r => r.ScaleWithRepeatCount = v))" />
-                        @if (rule.ScaleWithRepeatCount)
-                        {
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-app-muted">Max duration</span>
-                                <NumberInput Value="rule.MaxDuration" Min="0.1" Max="60" Step="0.5" Class="w-20"
-                                    ValueChanged="@(v => UpdateRule(rule, r => r.MaxDuration = Math.Clamp(v ?? 15, 0.1, 60)))" />
-                                <span class="text-xs text-app-muted">s</span>
+                    <Button Variant="primary" Icon="plus" Text="Add rule" OnClick="AddBlankRule" />
+                </div>
+            }
+            else
+            {
+                <ul class="divide-y divide-app-border">
+                    @foreach (var rule in Config.Rules)
+                    {
+                        var name = string.IsNullOrWhiteSpace(rule.GiftName) ? "Unnamed gift" : rule.GiftName;
+                        var expanded = _expanded.Contains(rule.Id);
+                        var image = GetGiftImage(rule);
+                        <li @key="rule.Id">
+                            <div class="flex items-center gap-3 px-4 py-2.5">
+                                <Toggle AriaLabel="@($"Enable rule for {name}")" Value="rule.Enabled"
+                                        ValueChanged="@(v => UpdateRule(rule, r => r.Enabled = v))" />
+                                <button type="button" class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl py-1 text-left"
+                                        aria-expanded="@(expanded ? "true" : "false")" aria-controls="@(expanded ? $"rule-{rule.Id}" : null)"
+                                        @onclick="@(() => ToggleExpanded(rule.Id))">
+                                    <LucideIcon Name="chevron-right" Size="14"
+                                                Class="@($"shrink-0 text-app-muted transition-transform {(expanded ? "rotate-90" : "")}")" />
+                                    @if (!string.IsNullOrEmpty(image))
+                                    {
+                                        <img src="@image" alt="" class="h-6 w-6 shrink-0 object-contain" />
+                                    }
+                                    <span class="@($"truncate text-sm font-medium {(string.IsNullOrWhiteSpace(rule.GiftName) ? "text-app-muted" : "text-app-text")}")">@name</span>
+                                    <span class="hidden truncate text-xs text-app-muted sm:inline">
+                                        @ActionOptions.Describe(rule.CommandType, rule.Intensity, rule.Duration, rule.SelectedShockerIds.Count)
+                                    </span>
+                                </button>
+                                @if (RuleIssue(rule) is { } issue)
+                                {
+                                    <span class="shrink-0"><SummaryChip Summary="@(new(Config.Enabled && rule.Enabled ? ReactionStatus.Attention : ReactionStatus.Off, issue))" /></span>
+                                }
+                                <Button Variant="ghost" Size="icon-sm" Icon="trash-2" Title="Remove rule"
+                                        AriaLabel="@($"Remove rule for {name}")" OnClick="@(() => RequestRemove(rule))" />
                             </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-    }
+                            @if (expanded)
+                            {
+                                <div id="@($"rule-{rule.Id}")" class="space-y-4 border-t border-app-border bg-app-surface-2/40 px-4 py-4 sm:pl-16">
+                                    <TextInput Label="Gift name" Placeholder="For example: Rose" Value="@rule.GiftName"
+                                               Description="@(rule.GiftId > 0 ? $"Matched by gift ID {rule.GiftId} from the catalog." : "Matches gifts with exactly this name, ignoring case.")"
+                                               ValueChanged="@(v => UpdateRule(rule, r => r.GiftName = v ?? ""))" />
+                                    <ActionFields ShockerIds="rule.SelectedShockerIds"
+                                                  ShockerIdsChanged="@(ids => UpdateRule(rule, r => r.SelectedShockerIds = ids))"
+                                                  Command="@rule.CommandType"
+                                                  CommandChanged="@(v => UpdateRule(rule, r => r.CommandType = v))"
+                                                  Mode="rule.Mode"
+                                                  ModeChanged="@(v => UpdateRule(rule, r => r.Mode = v))"
+                                                  Intensity="rule.Intensity"
+                                                  IntensityChanged="@(v => UpdateRule(rule, r => r.Intensity = v))"
+                                                  Duration="rule.Duration"
+                                                  DurationChanged="@(v => UpdateRule(rule, r => r.Duration = v))"
+                                                  WarningVibrate="rule.WarningVibrate"
+                                                  WarningVibrateChanged="@(v => UpdateRule(rule, r => r.WarningVibrate = v))">
+                                        <div class="sm:col-span-2 lg:col-span-4">
+                                            <Toggle Label="Multiply duration by the combo count" Value="rule.ScaleWithRepeatCount"
+                                                    ValueChanged="@(v => UpdateRule(rule, r => r.ScaleWithRepeatCount = v))" />
+                                        </div>
+                                        @if (rule.ScaleWithRepeatCount)
+                                        {
+                                            <NumberField Label="Maximum duration" Suffix="s" Min="0.1" Max="60" Step="0.1" Value="rule.MaxDuration"
+                                                         ValueChanged="@(v => UpdateRule(rule, r => r.MaxDuration = v))" />
+                                        }
+                                    </ActionFields>
+                                </div>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </ChildContent>
+    </Card>
 </div>
+
+<ConfirmDialog IsOpen="@(_pendingRemove is not null)" Title="Remove this rule?"
+               Message="@($"The rule for {RuleName(_pendingRemove)} and its shocker settings will be deleted.")"
+               ConfirmText="Remove rule" OnCancel="@(() => _pendingRemove = null)" OnConfirm="ConfirmRemove" />
 
 @code {
     private static readonly string PluginId = TikTokIntegrationPlugin.PluginId;
     private GiftRulesConfigService Service => PluginServiceLocator.GetRequiredService<GiftRulesConfigService>(PluginId);
     private TikTokConnectionService Connection => PluginServiceLocator.GetRequiredService<TikTokConnectionService>(PluginId);
+    private GiftRulesConfig Config => Service.Config;
 
+    private readonly HashSet<string> _expanded = [];
     private string? _selectedCatalogId;
+    private GiftRule? _pendingRemove;
 
     private IReadOnlyList<TikTokGiftInfo> AvailableGifts => Connection.AvailableGifts;
 
     private IEnumerable<Select<string>.SelectOption<string>> CatalogOptions =>
         AvailableGifts.Select(g => new Select<string>.SelectOption<string>(
-            g.Id.ToString(), $"{g.Name} ({g.DiamondCount} coins)"));
-
-    private readonly IEnumerable<Select<string>.SelectOption<string>> CommandTypeOptions =
-    [
-        new("Shock", "Shock"),
-        new("Vibrate", "Vibrate"),
-        new("Beep", "Beep"),
-    ];
-
-    private readonly IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions =
-    [
-        new("All", "All"),
-        new("Random", "Random"),
-        new("RoundRobin", "Round Robin"),
-    ];
+            g.Id.ToString(), $"{g.Name} ({ActionOptions.Count(g.DiamondCount, "coin", "coins")})"));
 
     protected override void OnInitialized()
     {
@@ -177,10 +158,8 @@
 
     private void OnConfigChanged() => InvokeAsync(StateHasChanged);
 
-    private void AddBlankRule()
-    {
-        Service.AddRule(new GiftRule());
-    }
+    // New rules start disabled: they have no shockers yet, and a blank rule has no gift either.
+    private void AddBlankRule() => AddRule(new GiftRule { Enabled = false });
 
     private void AddFromCatalog(string? giftId)
     {
@@ -192,12 +171,63 @@
 
         // Suggest a starting intensity scaled loosely to the gift's coin value
         var intensity = Math.Clamp(20 + gift.DiamondCount / 5, 10, 100);
-        Service.AddRule(new GiftRule
+        AddRule(new GiftRule
         {
+            Enabled = false,
             GiftId = gift.Id,
             GiftName = gift.Name,
             Intensity = intensity,
         });
+    }
+
+    private void AddRule(GiftRule rule)
+    {
+        _expanded.Add(rule.Id);
+        Service.AddRule(rule);
+    }
+
+    private static string RuleName(GiftRule? rule) =>
+        string.IsNullOrWhiteSpace(rule?.GiftName) ? "this gift" : rule.GiftName;
+
+    private void RequestRemove(GiftRule rule)
+    {
+        var configured = rule.GiftId > 0 || !string.IsNullOrWhiteSpace(rule.GiftName) || rule.SelectedShockerIds.Count > 0;
+        if (configured)
+        {
+            _pendingRemove = rule;
+        }
+        else
+        {
+            RemoveRule(rule.Id);
+        }
+    }
+
+    private void ConfirmRemove()
+    {
+        if (_pendingRemove is { } rule)
+        {
+            _pendingRemove = null;
+            RemoveRule(rule.Id);
+        }
+    }
+
+    private void RemoveRule(string id)
+    {
+        _expanded.Remove(id);
+        Service.RemoveRule(id);
+    }
+
+    private static string? RuleIssue(GiftRule rule) =>
+        rule.GiftId == 0 && string.IsNullOrWhiteSpace(rule.GiftName) ? "No gift"
+        : rule.SelectedShockerIds.Count == 0 ? "No shockers"
+        : null;
+
+    private void ToggleExpanded(string id)
+    {
+        if (!_expanded.Remove(id))
+        {
+            _expanded.Add(id);
+        }
     }
 
     private void UpdateRule(GiftRule rule, Action<GiftRule> mutate)
@@ -216,9 +246,6 @@
         return AvailableGifts.FirstOrDefault(g =>
             g.Name.Equals(rule.GiftName, StringComparison.OrdinalIgnoreCase))?.ImageUrl ?? "";
     }
-
-    private static SelectionMode ParseMode(string? value) =>
-        Enum.TryParse<SelectionMode>(value, out var mode) ? mode : SelectionMode.All;
 
     public void Dispose()
     {

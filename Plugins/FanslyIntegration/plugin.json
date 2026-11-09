@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.fanslyintegration",
-  "name": "Fansly Integration",
+  "name": "Fansly",
   "version": "0.1.0",
   "entryPoint": "FanslyIntegration.dll",
-  "description": "Fansly integration for tips, chat messages, follows, subscriptions, and stream state",
+  "description": "Run shocker reactions and flow triggers from Fansly tips, follows, subscriptions and chat.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

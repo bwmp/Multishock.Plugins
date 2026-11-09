@@ -5,177 +5,137 @@
 @inject ImageConfigService ConfigService
 @implements IDisposable
 
-<div class="bg-app-surface-2 border border-app-border rounded-lg overflow-hidden">
-    <div class="flex justify-between items-center px-4 py-3 border-b border-app-border bg-app-surface-2">
-        <h4 class="m-0 text-sm font-semibold">Recent Detections</h4>
-        <div class="flex items-center gap-2">
-            <span class="text-xs text-app-muted">@_detections.Count detections</span>
-            @if (_detections.Any())
-            {
-                <button class="bg-transparent border-none text-app-muted cursor-pointer p-1 rounded flex items-center justify-center hover:text-app-danger hover:bg-app-danger/10 transition-colors"
-                        @onclick="ClearDetections" 
-                        title="Clear all">
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                        <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                    </svg>
-                </button>
-            }
-        </div>
-    </div>
-
-    @if (_detections.Any())
-    {
-        <div class="max-h-[400px] overflow-y-auto">
-            @foreach (var detection in _detections)
-            {
-                <div class="flex gap-3 px-4 py-3 border-b border-app-border last:border-b-0 transition-colors hover:bg-app-surface-3/50 @(detection.ActionTriggered ? "border-l-2 border-l-green-500" : "") @(detection.WasInCooldown ? "border-l-2 border-l-amber-500 opacity-70" : "")">
-                    <div class="w-[60px] h-[60px] rounded-md overflow-hidden flex-shrink-0 cursor-pointer bg-app-surface-3 flex items-center justify-center"
-                         @onclick="() => ShowDetails(detection)">
-                        @if (!string.IsNullOrEmpty(detection.ThumbnailPath) && File.Exists(detection.ThumbnailPath))
-                        {
-                            <img src="@GetImageDataUrl(detection.ThumbnailPath)" alt="Detection" class="w-full h-full object-cover" />
-                        }
-                        else if (!string.IsNullOrEmpty(detection.ScreenshotPath) && File.Exists(detection.ScreenshotPath))
-                        {
-                            <img src="@GetImageDataUrl(detection.ScreenshotPath)" alt="Detection" class="w-full h-full object-cover" />
-                        }
-                        else
-                        {
-                            <div class="text-app-muted">
-                                <svg viewBox="0 0 24 24" width="24" height="24">
-                                    <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                                </svg>
-                            </div>
-                        }
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium text-sm truncate">@detection.ImageName</div>
-                        <div class="flex gap-2 text-xs text-app-muted mt-1">
-                            <span>@detection.ModuleName</span>
-                            <span title="@detection.Timestamp.ToString("g")">@detection.TimeAgo</span>
-                        </div>
-                        <div class="flex gap-2 items-center mt-1.5">
-                            <span class="flex items-center gap-1 text-xs text-app-success" title="Match confidence">
-                                <svg viewBox="0 0 24 24" width="12" height="12">
-                                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                </svg>
-                                @((detection.Confidence * 100).ToString("F0"))%
-                            </span>
-                            @if (detection.ActionTriggered)
-                            {
-                                <span class="text-[10px] px-1.5 py-0.5 rounded font-medium uppercase @GetActionBadgeClass(detection.ActionType)">
-                                    @detection.ActionType
-                                </span>
-                            }
-                            else if (detection.WasInCooldown)
-                            {
-                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-app-surface-3/20 text-app-muted">cooldown</span>
-                            }
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-
-        @if (_stats != null)
+<Card Title="Detections"
+      Description="@(_detections.Count == 0 ? null : $"Showing the latest {Plural(_detections.Count, "detection", "detections")}. Select one to see the full screenshot.")"
+      NoPadding="true"
+      Footer="@(_detections.Count > 0 && _stats != null ? StatsFooter : null)">
+    <Actions>
+        @if (_detections.Count > 0)
         {
-            <div class="flex justify-around px-4 py-3 border-t border-app-border bg-app-surface-2">
-                <div class="text-center">
-                    <span class="block text-lg font-semibold text-app-text">@_stats.TotalDetections</span>
-                    <span class="text-[10px] uppercase text-app-muted tracking-wider">24h total</span>
-                </div>
-                <div class="text-center">
-                    <span class="block text-lg font-semibold text-app-text">@_stats.ActionsTriggered</span>
-                    <span class="text-[10px] uppercase text-app-muted tracking-wider">actions</span>
-                </div>
-                <div class="text-center">
-                    <span class="block text-lg font-semibold text-app-text">@((_stats.AverageConfidence * 100).ToString("F1"))%</span>
-                    <span class="text-[10px] uppercase text-app-muted tracking-wider">avg confidence</span>
+            <Button Text="Clear" Icon="trash-2" Variant="ghost" Size="sm" OnClick="ClearDetections" />
+        }
+    </Actions>
+    <ChildContent>
+        @if (_detections.Count > 0)
+        {
+            <ul class="max-h-[60vh] divide-y divide-app-border overflow-y-auto">
+                @foreach (var detection in _detections)
+                {
+                    <li>
+                        <button type="button"
+                                class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-app-surface-2 focus-visible:bg-app-surface-2 focus-visible:outline-none"
+                                aria-label="@($"Show details for {detection.ImageName} in {detection.ModuleName}")"
+                                @onclick="() => ShowDetails(detection)">
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-ctl border border-app-border bg-app-surface-2">
+                                @if (GetThumbnailPath(detection) is { } thumbnail)
+                                {
+                                    <img src="@GetImageDataUrl(thumbnail)" alt="" class="h-full w-full object-cover" />
+                                }
+                                else
+                                {
+                                    <LucideIcon Name="image" Size="18" Class="text-app-subtle" />
+                                }
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium text-app-text">@detection.ImageName</span>
+                                <span class="block truncate text-xs text-app-muted">@detection.ModuleName</span>
+                            </span>
+                            <span class="hidden shrink-0 text-xs tabular-nums text-app-muted sm:block" title="Match confidence">
+                                @((detection.Confidence * 100).ToString("F0"))% match
+                            </span>
+                            <span class="w-24 shrink-0 text-right">
+                                @if (detection.ActionTriggered)
+                                {
+                                    <Badge Variant="neutral">@(detection.ActionType ?? "Action")</Badge>
+                                }
+                                else if (detection.WasInCooldown)
+                                {
+                                    <Badge Variant="warning">Cooldown</Badge>
+                                }
+                                else
+                                {
+                                    <span class="text-xs text-app-subtle">No action</span>
+                                }
+                            </span>
+                            <span class="w-16 shrink-0 text-right font-mono text-xs text-app-subtle" title="@detection.Timestamp.ToString("g")">@detection.TimeAgo</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="px-4 py-2 text-sm text-app-muted"><p>No detections yet</p><p class="text-xs text-app-subtle">Detections appear here when a target is found on screen while detection is running.</p></div>
+        }
+    </ChildContent>
+</Card>
+
+<Modal IsOpen="@(_selectedDetection != null)" Title="Detection details" Size="xl" OnClose="CloseDetails">
+    @if (_selectedDetection is { } selected)
+    {
+        @if (!string.IsNullOrEmpty(selected.ScreenshotPath) && File.Exists(selected.ScreenshotPath))
+        {
+            <div class="relative mx-auto mb-4 w-full max-w-4xl overflow-hidden rounded-ctl border border-app-border bg-app-surface-2">
+                <img src="@GetImageDataUrl(selected.ScreenshotPath)" alt="Screenshot of the detection" class="h-auto w-full object-contain" />
+                <div class="pointer-events-none absolute border-2 border-app-success bg-app-success/20"
+                     style="left: @GetMarkerLeft(); top: @GetMarkerTop(); width: @GetMarkerWidth(); height: @GetMarkerHeight();">
                 </div>
             </div>
         }
-    }
-    else
-    {
-        <div class="p-8 text-center text-app-muted">
-            <svg viewBox="0 0 24 24" width="48" height="48" class="mx-auto mb-3 opacity-50">
-                <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-            </svg>
-            <p class="font-medium m-0">No detections yet</p>
-            <span class="text-xs mt-1 block">Detections will appear here when images are found on screen</span>
-        </div>
-    }
-</div>
-
-@if (_selectedDetection != null)
-{
-    <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-1000 p-4" @onclick="CloseDetails">
-        <div class="bg-app-surface-2 border border-app-border rounded-lg w-5xl     overflow-hidden flex flex-col" @onclick:stopPropagation="true">
-            <div class="flex justify-between items-center px-4 py-2 border-b border-app-border">
-                <h4 class="m-0 font-semibold text-sm">Detection Details</h4>
-                <button class="bg-transparent border-none text-app-muted cursor-pointer p-2 rounded flex items-center justify-center hover:text-app-text hover:bg-white/10 transition-colors"
-                        @onclick="CloseDetails" type="button">
-                    <svg viewBox="0 0 24 24" width="24" height="24">
-                        <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                    </svg>
-                </button>
+        <dl class="grid grid-cols-1 gap-x-8 text-sm sm:grid-cols-2">
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Target</dt>
+                <dd class="truncate font-medium text-app-text">@selected.ImageName</dd>
             </div>
-            <div class="overflow-y-auto p-4 flex-1 min-h-0">
-                @if (!string.IsNullOrEmpty(_selectedDetection.ScreenshotPath) && File.Exists(_selectedDetection.ScreenshotPath))
-                {
-                    <div class="relative mb-4 rounded-md overflow-hidden bg-black w-full max-w-4xl mx-auto">
-                        <img src="@GetImageDataUrl(_selectedDetection.ScreenshotPath)" alt="Full screenshot" class="w-full h-auto object-contain" />
-                        <div class="absolute border-2 border-app-success bg-app-success/20 pointer-events-none"
-                             style="left: @GetMarkerLeft(); top: @GetMarkerTop(); width: @GetMarkerWidth(); height: @GetMarkerHeight();">
-                        </div>
-                    </div>
-                }
-                <div class="grid gap-2">
-                    <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                        <span class="text-app-muted text-sm">Image:</span>
-                        <span class="font-medium text-sm">@_selectedDetection.ImageName</span>
-                    </div>
-                    <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                        <span class="text-app-muted text-sm">Module:</span>
-                        <span class="font-medium text-sm">@_selectedDetection.ModuleName</span>
-                    </div>
-                    <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                        <span class="text-app-muted text-sm">Time:</span>
-                        <span class="font-medium text-sm">@_selectedDetection.Timestamp.ToString("F")</span>
-                    </div>
-                    <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                        <span class="text-app-muted text-sm">Confidence:</span>
-                        <span class="font-medium text-sm">@((_selectedDetection.Confidence * 100).ToString("F2"))%</span>
-                    </div>
-                    <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                        <span class="text-app-muted text-sm">Location:</span>
-                        <span class="font-medium text-sm">@_selectedDetection.LocationX, @_selectedDetection.LocationY</span>
-                    </div>
-                    <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                        <span class="text-app-muted text-sm">Detection Time:</span>
-                        <span class="font-medium text-sm">@_selectedDetection.DetectionTime.TotalMilliseconds.ToString("F0")ms</span>
-                    </div>
-                    @if (_selectedDetection.ActionTriggered)
-                    {
-                        <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                            <span class="text-app-muted text-sm">Action:</span>
-                            <span class="font-medium text-sm text-app-success">@_selectedDetection.ActionType</span>
-                        </div>
-                    }
-                    @if (_selectedDetection.WasInCooldown)
-                    {
-                        <div class="flex justify-between py-2 border-b border-app-border last:border-b-0">
-                            <span class="text-app-muted text-sm">Status:</span>
-                            <span class="font-medium text-sm text-app-warning">In cooldown (no action)</span>
-                        </div>
-                    }
-                </div>
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Module</dt>
+                <dd class="truncate font-medium text-app-text">@selected.ModuleName</dd>
             </div>
-        </div>
-    </div>
-}
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Time</dt>
+                <dd class="font-mono text-xs text-app-text">@selected.Timestamp.ToString("F")</dd>
+            </div>
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Match confidence</dt>
+                <dd class="tabular-nums text-app-text">@((selected.Confidence * 100).ToString("F2"))%</dd>
+            </div>
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Location</dt>
+                <dd class="font-mono text-xs text-app-text">@selected.LocationX, @selected.LocationY</dd>
+            </div>
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Detection time</dt>
+                <dd class="font-mono text-xs text-app-text">@selected.DetectionTime.TotalMilliseconds.ToString("F0") ms</dd>
+            </div>
+            <div class="flex justify-between gap-4 border-b border-app-border py-2">
+                <dt class="text-app-muted">Result</dt>
+                <dd class="text-app-text">
+                    @if (selected.ActionTriggered)
+                    {
+                        @($"{selected.ActionType ?? "Action"} sent")
+                    }
+                    else if (selected.WasInCooldown)
+                    {
+                        <span class="text-app-warning">In cooldown, no action sent</span>
+                    }
+                    else
+                    {
+                        @("No action")
+                    }
+                </dd>
+            </div>
+        </dl>
+    }
+</Modal>
 
 @code {
+    private RenderFragment StatsFooter => @<div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-app-muted">
+        <span>Last 24 hours</span>
+        <span><span class="tabular-nums text-app-text">@_stats!.TotalDetections</span> detections</span>
+        <span><span class="tabular-nums text-app-text">@_stats!.ActionsTriggered</span> actions sent</span>
+        <span><span class="tabular-nums text-app-text">@((_stats!.AverageConfidence * 100).ToString("F1"))%</span> average match</span>
+    </div>;
+
     private List<DetectionEvent> _detections = [];
     private DetectionHistoryStats? _stats;
     private DetectionEvent? _selectedDetection;
@@ -247,16 +207,17 @@
         }
     }
 
-    private string GetActionBadgeClass(string? actionType)
+    private static string? GetThumbnailPath(DetectionEvent detection)
     {
-        return actionType?.ToLower() switch
-        {
-            "shock" => "bg-app-danger/20 text-app-danger",
-            "vibrate" => "bg-app-info/20 text-app-info",
-            "beep" => "bg-app-warning/20 text-app-warning",
-            _ => "bg-app-surface-3/20 text-app-muted"
-        };
+        if (!string.IsNullOrEmpty(detection.ThumbnailPath) && File.Exists(detection.ThumbnailPath))
+            return detection.ThumbnailPath;
+        if (!string.IsNullOrEmpty(detection.ScreenshotPath) && File.Exists(detection.ScreenshotPath))
+            return detection.ScreenshotPath;
+        return null;
     }
+
+    private static string Plural(int count, string singular, string plural)
+        => $"{count} {(count == 1 ? singular : plural)}";
 
     private string GetMarkerLeft() => _selectedDetection?.LocationX + "px";
     private string GetMarkerTop() => _selectedDetection?.LocationY + "px";

@@ -36,7 +36,7 @@ public sealed class SetConfigRedeemEnabledNode : IFlowProcessNode
         ["rewardId"] = FlowProperty.Select("Reward",
             _cachedRewardOptions.Count > 0 ? _cachedRewardOptions : 
             [
-                new FlowPropertyOption { Value = "", Label = "Loading rewards..." }
+                new FlowPropertyOption { Value = "", Label = "Loading rewards…" }
             ],
             "", 
             "The channel point reward to control in config (can be overridden by input port)"),

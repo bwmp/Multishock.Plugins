@@ -1,32 +1,48 @@
 @implements IAsyncDisposable
 
-@if (TwitchService.IsConnected || _entries.Count > 0)
-{
-    <div class="twitch-card">
-        <div class="twitch-card-header">
-            <span>Event Log</span>
-            <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearLog" />
-        </div>
-        <div class="twitch-card-body">
-            <div class="space-y-1 max-h-64 overflow-y-auto">
-                @if (_entries.Count == 0)
-                {
-                    <p class="text-sm text-app-muted">No events yet. Waiting for Twitch events...</p>
-                }
-                else
-                {
-                    @foreach (var log in _entries)
-                    {
-                        <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded">
-                            <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
-                            <span class="@(log.IsError ? "text-app-danger" : "text-app-text")">@log.Message</span>
-                        </div>
-                    }
-                }
+<Card Title="Event log" Description="Events from this session, newest first." NoPadding="true">
+    <Actions>
+        @if (_entries.Count > 0)
+        {
+            <Button Variant="ghost" Size="sm" Icon="trash-2" Text="Clear" OnClick="ClearLog" />
+        }
+    </Actions>
+    <ChildContent>
+        @if (_entries.Count == 0)
+        {
+            <div class="px-4 py-6">
+                <p class="text-sm text-app-muted">No events yet.</p>
+                <p class="mt-0.5 text-xs text-app-subtle">
+                    @(TwitchService.IsConnected
+                        ? "Cheers, subs, follows and reactions appear here as they happen."
+                        : "Cheers, subs, follows and connection messages appear here once you connect.")
+                </p>
             </div>
-        </div>
-    </div>
-}
+        }
+        else
+        {
+            <ol class="max-h-80 divide-y divide-app-border overflow-y-auto" aria-label="Twitch events">
+                @foreach (var log in _entries)
+                {
+                    <li class="flex items-start gap-3 px-4 py-2 text-sm">
+                        <time class="shrink-0 pt-px font-mono text-xs text-app-subtle">@log.Time.ToString("HH:mm:ss")</time>
+                        @if (log.IsError)
+                        {
+                            <span class="flex min-w-0 items-start gap-1.5 text-app-danger">
+                                <LucideIcon Name="alert-circle" Size="14" Class="mt-0.5 shrink-0" />
+                                <span class="break-words">@log.Message</span>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="min-w-0 break-words text-app-text">@log.Message</span>
+                        }
+                    </li>
+                }
+            </ol>
+        }
+    </ChildContent>
+</Card>
 
 @code {
     private EventLogService LogService => PluginServiceLocator.GetRequiredService<EventLogService>(TwitchIntegrationPlugin.PluginId);

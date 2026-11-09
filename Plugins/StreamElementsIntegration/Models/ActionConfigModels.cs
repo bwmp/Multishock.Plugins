@@ -77,12 +77,12 @@ public static class StreamElementsEventCatalog
 {
     public static readonly IReadOnlyList<EventTypeInfo> All =
     [
-        new(StreamElementsEventType.Tip, "Tip", true, "Amount", "dollar-sign", HasKeyword: true),
-        new(StreamElementsEventType.Cheer, "Cheer / Bits", true, "Bits", "gem", HasKeyword: true),
-        new(StreamElementsEventType.Follow, "Follow", false, "", "user-plus"),
-        new(StreamElementsEventType.Subscriber, "Subscriber", true, "Months", "star", HasKeyword: true),
-        new(StreamElementsEventType.Host, "Host", true, "Viewers", "tv"),
-        new(StreamElementsEventType.Raid, "Raid", true, "Raiders", "swords"),
-        new(StreamElementsEventType.Redemption, "Store Redemption", true, "Cost", "gift", HasKeyword: true),
+        new(StreamElementsEventType.Tip, "Tips", true, "Amount", "dollar-sign", HasKeyword: true),
+        new(StreamElementsEventType.Cheer, "Cheers", true, "Bits", "gem", HasKeyword: true),
+        new(StreamElementsEventType.Follow, "Follows", false, "", "user-plus"),
+        new(StreamElementsEventType.Subscriber, "Subscriptions", true, "Months", "star", HasKeyword: true),
+        new(StreamElementsEventType.Host, "Hosts", true, "Viewers", "tv"),
+        new(StreamElementsEventType.Raid, "Raids", true, "Raiders", "swords"),
+        new(StreamElementsEventType.Redemption, "Store redemptions", true, "Cost", "gift", HasKeyword: true),
     ];
 }

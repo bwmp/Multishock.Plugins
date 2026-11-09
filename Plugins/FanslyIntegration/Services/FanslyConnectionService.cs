@@ -75,7 +75,7 @@ public class FanslyConnectionService : IAsyncDisposable
                 _client = null;
             }
 
-            OnStatusMessage?.Invoke("Resolving Fansly account...");
+            OnStatusMessage?.Invoke("Resolving Fansly account…");
             var accountId = await _api.GetAccountIdAsync(ct);
             if (string.IsNullOrEmpty(accountId))
             {
@@ -227,7 +227,7 @@ public class FanslyConnectionService : IAsyncDisposable
                 {
                     return;
                 }
-                OnStatusMessage?.Invoke("Reconnecting...");
+                OnStatusMessage?.Invoke("Reconnecting…");
                 await TryConnectOnceAsync(ct);
             }
             catch (OperationCanceledException)

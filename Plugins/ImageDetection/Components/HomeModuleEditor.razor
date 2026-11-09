@@ -96,9 +96,9 @@
                         <p class="text-xs text-app-muted">@TargetDescription(SelectedImage.TargetType)</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <Toggle Label="Enabled" Value="SelectedImage.Enabled" ValueChanged="OnImageEnabledChanged" />
-                    <Button Text="Delete" Icon="trash-2" Variant="danger" Size="sm" OnClick="ConfirmDeleteImage" />
+                <div class="flex flex-wrap items-center gap-3">
+                    <Toggle Label="Target enabled" Value="SelectedImage.Enabled" ValueChanged="OnImageEnabledChanged" />
+                    <Button Text="Delete target" Icon="trash-2" Variant="ghost" Size="sm" OnClick="ConfirmDeleteImage" />
                 </div>
             </div>
 
@@ -135,7 +135,7 @@
 <ConfirmDialog IsOpen="ShowDeleteConfirmDialog"
                Title="Delete target"
                Message="@DeleteConfirmMessage"
-               ConfirmText="Delete"
+               ConfirmText="Delete target"
                OnCancel="CancelDelete"
                OnConfirm="ExecuteDelete" />
 
@@ -159,19 +159,6 @@
     InitialRegion="@(_regionPickerInitialRegion)"
     OnApply="OnRegionPickerApply"
     OnCancel="OnRegionPickerCancel" />
-
-<style>
-    .region-preview-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 1rem;
-    }
-
-    .region-preview-layout.has-preview {
-        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-        align-items: start;
-    }
-</style>
 
 @code {
     [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
@@ -351,7 +338,7 @@
             var file = e.File;
             if (file.Size > 10 * 1024 * 1024)
             {
-                PluginHost.ShowErrorToast("Upload Failed", "File too large. Maximum size is 10MB.");
+                PluginHost.ShowErrorToast("Upload failed", "File too large. Maximum size is 10MB.");
                 return;
             }
 
@@ -370,7 +357,7 @@
         }
         catch (Exception ex)
         {
-            PluginHost.ShowErrorToast("Upload Failed", $"Failed to read file: {ex.Message}");
+            PluginHost.ShowErrorToast("Upload failed", $"Failed to read file: {ex.Message}");
         }
     }
 
@@ -424,7 +411,7 @@
         }
         catch (Exception ex)
         {
-            PluginHost.ShowErrorToast("Upload Failed", $"Failed to save image: {ex.Message}");
+            PluginHost.ShowErrorToast("Upload failed", $"Failed to save image: {ex.Message}");
         }
     }
 
@@ -600,7 +587,7 @@
         }
         catch (Exception ex)
         {
-            PluginHost.ShowErrorToast("Capture Failed", $"Failed to capture screenshot: {ex.Message}");
+            PluginHost.ShowErrorToast("Capture failed", $"Failed to capture screenshot: {ex.Message}");
         }
     }
 
@@ -661,7 +648,7 @@
         }
         catch (Exception ex)
         {
-            PluginHost.ShowErrorToast("Capture Failed", $"Failed to capture screenshot: {ex.Message}");
+            PluginHost.ShowErrorToast("Capture failed", $"Failed to capture screenshot: {ex.Message}");
         }
     }
 
@@ -678,7 +665,7 @@
 
             if (width < 4 || height < 4)
             {
-                PluginHost.ShowErrorToast("Capture Failed", "The selected area is too small for a template.");
+                PluginHost.ShowErrorToast("Capture failed", "The selected area is too small for a template.");
                 return;
             }
 
@@ -692,11 +679,11 @@
 
             SelectedImageId = image.Id;
             LoadEditorData();
-            PluginHost.ShowSuccessToast("Template Captured", $"Saved \"{image.Name}\" ({width}x{height})");
+            PluginHost.ShowSuccessToast("Template captured", $"Saved \"{image.Name}\" ({width}x{height})");
         }
         catch (Exception ex)
         {
-            PluginHost.ShowErrorToast("Capture Failed", ex.Message);
+            PluginHost.ShowErrorToast("Capture failed", ex.Message);
         }
     }
 

@@ -24,12 +24,12 @@
     var ocrReading = GetOcrLastReading();
     var smoothedNumber = GetOcrCurrentValue();
     var numberToShow = smoothedNumber ?? ocrReading?.NumberValue;
-    <div class="p-3 rounded-lg bg-black/20 border border-app-border space-y-2">
+    <div class="space-y-2 rounded-panel border border-app-border bg-app-surface p-3" role="status">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-app-muted font-medium uppercase tracking-wide">Live OCR</span>
+            <span class="text-xs font-medium text-app-muted">Live reading</span>
             @if (numberToShow.HasValue)
             {
-                <span class="text-sm font-mono font-bold text-app-warning">@numberToShow.Value.ToString("F2")</span>
+                <span class="font-mono text-sm font-semibold tabular-nums text-app-text">@numberToShow.Value.ToString("F2")</span>
             }
             else
             {
@@ -38,34 +38,34 @@
         </div>
 
         <div class="text-xs text-app-muted">
-            <span class="text-app-muted">Text:</span>
+            <span class="text-app-muted">Text</span>
             @if (!string.IsNullOrWhiteSpace(ocrReading?.RawText))
             {
-                <span class="text-app-text ml-1">@ocrReading?.RawText</span>
+                <span class="ml-1 font-mono text-app-text">@ocrReading?.RawText</span>
             }
             else
             {
-                <span class="ml-1">Waiting for OCR...</span>
+                <span class="ml-1">Waiting for text…</span>
             }
         </div>
 
         @if (!string.IsNullOrWhiteSpace(ocrReading?.MatchedKeyword))
         {
             <div class="text-xs text-app-muted">
-                <span class="text-app-muted">Keyword:</span>
-                <span class="text-app-success ml-1">@ocrReading?.MatchedKeyword</span>
+                <span class="text-app-muted">Matched keyword</span>
+                <span class="ml-1 font-medium text-app-text">@ocrReading?.MatchedKeyword</span>
             </div>
         }
     </div>
 }
 
-<Card Title="Step 1: Select Text/Number Region" Description="Define where OCR should read from on your screen">
+<Card Title="1. Text region" Description="Where the text or number appears on your screen.">
     <div class="space-y-4">
         @if (!string.IsNullOrEmpty(Image.Ocr.RegionPreviewPath) && File.Exists(Image.Ocr.RegionPreviewPath))
         {
-            <div class="p-3 rounded-lg bg-black/20 border border-app-border">
-                <span class="text-xs text-app-muted font-medium uppercase tracking-wide mb-2 block">Region Preview</span>
-                <div class="rounded border border-app-border overflow-hidden bg-black/30">
+            <div>
+                <span class="mb-1.5 block text-xs font-medium text-app-muted">Region preview</span>
+                <div class="overflow-hidden rounded-ctl border border-app-border bg-app-surface-2">
                     <img src="@EditorUi.GetImageDataUri(Image.Ocr.RegionPreviewPath)"
                          alt="OCR region preview"
                          class="max-w-full max-h-24 mx-auto object-contain" />
@@ -79,8 +79,8 @@
 
         <RegionPickerControls ModuleId="@ModuleId" TargetId="@Image.Id" OnCaptureRequested="OnPickRegion" />
 
-        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
-            <summary class="cursor-pointer text-sm text-app-muted">Manual coordinates</summary>
+        <details class="rounded-ctl border border-app-border px-3 py-2">
+            <summary class="cursor-pointer text-sm text-app-muted hover:text-app-text">Manual coordinates</summary>
             <div class="mt-3">
                 <ManualRegionInputs ModuleId="@ModuleId" Image="Image" />
             </div>
@@ -88,7 +88,7 @@
     </div>
 </Card>
 
-<Card Title="Step 2: OCR Settings" Description="Configure keyword and number parsing">
+<Card Title="2. Reading the text" Description="Which keywords or number changes trigger the action.">
     <div class="space-y-3">
         <Select Label="Mode" TValue="OcrDetectionMode"
                 Value="Image.Ocr.Mode"
@@ -97,21 +97,17 @@
 
         @if (Image.Ocr.Mode == OcrDetectionMode.Keyword || Image.Ocr.Mode == OcrDetectionMode.KeywordOrNumber)
         {
-            <div>
-                <label class="block text-sm text-app-muted mb-1">Keywords (comma separated)</label>
-                <TextInput Value="@GetOcrKeywords()" ValueChanged="OnOcrKeywordsChanged" />
-            </div>
+            <TextInput Label="Keywords" Description="Separate keywords with commas."
+                       Value="@GetOcrKeywords()" ValueChanged="OnOcrKeywordsChanged" />
             <Checkbox Label="Ignore case" Value="Image.Ocr.IgnoreCase" ValueChanged="OnOcrIgnoreCaseChanged" />
         }
 
         @if (Image.Ocr.Mode == OcrDetectionMode.Number || Image.Ocr.Mode == OcrDetectionMode.KeywordOrNumber)
         {
-            <div>
-                <label class="block text-sm text-app-muted mb-1">Number Regex</label>
-                <TextInput Value="@Image.Ocr.NumberRegex"
-                           ValueChanged="OnOcrNumberRegexChanged" />
-            </div>
-            <NumberInput Label="Min Number Delta"
+            <TextInput Label="Number pattern (regex)"
+                       Value="@Image.Ocr.NumberRegex"
+                       ValueChanged="OnOcrNumberRegexChanged" />
+            <ValidatedNumberInput Label="Minimum number change"
                          Value="Image.Ocr.MinNumberDelta"
                          ValueChanged="OnOcrMinNumberDeltaChanged"
                          Min="0.1" Max="100000" Step="0.1" />
@@ -121,7 +117,7 @@
 
             @if (Image.Ocr.ScaleActionWithNumberDelta)
             {
-                <NumberInput Label="Delta for Max Intensity"
+                <ValidatedNumberInput Label="Change for max intensity"
                              Value="Image.Ocr.MaxDeltaForMaxIntensity"
                              ValueChanged="OnOcrMaxDeltaForIntensityChanged"
                              Min="0.1" Max="100000" Step="0.1" />
@@ -129,28 +125,27 @@
         }
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <NumberInput Label="Smoothing Frames"
+            <ValidatedNumberInput Label="Smoothing frames"
                          Value="(double)Image.Ocr.SmoothingFrames"
                          ValueChanged="OnOcrSmoothingChanged"
                          Min="1" Max="10" Step="1" />
 
-            <NumberInput Label="Event Cooldown (ms)"
+            <ValidatedNumberInput Label="Event cooldown"
                          Value="(double)Image.Ocr.EventCooldownMs"
                          ValueChanged="OnOcrCooldownChanged"
-                         Min="50" Max="5000" Step="50" />
+                         Min="50" Max="5000" Step="50" Suffix="ms" />
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <NumberInput Label="Preprocess Scale"
+            <ValidatedNumberInput Label="Upscale before reading"
                          Value="Image.Ocr.PreprocessScale"
                          ValueChanged="OnOcrScaleChanged"
                          Min="1" Max="4" Step="0.1" />
 
-            <div>
-                <label class="block text-sm text-app-muted mb-1">Character Whitelist</label>
-                <TextInput Value="@(Image.Ocr.CharacterWhitelist ?? string.Empty)"
-                           ValueChanged="OnOcrCharacterWhitelistChanged" />
-            </div>
+            <TextInput Label="Allowed characters"
+                       Placeholder="Any"
+                       Value="@(Image.Ocr.CharacterWhitelist ?? string.Empty)"
+                       ValueChanged="OnOcrCharacterWhitelistChanged" />
         </div>
 
         <Checkbox Label="Use thresholding" Value="Image.Ocr.UseThresholding" ValueChanged="OnOcrThresholdingChanged" />
@@ -169,7 +164,7 @@
     [
         new(OcrDetectionMode.Keyword, "Keywords"),
         new(OcrDetectionMode.Number, "Numbers"),
-        new(OcrDetectionMode.KeywordOrNumber, "Keywords or Numbers"),
+        new(OcrDetectionMode.KeywordOrNumber, "Keywords or numbers"),
     ];
 
     private void Save() => ConfigService.UpdateImage(ModuleId, Image);

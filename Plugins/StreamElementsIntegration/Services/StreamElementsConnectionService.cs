@@ -53,7 +53,7 @@ public class StreamElementsConnectionService : IDisposable
         IsConnecting = true;
         _intentionalDisconnect = false;
         _cts = new CancellationTokenSource();
-        OnStatusMessage?.Invoke("Connecting to StreamElements...");
+        OnStatusMessage?.Invoke("Connecting to StreamElements…");
 
         try
         {
@@ -87,7 +87,7 @@ public class StreamElementsConnectionService : IDisposable
     private void OnSocketConnected()
     {
         // Namespace connected — now authenticate with the JWT.
-        OnStatusMessage?.Invoke("Authenticating...");
+        OnStatusMessage?.Invoke("Authenticating…");
         var cts = _cts;
         if (cts is null) return;
 
@@ -124,7 +124,7 @@ public class StreamElementsConnectionService : IDisposable
         var cts = _cts;
         if (cts is null || cts.IsCancellationRequested) return;
 
-        OnStatusMessage?.Invoke($"Reconnecting in {ReconnectDelayMs / 1000}s...");
+        OnStatusMessage?.Invoke($"Reconnecting in {ReconnectDelayMs / 1000}s…");
         try
         {
             await Task.Delay(ReconnectDelayMs, cts.Token);
@@ -156,7 +156,7 @@ public class StreamElementsConnectionService : IDisposable
             case "authenticated":
                 IsConnecting = false;
                 RaiseState(true);
-                OnStatusMessage?.Invoke("Authenticated! Listening for events...");
+                OnStatusMessage?.Invoke("Connected. Listening for events…");
                 break;
 
             case "unauthorized":

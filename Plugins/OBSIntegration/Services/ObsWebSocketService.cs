@@ -61,10 +61,10 @@ public class ObsWebSocketService : IAsyncDisposable
             _webSocket = new ClientWebSocket();
 
             var uri = new Uri($"ws://{host}:{port}");
-            StatusMessage?.Invoke($"Connecting to {uri}...");
+            StatusMessage?.Invoke($"Connecting to {uri}…");
 
             await _webSocket.ConnectAsync(uri, _connectionCts.Token);
-            StatusMessage?.Invoke("WebSocket connected, waiting for Hello...");
+            StatusMessage?.Invoke("WebSocket connected, waiting for Hello…");
 
             // Start receive loop
             _receiveTask = ReceiveMessagesAsync(_connectionCts.Token, password);

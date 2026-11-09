@@ -1,0 +1,24 @@
+<span role="status" class="inline-flex">
+    @if (Connected)
+    {
+        <span class="chip chip-ok"><span class="status-dot bg-app-success"></span>Connected</span>
+    }
+    else if (Connecting)
+    {
+        <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Connecting…</span>
+    }
+    else if (Reconnecting)
+    {
+        <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Reconnecting…</span>
+    }
+    else
+    {
+        <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span>Disconnected</span>
+    }
+</span>
+
+@code {
+    [Parameter] public bool Connected { get; set; }
+    [Parameter] public bool Connecting { get; set; }
+    [Parameter] public bool Reconnecting { get; set; }
+}

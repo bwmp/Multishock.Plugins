@@ -79,7 +79,7 @@ public class EventLogService : IDisposable
 
     private void OnConnectionStateChanged(bool connected)
     {
-        AddLog(connected ? "Connected to Twitch!" : "Disconnected from Twitch");
+        AddLog(connected ? "Connected to Twitch. Listening for events…" : "Disconnected from Twitch");
     }
 
     private void OnError(string error)

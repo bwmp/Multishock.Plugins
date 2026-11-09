@@ -17,11 +17,11 @@ public class FanslyIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     public string Id => PluginId;
 
-    public string Name => "Fansly Integration";
+    public string Name => "Fansly";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "Fansly integration for tips, chat messages, follows, subscriptions, and stream state";
+    public string Description => "Run shocker reactions and flow triggers from Fansly tips, follows, subscriptions and chat.";
 
     private FanslyConnectionService? _connectionService;
     private static ILogger? _logger;
@@ -109,14 +109,14 @@ public class FanslyIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
         },
         new NavigationItem
         {
-            Text = "Tip Reactions",
+            Text = "Tip reactions",
             Href = "/tip-reactions",
             Icon = "coins",
             Order = 66
         },
         new NavigationItem
         {
-            Text = "Follows / Subs",
+            Text = "Follows and subscriptions",
             Href = "/events-config",
             Icon = "user-plus",
             Order = 67

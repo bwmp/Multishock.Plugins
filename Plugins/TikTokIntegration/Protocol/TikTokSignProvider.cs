@@ -175,5 +175,5 @@ public sealed class TikTokSignProvider
     }
 
     private static string Truncate(string value) =>
-        value.Length <= 200 ? value : value[..200] + "...";
+        value.Length <= 200 ? value : value[..200] + "…";
 }

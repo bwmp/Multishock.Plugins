@@ -19,6 +19,10 @@
 
     <ItemGroup Condition="'$(IsPluginProject)' == 'true'">
         <Compile Remove="Generated\BuildStamp.g.cs" />
+        <!-- Declared here rather than in Directory.Build.props: the Razor SDK's default
+             items remove everything under wwwroot from EmbeddedResource after the props
+             are read, which left plugins with no stylesheet at runtime. -->
+        <EmbeddedResource Include="wwwroot\styles.css" LogicalName="$(MSBuildProjectName).styles.css" Condition="Exists('$(MSBuildProjectDirectory)\wwwroot\styles.css')" />
     </ItemGroup>
 
     <!-- Writes Generated/BuildStamp.g.cs so plugins can display their version and build time at runtime. -->

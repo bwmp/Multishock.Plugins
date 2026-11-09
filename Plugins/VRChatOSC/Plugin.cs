@@ -17,11 +17,11 @@ public class VRChatOSCPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvide
 
     public string Id => PluginId;
 
-    public string Name => "VRChatOSC";
+    public string Name => "VRChat OSC";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "OSC send/receive integration for VRChat using FastOSC.";
+    public string Description => "Send OSC messages and use incoming avatar parameters in flows.";
 
     private VRChatOscSettingsService? _settingsService;
     private VRChatOscConnectionManager? _connectionManager;
@@ -114,7 +114,7 @@ public class VRChatOSCPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvide
     [
         new NavigationItem
         {
-            Text = "VRChatOSC",
+            Text = "VRChat OSC",
             Href = "/vrchatosc",
             Icon = "radio",
             Order = 50

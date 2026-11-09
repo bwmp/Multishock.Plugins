@@ -9,7 +9,7 @@ public sealed class ThroneGiftTriggerNode : ThroneEventNodeBase
 {
     public override string TypeId => "throne.gift";
     public override string DisplayName => "Throne Gift Received";
-    public override string? Description => "Triggers when someone sends a gift through Throne";
+    public override string? Description => "Triggers when someone sends a gift through Throne.";
 
     public override IReadOnlyList<FlowPort> OutputPorts { get; } =
     [

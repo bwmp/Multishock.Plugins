@@ -2,116 +2,30 @@
 @using ThroneIntegration.Services
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center gap-2">
-        <div class="w-3 h-3 rounded-full @(ThroneService.IsConnected ? "bg-app-success" : "bg-app-subtle")"></div>
-        <span class="text-sm font-medium">
-            @if (ThroneService.IsConnected)
-            {
-                <span>Connected as @ThroneService.CurrentUsername</span>
-            }
-            else
-            {
-                <span>Not connected</span>
-            }
-        </span>
-    </div>
-
-    <div class="space-y-3">
-        <TextInput Label="Throne Username" 
-            Placeholder="Enter your Throne username"
-            Value="@Username" 
-            ValueChanged="@OnUsernameChanged" />
-
-        <div class="flex gap-2">
-            @if (ThroneService.IsConnected)
-            {
-                <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
-            }
-            else
-            {
-                <Button Text="Connect" Variant="primary" OnClick="Connect"
-                    Disabled="@string.IsNullOrWhiteSpace(Username)" />
-            }
-        </div>
-
-        @if (!string.IsNullOrEmpty(StatusMessage))
+<div class="space-y-3">
+    <div class="flex flex-wrap items-center gap-2">
+        <ConnectionChip Connected="ThroneService.IsConnected" Connecting="ThroneService.IsConnecting"
+                        Reconnecting="ThroneService.IsReconnecting" />
+        @if (ThroneService.IsConnected && !string.IsNullOrEmpty(ThroneService.CurrentUsername))
         {
-            <div class="text-sm @(ThroneService.IsConnected ? "text-app-success" : "text-app-subtle")">
-                @StatusMessage
-            </div>
+            <span class="text-sm text-app-muted">@ThroneService.CurrentUsername</span>
         }
     </div>
-
-    <p class="text-sm text-app-subtle">
-        Configure detailed settings on the
-        <a href="/plugins/com-multishock-throneintegration/throneintegration" class="text-app-primary hover:underline">
-            Throne Integration page
-        </a>.
-    </p>
-
-    <div class="text-xs text-app-muted space-y-1">
-        <div><strong>Supported Events:</strong></div>
-        <ul class="list-disc list-inside ml-2">
-            <li>Gift purchases from your Throne wishlist</li>
-            <li>Crowdfund contributions</li>
-            <li>Tip donations</li>
-        </ul>
-    </div>
+    <p class="text-sm text-app-muted">Set up the connection and see recent gifts on the Throne page.</p>
+    <NavButton Href="/plugins/com-multishock-throneintegration/throneintegration" Text="Open Throne page" />
 </div>
 
 @code {
     private string pluginId = ThroneIntegration.ThroneIntegrationPlugin.PluginId;
     private ThroneService ThroneService => PluginServiceLocator.GetRequiredService<ThroneService>(pluginId);
-    private ThroneSettingsService SettingsService => PluginServiceLocator.GetRequiredService<ThroneSettingsService>(pluginId);
-
-    private string Username = string.Empty;
-    private string? StatusMessage;
 
     [Parameter]
     public string? PluginId { get; set; }
 
     protected override void OnInitialized()
     {
-        Username = SettingsService.CreatorId;
-        
         ThroneService.ConnectionStateChanged += OnConnectionChanged;
         ThroneService.StatusMessage += OnStatusMessage;
-        ThroneService.ErrorOccurred += OnError;
-    }
-
-    private void OnUsernameChanged(string? value)
-    {
-        Username = value ?? string.Empty;
-    }
-
-    private async Task Connect()
-    {
-        if (string.IsNullOrWhiteSpace(Username))
-        {
-            StatusMessage = "Please enter a username";
-            StateHasChanged();
-            return;
-        }
-
-        try
-        {
-            SettingsService.CreatorId = Username;
-            SettingsService.Enabled = true;
-            await ThroneService.StartAsync(Username);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error connecting: {ex.Message}";
-            StateHasChanged();
-        }
-    }
-
-    private void Disconnect()
-    {
-        ThroneService.Stop();
-        SettingsService.Enabled = false;
-        StatusMessage = "Disconnected";
     }
 
     private void OnConnectionChanged(bool connected)
@@ -119,22 +33,11 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnStatusMessage(string message)
-    {
-        StatusMessage = message;
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnError(string error)
-    {
-        StatusMessage = $"Error: {error}";
-        InvokeAsync(StateHasChanged);
-    }
+    private void OnStatusMessage(string message) => InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         ThroneService.ConnectionStateChanged -= OnConnectionChanged;
         ThroneService.StatusMessage -= OnStatusMessage;
-        ThroneService.ErrorOccurred -= OnError;
     }
 }

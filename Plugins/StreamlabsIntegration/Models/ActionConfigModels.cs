@@ -77,12 +77,12 @@ public static class StreamlabsEventCatalog
 {
     public static readonly IReadOnlyList<EventTypeInfo> All =
     [
-        new(StreamlabsEventType.Donation, "Donation", true, "Amount", "dollar-sign", HasKeyword: true),
-        new(StreamlabsEventType.Subscription, "Subscription", true, "Months", "star", HasKeyword: true),
-        new(StreamlabsEventType.Follow, "Follow", false, "", "user-plus"),
-        new(StreamlabsEventType.Bits, "Bits / Cheer", true, "Bits", "gem", HasKeyword: true),
-        new(StreamlabsEventType.Host, "Host", true, "Viewers", "tv"),
-        new(StreamlabsEventType.Raid, "Raid", true, "Raiders", "swords"),
-        new(StreamlabsEventType.SuperChat, "Super Chat", true, "Amount", "message-circle", HasKeyword: true),
+        new(StreamlabsEventType.Donation, "Donations", true, "Amount", "dollar-sign", HasKeyword: true),
+        new(StreamlabsEventType.Subscription, "Subscriptions", true, "Months", "star", HasKeyword: true),
+        new(StreamlabsEventType.Follow, "Follows", false, "", "user-plus"),
+        new(StreamlabsEventType.Bits, "Cheers", true, "Bits", "gem", HasKeyword: true),
+        new(StreamlabsEventType.Host, "Hosts", true, "Viewers", "tv"),
+        new(StreamlabsEventType.Raid, "Raids", true, "Raiders", "swords"),
+        new(StreamlabsEventType.SuperChat, "Super chats", true, "Amount", "message-circle", HasKeyword: true),
     ];
 }

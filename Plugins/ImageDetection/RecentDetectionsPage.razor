@@ -1,55 +1,43 @@
 @page "/plugins/com-multishock-imagedetection/recent-detections"
 @inject ImageDetectionService DetectionService
-@inject NavigationManager NavManager
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-3 min-w-0">
-            <button class="p-2 rounded-lg bg-app-surface-2 hover:bg-app-surface-3 transition-colors"
-                    @onclick="GoHome"
-                    title="Back to dashboard">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-            </button>
+<PageHeader Title="Recent detections"
+            Icon="history"
+            Description="Matches found on screen, newest first, with the action each one sent."
+            Breadcrumb="BackToDashboard">
+    <Meta>
+        @if (IsRunning)
+        {
+            <span role="status" class="chip chip-ok"><span class="status-dot bg-app-success"></span> Running</span>
+        }
+        else
+        {
+            <span role="status" class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Stopped</span>
+        }
+    </Meta>
+    <Actions>
+        <Button Text="@(IsRunning ? "Stop detection" : "Start detection")"
+                Icon="@(IsRunning ? "square" : "play")"
+                Variant="@(IsRunning ? "secondary" : "primary")"
+                OnClick="ToggleDetection" />
+    </Actions>
+</PageHeader>
 
-            <h1 class="text-2xl font-bold truncate">Recent Detections</h1>
-        </div>
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <Alert Variant="danger" Class="mb-4">
+        <ChildContent>@ErrorMessage</ChildContent>
+        <Actions>
+            <Button Icon="x" Size="icon-sm" Variant="ghost" AriaLabel="Dismiss error" Title="Dismiss error" OnClick="ClearErrorMessage" />
+        </Actions>
+    </Alert>
+}
 
-        <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full @(IsRunning ? "bg-app-success/20" : "bg-app-danger/20")">
-                <span class="w-2 h-2 rounded-full @(IsRunning ? "bg-app-success animate-pulse" : "bg-app-danger")"></span>
-                <span class="text-sm font-medium @(IsRunning ? "text-app-success" : "text-app-danger")">
-                    @(IsRunning ? "Running" : "Stopped")
-                </span>
-            </div>
-
-            <Button Text="@(IsRunning ? "Stop Detection" : "Start Detection")"
-                    Variant="@(IsRunning ? "danger" : "primary")"
-                    OnClick="ToggleDetection" />
-        </div>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
-    {
-        <div class="mb-4 p-3 rounded-lg bg-app-danger/10 border border-app-danger/30 text-app-danger flex items-center justify-between">
-            <span>@ErrorMessage</span>
-            <button @onclick="ClearErrorMessage" class="text-app-danger hover:text-app-danger" title="Dismiss error">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-    }
-</div>
-
-<div class="p-6 pt-0">
-    <RecentDetections />
-</div>
+<div class="max-w-4xl"><RecentDetections /></div>
 
 @code {
-    private const string HomeRoute = "/plugins/com-multishock-imagedetection/imagedetection";
+    private const string HomeRoute = "plugins/com-multishock-imagedetection/imagedetection";
 
     private bool IsRunning => DetectionService?.IsRunning ?? false;
     private string? ErrorMessage;
@@ -68,10 +56,13 @@
 
     private Task ToggleDetection() => DetectionService.ToggleAsync();
 
-    private void GoHome()
+    private RenderFragment BackToDashboard => __builder =>
     {
-        NavManager.NavigateTo(HomeRoute);
-    }
+        <a href="@HomeRoute" class="inline-flex items-center gap-1 rounded-ctl hover:text-app-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-primary">
+            <LucideIcon Name="arrow-left" Size="12" />
+            Image detection
+        </a>
+    };
 
     private void ClearErrorMessage()
     {

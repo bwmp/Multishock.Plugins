@@ -30,7 +30,6 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
         <!-- The host provides the SDK at runtime; it must never ship inside a plugin package. -->
         <PackageReference Include="PiShock.MultiShock.PluginSdk" ExcludeAssets="runtime" />
-        <EmbeddedResource Include="wwwroot\styles.css" LogicalName="$(MSBuildProjectName).styles.css" Condition="Exists('$(MSBuildProjectDirectory)\wwwroot\styles.css')" />
     </ItemGroup>
 
     <PropertyGroup Condition="'$(IsPluginTestProject)' == 'true'">

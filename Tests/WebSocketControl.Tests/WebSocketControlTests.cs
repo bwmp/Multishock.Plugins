@@ -82,6 +82,39 @@ public sealed class WebSocketControlTests
 
     }
 
+    [Fact]
+    public void ManualStartUsesSavedSettingsWithoutEnablingStartup()
+    {
+        using var temp = new TemporaryDirectory();
+        var host = DispatchProxy.Create<IPluginHost, HostProxy>();
+        ((HostProxy)host).DataPath = temp.Path;
+        var devices = DispatchProxy.Create<IDeviceActions, DeviceProxy>();
+        var settings = new WebSocketControlSettings(host);
+        var port = GetFreePort();
+        settings.Update(false, port, "saved-auth-key");
+        using var server = new WebSocketControlServer(settings, devices, host);
+
+        Assert.True(server.Start(), server.LastError);
+        Assert.True(server.IsRunning);
+        Assert.False(settings.Enabled);
+        server.Restart();
+        Assert.True(server.IsRunning, server.LastError);
+        Assert.False(settings.Enabled);
+        server.Stop();
+        Assert.False(server.IsRunning);
+
+        server.Restart();
+        Assert.False(server.IsRunning);
+        var reloadedSettings = new WebSocketControlSettings(host);
+        Assert.False(reloadedSettings.Enabled);
+        Assert.Equal(port, reloadedSettings.Port);
+        Assert.Equal("saved-auth-key", reloadedSettings.AuthKey);
+
+        settings.Update(true, port, "saved-auth-key");
+        server.Restart();
+        Assert.True(server.IsRunning, server.LastError);
+    }
+
     private static int GetFreePort()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);

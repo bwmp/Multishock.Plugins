@@ -9,9 +9,9 @@ public sealed class WebSocketControlPlugin : IReloadablePlugin, IPluginRouteProv
     public const string PluginId = "com.multishock.websocketcontrol";
 
     public string Id => PluginId;
-    public string Name => "WebSocket Control";
+    public string Name => "WebSocket control";
     public string Version => typeof(WebSocketControlPlugin).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
-    public string Description => "Local WebSocket command server for external applications.";
+    public string Description => "Let local applications send device commands to MultiShock.";
     public IServiceProvider PluginServices { get; private set; } = null!;
 
     public void ConfigureServices(IServiceCollection services)
@@ -32,6 +32,6 @@ public sealed class WebSocketControlPlugin : IReloadablePlugin, IPluginRouteProv
 
     public IEnumerable<NavigationItem> GetNavigationItems() =>
     [
-        new NavigationItem { Text = "WebSocket Control", Href = "/websocket-control", Icon = "network", Order = 72 }
+        new NavigationItem { Text = "WebSocket control", Href = "/websocket-control", Icon = "network", Order = 72 }
     ];
 }

@@ -4,23 +4,12 @@
 @using StreamlabsIntegration.Models
 @implements IDisposable
 
-@* Shared page header: same title, status and action band as every host screen. *@
-<PageHeader Title="Streamlabs"
-            Icon="radio"
-            Description="React to donations, bits, subscriptions, follows, hosts and raids from a flow.">
+<PageHeader Title="Streamlabs" Icon="badge-dollar-sign" Description="React to donations, cheers, subscriptions, follows, hosts, raids and super chats with shocker actions or flow triggers.">
     <Meta>
-        @if (Connection.IsConnected)
-        {
-            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
-        }
-        else if (Connection.IsConnecting)
-        {
-            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
-        }
-        else
-        {
-            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
-        }
+        <span class="chip @ConnectionChip" role="status">
+            <span class="status-dot @ConnectionDot"></span>
+            @ConnectionLabel
+        </span>
     </Meta>
     <Actions>
         @if (Connection.IsConnected)
@@ -29,132 +18,108 @@
         }
         else
         {
-            <Button Variant="primary" Icon="plug" Text="Connect"
-                    Disabled="@(Connection.IsConnecting)" OnClick="Connect" />
+            <Button Variant="primary" Icon="plug" Text="Connect" Disabled="@(Connection.IsConnecting || !Settings.HasToken)" Title="@(Settings.HasToken ? null : "Paste your Socket API token first")" OnClick="Connect" />
         }
     </Actions>
 </PageHeader>
 
-<div class="space-y-4">
-
-    <div class="space-y-4">
-        <div class="sl-card">
-            <div class="sl-card-header">
-                <span>Connection</span>
-            </div>
-            <div class="sl-card-body space-y-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1 text-app-text">
-                        Socket API Token
-                    </label>
-                    <p class="text-xs mb-2 text-app-muted">
-                        Open <strong>Streamlabs Dashboard → Settings → API Settings → API Tokens</strong> and copy your
-                        <strong>Socket API Token</strong> (not the API access token).
-                    </p>
-                    <div class="flex gap-2">
-                        <TextInput InputType="password" Placeholder="eyJ0b2tlbiI6..." Value="@Token"
-                                   ValueChanged="@(v => UpdateToken(v))" Class="flex-1" />
-                        <Button Text="Open API Settings" Variant="secondary" OnClick="OpenSettings" />
-                    </div>
+<div class="max-w-4xl space-y-4">
+    <Card Title="Connection" Description="Changes save automatically.">
+        <ChildContent>
+            <SettingRow Label="Account" Description="In the Streamlabs dashboard, open Settings > API Settings > API Tokens and copy the Socket API token.">
+                <Button Text="Open account settings" Variant="secondary" Icon="external-link" OnClick="OpenSettings" />
+            </SettingRow>
+            <SettingRow Label="Socket API token" Description="Paste your token to connect. Keep it secret; it grants access to your account.">
+                <TextInput Label="Socket API token" Class="[&_label]:sr-only" InputType="password" Placeholder="Paste your Socket API token" Value="@Token" ValueChanged="UpdateToken" />
+            </SettingRow>
+            <SettingRow Label="Connect on startup" Description="Connect to Streamlabs when MultiShock starts.">
+                <Toggle AriaLabel="Connect on startup" Value="Settings.AutoConnect" ValueChanged="SetAutoConnect" />
+            </SettingRow>
+            <SettingRow Label="Reconnect automatically" Description="Reconnect if the connection drops.">
+                <Toggle AriaLabel="Reconnect automatically" Value="Settings.AutoReconnect" ValueChanged="SetAutoReconnect" />
+            </SettingRow>
+            @if (!Connection.IsConnected && !string.IsNullOrWhiteSpace(Log.LastConnectionError))
+            {
+                <Alert Variant="danger">@Log.LastConnectionError</Alert>
+            }
+            @if (!Connection.IsConnected && !string.IsNullOrWhiteSpace(Log.ConnectionStatus))
+            {
+                <p class="text-xs text-app-muted" role="status">@Log.ConnectionStatus</p>
+            }
+        </ChildContent>
+    </Card>
+    <Card Title="Reactions" Description="Run shocker actions straight from Streamlabs events. For custom logic, use the Streamlabs triggers in a flow instead.">
+        <ChildContent>
+            @foreach (var info in StreamlabsEventCatalog.All)
+            {
+                <ReactionRow Info="info" Config="Actions.Get(info.Type)" Href="@($"/plugins/com-multishock-streamlabsintegration/streamlabs-{info.Type}")" />
+            }
+        </ChildContent>
+    </Card>
+    <Card Title="Event log" Description="Latest 50 events, newest first." NoPadding="true">
+        <Actions>
+            @if (Log.Count > 0)
+            {
+                <Button Variant="ghost" Size="sm" Icon="trash-2" Text="Clear" OnClick="@(() => Log.Clear())" />
+            }
+        </Actions>
+        <ChildContent>
+            @if (Log.Count == 0)
+            {
+                <div class="px-4 py-6">
+                    <p class="text-sm text-app-muted">No events yet.</p>
+                    <p class="mt-0.5 text-xs text-app-subtle">@(Connection.IsConnected
+                        ? "Send a test alert from your Streamlabs dashboard to check the connection."
+                        : "Events appear here once you connect.")</p>
                 </div>
-
-                <div class="flex items-center gap-2">
-                    @if (!Connection.IsConnected)
+            }
+            else
+            {
+                <div class="max-h-64 overflow-y-auto divide-y divide-app-border" role="region" aria-label="Recent events" tabindex="0">
+                    @foreach (var entry in Log.Entries.TakeLast(50).Reverse())
                     {
-                        <Button Text="@(Connection.IsConnecting ? "Connecting..." : "Connect")" Variant="primary"
-                                Disabled="@(Connection.IsConnecting || !Settings.HasToken)" OnClick="Connect" />
-                    }
-                    else
-                    {
-                        <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
-                    }
-                </div>
-
-                <div class="flex flex-col gap-2 pt-3 border-t border-app-border">
-                    <Toggle Label="Auto-connect on startup" Value="Settings.AutoConnect"
-                            ValueChanged="@(v => SetAutoConnect(v))" />
-                    <Toggle Label="Auto-reconnect if the connection drops" Value="Settings.AutoReconnect"
-                            ValueChanged="@(v => SetAutoReconnect(v))" />
-                </div>
-            </div>
-        </div>
-
-        <div class="sl-card">
-            <div class="sl-card-header">
-                <span>Configure Events</span>
-            </div>
-            <div class="sl-card-body space-y-3">
-                <p class="text-sm text-app-muted">
-                    Choose which Streamlabs events trigger your shockers and how hard they hit.
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    @foreach (var info in StreamlabsEventCatalog.All)
-                    {
-                        <a href="@($"/plugins/com-multishock-streamlabsintegration/streamlabs-{info.Type}")"
-                           class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
-                            <LucideIcon Name="@info.Icon" Size="16" />
-                            <span>@info.DisplayName</span>
-                        </a>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="sl-card">
-            <div class="sl-card-header">
-                <span>Event Log</span>
-                <Button Text="Clear" Variant="secondary" Size="sm" OnClick="@(() => Log.Clear())" />
-            </div>
-            <div class="sl-card-body">
-                <div class="space-y-1 max-h-64 overflow-y-auto">
-                    @if (Log.Count == 0)
-                    {
-                        <p class="text-sm text-app-muted">
-                            No events yet. Trigger a test alert from your Streamlabs dashboard to verify.
-                        </p>
-                    }
-                    else
-                    {
-                        @foreach (var entry in Log.Entries.TakeLast(50).Reverse())
-                        {
-                            <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
-                                 style="background: rgba(255, 255, 255, 0.02);">
-                                <span class="text-app-muted">[@entry.Time.ToString("HH:mm:ss")]</span>
-                                <span style="color: @(entry.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">@entry.Message</span>
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="sl-card">
-            <div class="sl-card-header">
-                <span>Available Flow Triggers</span>
-            </div>
-            <div class="sl-card-body">
-                <div class="grid gap-2 text-sm">
-                    @foreach (var info in StreamlabsEventCatalog.All)
-                    {
-                        <div class="flex items-center gap-2">
-                            <span class="sl-status-dot" style="color: #31c3a2;"></span>
-                            <span><strong class="text-app-text">@info.DisplayName</strong></span>
+                        <div class="flex items-start gap-3 px-4 py-2 text-sm">
+                            <time class="shrink-0 font-mono text-xs text-app-subtle">@entry.Time.ToString("HH:mm:ss")</time>
+                            <span class="min-w-0 break-words @(entry.IsError ? "text-app-danger" : "text-app-text")">@entry.Message</span>
                         </div>
                     }
                 </div>
-            </div>
+            }
+        </ChildContent>
+    </Card>
+    <details class="panel group/advanced">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <span class="min-w-0">
+                <span class="panel-title block">Advanced</span>
+                <span class="panel-desc block">Flow triggers this plugin adds.</span>
+            </span>
+            <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/advanced:rotate-90" />
+        </summary>
+        <div class="border-t border-app-border p-4 space-y-2">
+            <h2 class="panel-title">Available flow triggers</h2>
+            <p class="text-sm text-app-muted">These triggers are available in Flows independently of the reaction switches above.</p>
+            <ul class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-app-text">
+                @foreach (var info in StreamlabsEventCatalog.All)
+                {
+                    <li class="flex items-center gap-2"><LucideIcon Name="@info.Icon" Size="14" Class="text-app-muted" />@info.DisplayName</li>
+                }
+            </ul>
         </div>
-    </div>
+    </details>
 </div>
 
 @code {
     private static readonly string PluginId = StreamlabsIntegrationPlugin.PluginId;
     private StreamlabsSettingsService Settings => PluginServiceLocator.GetRequiredService<StreamlabsSettingsService>(PluginId);
     private StreamlabsConnectionService Connection => PluginServiceLocator.GetRequiredService<StreamlabsConnectionService>(PluginId);
+    private ActionConfigService Actions => PluginServiceLocator.GetRequiredService<ActionConfigService>(PluginId);
     private EventLogService Log => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
+    private string ConnectionLabel => Connection.IsConnected ? "Connected" : Log.IsReconnecting ? "Reconnecting…" : Connection.IsConnecting ? "Connecting…" : Log.LastConnectionError != null ? "Error" : "Disconnected";
+    private string ConnectionChip => Connection.IsConnected ? "chip-ok" : Log.IsReconnecting ? "chip-info" : Connection.IsConnecting ? "chip-info" : Log.LastConnectionError != null ? "chip-danger" : "chip-neutral";
+    private string ConnectionDot => Connection.IsConnected ? "bg-app-success" : Log.IsReconnecting ? "bg-app-info" : Connection.IsConnecting ? "bg-app-info" : Log.LastConnectionError != null ? "bg-app-danger" : "bg-app-subtle";
     private string Token = "";
 
     protected override void OnInitialized()
@@ -162,6 +127,7 @@
         Token = Settings.SocketToken;
         Connection.ConnectionStateChanged += OnStateChanged;
         Log.LogChanged += OnLogChanged;
+        Actions.ConfigChanged += OnLogChanged;
     }
 
     private void UpdateToken(string? v)
@@ -188,5 +154,6 @@
     {
         Connection.ConnectionStateChanged -= OnStateChanged;
         Log.LogChanged -= OnLogChanged;
+        Actions.ConfigChanged -= OnLogChanged;
     }
 }

@@ -1,0 +1,18 @@
+<SettingRow Label="@Info.DisplayName" Description="@RowDescription">
+    <Meta><ReactionChip State="Summary.State" Text="@Summary.Text" /></Meta>
+    <ChildContent>
+        <NavButton Href="@Href" AriaLabel="@($"Configure {Info.DisplayName.ToLowerInvariant()} reactions")" />
+    </ChildContent>
+</SettingRow>
+
+@code {
+    [Parameter, EditorRequired] public EventTypeInfo Info { get; set; } = default!;
+    [Parameter, EditorRequired] public EventActionConfig Config { get; set; } = default!;
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+
+    private (ReactionState State, string Text) Summary => ReactionStatus.Summarize(Config, Info);
+
+    private string RowDescription => Info.HasAmount
+        ? $"Set intensity and duration by {Info.AmountLabel.ToLowerInvariant()}."
+        : "One action for each new follower.";
+}

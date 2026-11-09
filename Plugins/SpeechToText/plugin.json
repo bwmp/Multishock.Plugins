@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.speechtotext",
-  "name": "SpeechToText",
+  "name": "Speech to text",
   "version": "1.2.0",
   "entryPoint": "SpeechToText.dll",
-  "description": "Continuous speech recognition with sentence and word triggers.",
+  "description": "Use recognized words and sentences to trigger flows.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

@@ -22,8 +22,7 @@
                     filter out single-frame false positives.
                 </p>
             </div>
-            <TextInput Label="Process every Nth frame" Value="@Image.ProcessEveryNthFrame.ToString()"
-                       ValueChanged="OnCadenceChanged" />
+            <ValidatedNumberInput Label="Process every Nth frame" Value="Image.ProcessEveryNthFrame" Min="1" Max="1000" Step="1" ValueChanged="OnCadenceChanged" />
         </div>
 
         <div class="mt-4 space-y-3 border-t border-app-border pt-4">
@@ -44,7 +43,7 @@
                             RangeEndChanged="OnMultiScaleMaxChanged"
                             Min="0.5" Max="2.0" Step="0.05"
                             Filled="true" ShowValueDirection="right" />
-                    <NumberInput Label="Scale steps" Value="(double)Image.MultiScale.Steps"
+                    <ValidatedNumberInput Label="Scale steps" Value="(double)Image.MultiScale.Steps"
                                  ValueChanged="OnMultiScaleStepsChanged"
                                  Min="2" Max="15" Step="1" />
                 </div>
@@ -66,14 +65,14 @@
     </Card>
 }
 
-<Card Title="@(Image.TargetType == DetectionTargetType.Template ? "Action" : "Step 3: Action")"
+<Card Title="@(Image.TargetType == DetectionTargetType.Template ? "Action" : "3. Action")"
       Description="@(Image.TargetType == DetectionTargetType.Meter ? "What happens when damage is detected" : Image.TargetType == DetectionTargetType.Ocr ? "What happens when OCR events are detected" : "What happens when the image is detected")">
     <div class="space-y-4">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <ShockerSelect Label="Shockers" MultiSelect="true"
                            SelectedIds="Image.Action.ShockerIds"
                            SelectedIdsChanged="OnShockerIdsChanged"
-                           Placeholder="Select shockers..."
+                           Placeholder="Select shockers…"
                            GroupByDevice="true" />
 
             <Select Label="Target mode" TValue="ShockerMode"
@@ -150,13 +149,12 @@
         {
             <Checkbox Label="Show toast on detection" Value="Image.ShowDetectionToasts"
                       ValueChanged="OnShowToastsChanged"
-                      Description="Toasts are rate-limited to one per 30 seconds per target" />
+                      Description="At most one toast every 30 seconds for each target." />
         }
         else
         {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <TextInput Label="Process every Nth frame" Value="@Image.ProcessEveryNthFrame.ToString()"
-                           ValueChanged="OnCadenceChanged" />
+                <ValidatedNumberInput Label="Process every Nth frame" Value="Image.ProcessEveryNthFrame" Min="1" Max="1000" Step="1" ValueChanged="OnCadenceChanged" />
             </div>
         }
     </div>
@@ -164,7 +162,7 @@
     <div class="mt-4 space-y-3 border-t border-app-border pt-4">
         <div class="section-label">Cooldown</div>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <NumberInput Label="Duration (seconds)" Value="(double)Image.Cooldown.DurationSeconds"
+            <ValidatedNumberInput Label="Duration (seconds)" Value="(double)Image.Cooldown.DurationSeconds"
                          ValueChanged="OnCooldownNumberChanged"
                          Min="0" Max="3600" Step="1" />
 
@@ -182,7 +180,7 @@
                 <Select Label="Reset trigger target" TValue="string"
                         Value="@(Image.Cooldown.ResetImagePath ?? "")"
                         ValueChanged="OnResetImageSelect"
-                        Placeholder="Select another target..."
+                        Placeholder="Select another target…"
                         Options="resetOptions" />
             }
             else
@@ -207,7 +205,7 @@
     private static readonly IEnumerable<Select<ShockerMode>.SelectOption<ShockerMode>> ShockerModeOptions =
     [
         new(ShockerMode.Selected, "Selected"),
-        new(ShockerMode.Random, "Random from Selected"),
+        new(ShockerMode.Random, "Random from selected"),
     ];
 
     private static readonly IEnumerable<Select<MeterIntensityMode>.SelectOption<MeterIntensityMode>> IntensityModeOptions =
@@ -220,8 +218,8 @@
     private static readonly IEnumerable<Select<CooldownType>.SelectOption<CooldownType>> CooldownTypeOptions =
     [
         new(CooldownType.Standard, "Standard"),
-        new(CooldownType.Continuous, "Reset on Detection"),
-        new(CooldownType.ImageReset, "Wait for Reset Image"),
+        new(CooldownType.Continuous, "Reset on detection"),
+        new(CooldownType.ImageReset, "Wait for reset image"),
     ];
 
     private bool IsMaxIntensity =>
@@ -314,10 +312,10 @@
         Save();
     }
 
-    private void OnCadenceChanged(string value)
+    private void OnCadenceChanged(double? value)
     {
-        if (!int.TryParse(value, out var cadence)) return;
-        Image.ProcessEveryNthFrame = Math.Clamp(cadence, 1, 1000);
+        if (value is not { } cadence) return;
+        Image.ProcessEveryNthFrame = (int)cadence;
         Save();
     }
 

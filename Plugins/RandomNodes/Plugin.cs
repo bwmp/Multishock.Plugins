@@ -19,11 +19,11 @@ public class RandomNodesPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvi
 
     public string Id => PluginId;
 
-    public string Name => "Random Nodes";
+    public string Name => "Random nodes";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "A grab bag of random utility nodes for MultiShock";
+    public string Description => "Add media status, randomness, text checks, time and delays to flows.";
 
     private static ILogger? _logger;
 
@@ -76,9 +76,9 @@ public class RandomNodesPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvi
     [
         new NavigationItem
         {
-            Text = "Random Nodes",
+            Text = "Random nodes",
             Href = "/randomnodes",
-            Icon = "plug",
+            Icon = "shuffle",
             Order = 50
         }
     ];

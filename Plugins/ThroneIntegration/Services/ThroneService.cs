@@ -36,6 +36,10 @@ public class ThroneService : IDisposable
     /// </summary>
     public bool IsConnected => _isRunning && _webSocket?.State == WebSocketState.Open;
 
+    public bool IsConnecting => _isRunning && !IsConnected && _reconnectAttempts == 0;
+
+    public bool IsReconnecting => _isRunning && !IsConnected && _reconnectAttempts > 0;
+
     /// <summary>
     /// The current username being monitored
     /// </summary>
@@ -92,7 +96,7 @@ public class ThroneService : IDisposable
         _listenerCts = new CancellationTokenSource();
 
         _logger?.LogInformation("Starting Throne WebSocket listener for user: {Username}", username);
-        StatusMessage?.Invoke("Fetching creator ID...");
+        StatusMessage?.Invoke("Fetching creator ID…");
 
         try
         {
@@ -117,7 +121,7 @@ public class ThroneService : IDisposable
                 _logger?.LogInformation("Found and cached creator ID: {CreatorId} for username: {Username}", _creatorId, username);
             }
 
-            StatusMessage?.Invoke("Connecting to Throne WebSocket...");
+            StatusMessage?.Invoke("Connecting to Throne WebSocket…");
 
             _ = StartWebSocketListenerWithReconnect(_listenerCts.Token);
         }
@@ -222,12 +226,13 @@ public class ThroneService : IDisposable
 
                 if (_reconnectAttempts >= MAX_RECONNECT_ATTEMPTS)
                 {
+                    _isRunning = false;
                     ErrorOccurred?.Invoke($"Failed to connect after {MAX_RECONNECT_ATTEMPTS} attempts");
                     ConnectionStateChanged?.Invoke(false);
                     break;
                 }
 
-                StatusMessage?.Invoke($"Connection lost. Reconnecting in {RECONNECT_DELAY_MS / 1000}s...");
+                StatusMessage?.Invoke($"Connection lost. Reconnecting in {RECONNECT_DELAY_MS / 1000}s…");
                 ConnectionStateChanged?.Invoke(false);
 
                 try
@@ -276,7 +281,7 @@ public class ThroneService : IDisposable
         _logger?.LogInformation("Sent subscription message for creatorId: {CreatorId}", _creatorId);
         _reconnectAttempts = 0; // Reset on successful connection
         ConnectionStateChanged?.Invoke(true);
-        StatusMessage?.Invoke("Connected! Listening for gifts...");
+        StatusMessage?.Invoke("Connected. Listening for gifts…");
 
         var buffer = new byte[RECEIVE_BUFFER_SIZE];
         var messageBuffer = new StringBuilder();

@@ -4,69 +4,63 @@
 @inject IPluginHost Host
 @implements IDisposable
 
-<PageHeader Title="Chat Messages"
-            Description="Post a message in your Twitch chat when a cheer bracket, redeem, sub, gift or follow triggers an action, and repeat an info message on a timer.">
+<PageHeader Title="Chat messages" Icon="messages-square" Description="Post a chat message when a reaction fires, or repeat a message on a timer. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
     <Actions>
-        <Toggle Label="@(Config.Enabled ? "Enabled" : "Disabled")" Value="Config.Enabled"
-                ValueChanged="@(enabled => AutoMessages.SetEnabled(enabled))" />
+        <Toggle Label="Enabled" AriaLabel="Enable chat messages" Value="Config.Enabled" ValueChanged="@(enabled => AutoMessages.SetEnabled(enabled))" />
     </Actions>
 </PageHeader>
 
-@if (!TwitchService.IsConnected)
-{
-    <Alert Variant="info" Class="mb-4">
-        Twitch isn't connected. Messages are only sent while the plugin is connected.
-    </Alert>
-}
+<div class="max-w-4xl space-y-4">
+    @if (!Config.Enabled)
+    {
+        <Alert Variant="neutral">Chat messages are off. You can write messages now; nothing is posted until you switch on Enabled.</Alert>
+    }
+    else if (!TwitchService.IsConnected)
+    {
+        <Alert Variant="info">Messages are posted while MultiShock is connected to Twitch.</Alert>
+    }
 
-<div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 @(Config.Enabled ? "" : "opacity-60")">
-    <div class="twitch-card xl:col-span-2">
-        <div class="twitch-card-header">
-            <span>Repeating message</span>
-            <div class="flex items-center gap-2">
-                <Button Text="Send now" Icon="send" Variant="secondary" Size="sm"
-                        Disabled="@(!TwitchService.IsConnected)" Loading="_sendingRepeating"
-                        OnClick="SendRepeatingNow" />
-                <Toggle Label="Repeat" Value="Config.Repeating.Enabled"
-                        ValueChanged="@(enabled => AutoMessages.SetRepeatingEnabled(enabled))" />
-            </div>
-        </div>
-        <div class="twitch-card-body space-y-3">
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <NumberInput Label="Every" Suffix="min"
-                             Value="@(Config.Repeating.IntervalSeconds / 60.0)"
-                             Min="@(AutoMessageService.MinIntervalSeconds / 60.0)"
-                             Max="@(AutoMessageService.MaxIntervalSeconds / 60.0)"
-                             ValueChanged="@(v => AutoMessages.SetRepeatingInterval((int)Math.Round((v ?? 10) * 60)))" />
-                <div class="md:col-span-3">
-                    <TextArea Label="Message" Rows="3" Value="@Config.Repeating.Template"
-                              ValueChanged="@(v => AutoMessages.SetRepeatingTemplate(v ?? string.Empty))" />
-                </div>
-            </div>
+    <Card Title="Repeating message" Description="Posts the same message on a timer while connected.">
+        <SettingRow Label="Post on a timer" Description="Turn the repeating message on or off.">
+            <Toggle AriaLabel="Post the repeating message on a timer" Value="Config.Repeating.Enabled" ValueChanged="@(enabled => AutoMessages.SetRepeatingEnabled(enabled))" />
+        </SettingRow>
+        <SettingRow Label="Interval" Description="Whole minutes between messages, from 1 to 1440.">
+            <NumberField Label="Repeating message interval" Class="w-28 [&_label]:sr-only" Suffix="min"
+                         Value="@(Config.Repeating.IntervalSeconds / 60.0)" Min="@(AutoMessageService.MinIntervalSeconds / 60.0)" Max="@(AutoMessageService.MaxIntervalSeconds / 60.0)"
+                         ValueChanged="@(minutes => AutoMessages.SetRepeatingInterval((int)(minutes * 60)))" />
+        </SettingRow>
+        <div class="mt-3 space-y-3">
+            <TextArea Label="Message" Rows="3" Value="@Config.Repeating.Template" ValueChanged="@(v => AutoMessages.SetRepeatingTemplate(v ?? string.Empty))" />
             @PlaceholderHint(RepeatingPlaceholders)
             @MessagePreview(AutoMessages.RenderRepeating())
+            <div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
+                @if (SendBlockedReason != null)
+                {
+                    <span class="text-xs text-app-muted">@SendBlockedReason</span>
+                }
+                <Button Title="@SendBlockedReason" Text="Send now" Icon="send" Variant="secondary" Size="sm"
+                        Disabled="@(SendBlockedReason != null)" Loading="_sendingRepeating" OnClick="SendRepeatingNow" />
+            </div>
         </div>
-    </div>
+    </Card>
 
-    @foreach (var trigger in Triggers)
-    {
-        var template = Config.Get(trigger.Trigger);
-        <div class="twitch-card">
-            <div class="twitch-card-header">
-                <span>@trigger.Title</span>
-                <Toggle AriaLabel="@($"Send a message on {trigger.Title.ToLowerInvariant()}")" Value="template.Enabled"
-                        ValueChanged="@(enabled => AutoMessages.SetTriggerEnabled(trigger.Trigger, enabled))" />
-            </div>
-            <div class="twitch-card-body space-y-3">
-                <p class="text-xs text-app-muted">@trigger.When</p>
-                <TextInput Value="@template.Template" Disabled="@(!template.Enabled)"
-                           aria-label="@($"{trigger.Title} message")"
-                           ValueChanged="@(v => AutoMessages.SetTriggerTemplate(trigger.Trigger, v ?? string.Empty))" />
-                @PlaceholderHint(AutoMessageService.GetPlaceholders(trigger.Trigger))
-                @MessagePreview(AutoMessageService.RenderSample(trigger.Trigger, template.Template))
-            </div>
+    <Card Title="Reaction messages" Description="Each message is posted only when its reaction runs a shocker action.">
+        <div class="divide-y divide-app-border">
+            @foreach (var trigger in Triggers)
+            {
+                var template = Config.Get(trigger.Trigger);
+                <section class="space-y-3 py-4 first:pt-0 last:pb-0" aria-label="@trigger.Title">
+                    <SettingRow Label="@trigger.Title" Description="@trigger.When">
+                        <Toggle AriaLabel="@($"Post a message for {trigger.Title.ToLowerInvariant()}")" Value="template.Enabled" ValueChanged="@(enabled => AutoMessages.SetTriggerEnabled(trigger.Trigger, enabled))" />
+                    </SettingRow>
+                    <TextInput Placeholder="Message text" aria-label="@($"{trigger.Title} message")" Value="@template.Template" ValueChanged="@(v => AutoMessages.SetTriggerTemplate(trigger.Trigger, v ?? string.Empty))" />
+                    @PlaceholderHint(AutoMessageService.GetPlaceholders(trigger.Trigger))
+                    @MessagePreview(AutoMessageService.RenderSample(trigger.Trigger, template.Template))
+                </section>
+            }
         </div>
-    }
+    </Card>
 </div>
 
 @code {
@@ -91,6 +85,12 @@
     ];
 
     private bool _sendingRepeating;
+
+    private string? SendBlockedReason =>
+        !Config.Enabled ? "Switch on Enabled to send."
+        : !Config.Repeating.Enabled ? "Turn on Post on a timer to send."
+        : !TwitchService.IsConnected ? "Connect to Twitch to send."
+        : null;
 
     protected override void OnInitialized()
     {
@@ -140,7 +140,7 @@
             <div class="section-label mb-1">Preview</div>
             @if (string.IsNullOrWhiteSpace(text))
             {
-                <span class="text-app-subtle">Nothing will be sent - the message is empty.</span>
+                <span class="text-app-subtle">Nothing is posted while the message is empty.</span>
             }
             else
             {

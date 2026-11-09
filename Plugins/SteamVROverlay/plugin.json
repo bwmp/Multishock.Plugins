@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.steamvroverlay",
-  "name": "SteamVROverlay",
+  "name": "SteamVR overlay",
   "version": "0.1.0",
   "entryPoint": "SteamVROverlay.dll",
-  "description": "In-VR wrist watch with the time, device batteries, media controls, performance stats, and shocker controls.",
+  "description": "Control shockers and view plugin information from your wrist in SteamVR.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

@@ -1,67 +1,65 @@
 @page "/plugins/com-multishock-joystickintegration/events-config"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
-@using JoystickIntegration.Components.Config
 @implements IDisposable
 
-<div class="space-y-4">
-    <div>
-        <h1 class="text-xl font-bold text-app-text">Follows, Subs &amp; More</h1>
-        <p class="text-sm mt-1 text-app-muted">
-            Configure reactions for non-tip events. Each is off by default.
-        </p>
-    </div>
+<PageHeader Title="Follows, subs and more" Icon="user-plus"
+            Description="Run a shocker action for follows, subscriptions, wheel spins and tip goals. Each reaction runs only while its switch is on; you can set it up first. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+</PageHeader>
 
-    <SimpleActionCard Title="New Follower" Icon="user-plus" Config="Events.Config.Follow"
-        Description="Fires when a viewer follows the streamer." OnChanged="SaveEvents" />
-
-    <SimpleActionCard Title="Subscription" Icon="star" Config="Events.Config.Subscribe"
-        Description="Fires on a new or gifted subscription." OnChanged="SaveEvents" />
-
-    <SimpleActionCard Title="Wheel Spin Claimed" Icon="disc-3" Config="Events.Config.WheelSpin"
-        Description="Fires when a viewer claims a wheel-spin prize." OnChanged="SaveEvents" />
-
-    <SimpleActionCard Title="Tip Goal Met" Icon="target" Config="Events.Config.TipGoal"
-        Description="Fires when the streamer's tip goal is met." OnChanged="SaveEvents" />
-
-    <div class="jtv-card">
-        <div class="jtv-card-header">
-            <div class="flex items-center gap-2">
-                <LucideIcon Name="message-square" Class="w-4 h-4" />
-                <span>Chat Feedback</span>
-            </div>
-            <Toggle Label="@(Chat.Config.Enabled ? "On" : "Off")" Value="Chat.Config.Enabled"
-                ValueChanged="@(v => Chat.SetEnabled(v))" />
+<div class="max-w-4xl space-y-4">
+    <Card Title="Event reactions">
+        <div class="divide-y divide-app-border">
+            <EventReactionRow Title="New follower" Icon="user-plus" Config="Events.Config.Follow"
+                              Description="When a viewer follows you." OnChanged="SaveEvents" />
+            <EventReactionRow Title="Subscription" Icon="star" Config="Events.Config.Subscribe"
+                              Description="When a viewer subscribes or gifts subscriptions." OnChanged="SaveEvents" />
+            <EventReactionRow Title="Wheel spin claimed" Icon="disc-3" Config="Events.Config.WheelSpin"
+                              Description="When a viewer claims a wheel spin prize." OnChanged="SaveEvents" />
+            <EventReactionRow Title="Tip goal met" Icon="target" Config="Events.Config.TipGoal"
+                              Description="When your tip goal is reached." OnChanged="SaveEvents" />
         </div>
-        @if (Chat.Config.Enabled)
-        {
-            <div class="jtv-card-body space-y-4">
-                <p class="text-xs text-app-muted">
-                    Post a public chat message when events fire. Requires your bot to have the
-                    <strong>SendMessage</strong> permission. Placeholders: <code>{user}</code>, <code>{tokens}</code>,
-                    <code>{item}</code>.
-                </p>
+    </Card>
 
-                <div class="space-y-2">
-                    <div class="flex items-center gap-2">
-                        <Toggle Value="Chat.Config.TipEnabled" ValueChanged="@(v => Chat.SetTipEnabled(v))" />
-                        <span class="text-xs font-medium text-app-muted w-20">On Tip</span>
-                        <TextInput Value="@Chat.Config.TipTemplate" ValueChanged="@(v => Chat.SetTipTemplate(v ?? ""))" Class="flex-1" />
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <Toggle Value="Chat.Config.FollowEnabled" ValueChanged="@(v => Chat.SetFollowEnabled(v))" />
-                        <span class="text-xs font-medium text-app-muted w-20">On Follow</span>
-                        <TextInput Value="@Chat.Config.FollowTemplate" ValueChanged="@(v => Chat.SetFollowTemplate(v ?? ""))" Class="flex-1" />
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <Toggle Value="Chat.Config.SubscribeEnabled" ValueChanged="@(v => Chat.SetSubscribeEnabled(v))" />
-                        <span class="text-xs font-medium text-app-muted w-20">On Sub</span>
-                        <TextInput Value="@Chat.Config.SubscribeTemplate" ValueChanged="@(v => Chat.SetSubscribeTemplate(v ?? ""))" Class="flex-1" />
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
+    <Card Title="Chat replies"
+          Description="Have your bot post a public chat message when these events happen. Needs the SendMessage permission on your bot.">
+        <SettingRow Label="Post replies" Description="Turn all chat replies on or off.">
+            <Help>
+                @if (!Chat.Config.Enabled)
+                {
+                    <span>Replies are off. You can still edit them; nothing is posted until you turn this on.</span>
+                }
+            </Help>
+            <ChildContent>
+                <Toggle AriaLabel="Post chat replies" Value="Chat.Config.Enabled" ValueChanged="@(v => Chat.SetEnabled(v))" />
+            </ChildContent>
+        </SettingRow>
+        <div class="divide-y divide-app-border">
+            <section class="space-y-3 py-4 last:pb-0" aria-label="Tip reply">
+                <SettingRow Label="Reply to tips" Description="When a viewer tips or buys a tip menu item.">
+                    <Toggle AriaLabel="Reply to tips" Value="Chat.Config.TipEnabled" ValueChanged="@(v => Chat.SetTipEnabled(v))" />
+                </SettingRow>
+                <TextInput Label="Tip reply message" Class="[&_label]:sr-only" Value="@Chat.Config.TipTemplate"
+                           ValueChanged="@(v => Chat.SetTipTemplate(v ?? ""))" />
+                @(PlaceholderHint(["user", "tokens", "item"]))
+            </section>
+            <section class="space-y-3 py-4 last:pb-0" aria-label="Follow reply">
+                <SettingRow Label="Reply to follows" Description="When a viewer follows you.">
+                    <Toggle AriaLabel="Reply to follows" Value="Chat.Config.FollowEnabled" ValueChanged="@(v => Chat.SetFollowEnabled(v))" />
+                </SettingRow>
+                <TextInput Label="Follow reply message" Class="[&_label]:sr-only" Value="@Chat.Config.FollowTemplate"
+                           ValueChanged="@(v => Chat.SetFollowTemplate(v ?? ""))" />
+                @(PlaceholderHint(["user"]))
+            </section>
+            <section class="space-y-3 py-4 last:pb-0" aria-label="Subscription reply">
+                <SettingRow Label="Reply to subscriptions" Description="When a viewer subscribes or gifts subscriptions.">
+                    <Toggle AriaLabel="Reply to subscriptions" Value="Chat.Config.SubscribeEnabled" ValueChanged="@(v => Chat.SetSubscribeEnabled(v))" />
+                </SettingRow>
+                <TextInput Label="Subscription reply message" Class="[&_label]:sr-only" Value="@Chat.Config.SubscribeTemplate"
+                           ValueChanged="@(v => Chat.SetSubscribeTemplate(v ?? ""))" />
+                @(PlaceholderHint(["user"]))
+            </section>
+        </div>
+    </Card>
 </div>
 
 @code {
@@ -78,6 +76,17 @@
     private void OnConfigChanged() => InvokeAsync(StateHasChanged);
 
     private void SaveEvents() => Events.SaveConfig();
+
+    private static RenderFragment PlaceholderHint(IReadOnlyList<string> names) => __builder =>
+    {
+        <div class="flex flex-wrap items-center gap-1.5 text-xs text-app-muted">
+            <span>@(names.Count == 1 ? "Placeholder:" : "Placeholders:")</span>
+            @foreach (var name in names)
+            {
+                <code class="rounded bg-app-surface-2 px-1.5 py-0.5 font-mono text-app-text">{@name}</code>
+            }
+        </div>
+    };
 
     public void Dispose()
     {

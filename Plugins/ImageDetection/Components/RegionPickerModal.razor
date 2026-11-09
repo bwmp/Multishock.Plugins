@@ -4,126 +4,144 @@
 @inject IDomInterop DomInterop
 @implements IDisposable
 
-@if (IsVisible && _screenshotDataUrl != null)
-{
-    <div class="fixed inset-0 z-[1000] flex items-center justify-center p-5">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @onclick="Cancel"></div>
-
-        <div class="relative bg-app-surface-2 border border-app-border rounded-xl max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-            <div class="flex justify-between items-center px-5 py-4 border-b border-app-border bg-app-surface-2">
-                <div>
-                    <h4 class="m-0 text-lg font-semibold">Select Region</h4>
-                    <span class="block text-xs text-app-muted mt-1">
-                        @_actualResolution
-                        @if (!string.IsNullOrEmpty(TargetName))
-                        {
-                            <span> &mdash; @TargetName</span>
-                        }
+<Modal IsOpen="@(IsVisible && _screenshotDataUrl != null)" Title="Select region" Size="xl" Class="!w-auto !max-w-[90vw]" CloseOnBackdrop="false" OnClose="Cancel">
+    <ChildContent>
+        <div class="flex flex-col gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <span class="min-w-0 truncate text-xs text-app-muted">
+                    <span class="font-mono">@_actualResolution</span>
+                    @if (!string.IsNullOrEmpty(TargetName))
+                    {
+                        <span> &mdash; @TargetName</span>
+                    }
+                </span>
+                @if (_hasSelection)
+                {
+                    <span class="chip chip-info font-mono">
+                        @(_selX), @(_selY) &mdash; @(_selW)&times;@(_selH)
                     </span>
-                </div>
-                <div class="flex items-center gap-3">
-                    @if (_hasSelection)
-                    {
-                        <span class="text-xs px-3 py-1 rounded-full bg-app-info/20 text-app-info font-medium">
-                            @(_selX)x@(_selY) &mdash; @(_selW)&times;@(_selH)
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="text-xs px-3 py-1 rounded-full bg-app-surface-3/50 text-app-muted">
-                            Click and drag to select a region
-                        </span>
-                    }
-                    <button class="bg-transparent border-none text-app-muted cursor-pointer w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 hover:text-app-text transition-all text-xl"
-                            @onclick="Cancel">&times;</button>
-                </div>
+                }
+                else
+                {
+                    <span class="chip chip-neutral">No region selected</span>
+                }
             </div>
 
-            <div class="flex-1 overflow-auto p-5 flex flex-col gap-4">
-                <div class="relative self-center rounded-lg overflow-hidden shadow-lg cursor-crosshair select-none"
-                     style="width: @((int)_displayWidth)px; height: @((int)_displayHeight)px;"
-                     @onmousedown="OnMouseDown"
-                     @onmousemove="OnMouseMove"
-                     @onmouseup="OnMouseUp"
-                     @onmouseleave="OnMouseUp"
-                     @onmousedown:preventDefault
-                     @ref="_containerRef">
+            <div class="relative self-center overflow-hidden rounded-ctl border border-app-border cursor-crosshair select-none"
+                 style="width: @((int)_displayWidth)px; height: @((int)_displayHeight)px;"
+                 @onmousedown="OnMouseDown"
+                 @onmousemove="OnMouseMove"
+                 @onmouseup="OnMouseUp"
+                 @onmouseleave="OnMouseUp"
+                 @onmousedown:preventDefault
+                 @ref="_containerRef">
 
-                    <img src="@_screenshotDataUrl" alt="Screen capture"
-                         width="@((int)_displayWidth)" height="@((int)_displayHeight)"
-                         class="block pointer-events-none"
-                         style="width: @((int)_displayWidth)px; height: @((int)_displayHeight)px;" />
+                <img src="@_screenshotDataUrl" alt="Screen capture"
+                     width="@((int)_displayWidth)" height="@((int)_displayHeight)"
+                     class="block pointer-events-none"
+                     style="width: @((int)_displayWidth)px; height: @((int)_displayHeight)px;" />
 
-                    @if (_hasSelection)
-                    {
-                        <div class="absolute left-0 right-0 top-0 bg-black/50 pointer-events-none"
-                             style="height: @(_displaySelY)px;"></div>
-                        <div class="absolute left-0 right-0 bottom-0 bg-black/50 pointer-events-none"
-                             style="height: @(Math.Max(0, (int)_displayHeight - _displaySelY - _displaySelH))px;"></div>
-                        <div class="absolute left-0 bg-black/50 pointer-events-none"
-                             style="top: @(_displaySelY)px; width: @(_displaySelX)px; height: @(_displaySelH)px;"></div>
-                        <div class="absolute bg-black/50 pointer-events-none"
-                             style="top: @(_displaySelY)px; left: @(_displaySelX + _displaySelW)px; right: 0; height: @(_displaySelH)px;"></div>
+                @if (_hasSelection)
+                {
+                    <div class="absolute left-0 right-0 top-0 bg-black/50 pointer-events-none"
+                         style="height: @(_displaySelY)px;"></div>
+                    <div class="absolute left-0 right-0 bottom-0 bg-black/50 pointer-events-none"
+                         style="height: @(Math.Max(0, (int)_displayHeight - _displaySelY - _displaySelH))px;"></div>
+                    <div class="absolute left-0 bg-black/50 pointer-events-none"
+                         style="top: @(_displaySelY)px; width: @(_displaySelX)px; height: @(_displaySelH)px;"></div>
+                    <div class="absolute bg-black/50 pointer-events-none"
+                         style="top: @(_displaySelY)px; left: @(_displaySelX + _displaySelW)px; right: 0; height: @(_displaySelH)px;"></div>
 
-                        <div class="absolute border-2 border-app-info pointer-events-none"
-                             style="left: @(_displaySelX)px; top: @(_displaySelY)px; width: @(_displaySelW)px; height: @(_displaySelH)px;">
-                            <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
-                            <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
-                            <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
-                            <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
-                        </div>
-                    }
-                </div>
-
-                <div class="flex gap-3 justify-center items-end">
-                    <div>
-                        <label class="block text-xs text-app-subtle mb-1">X</label>
-                        <input type="number" min="0" max="@(_screenshotWidth)"
-                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
-                               value="@_selX"
-                               @onchange="@(e => UpdateManualCoord(x: ParseCoord(e.Value)))" />
+                    <div class="absolute border-2 border-app-info pointer-events-none"
+                         style="left: @(_displaySelX)px; top: @(_displaySelY)px; width: @(_displaySelW)px; height: @(_displaySelH)px;">
+                        <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
+                        <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
+                        <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
+                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-app-info rounded-sm"></div>
                     </div>
-                    <div>
-                        <label class="block text-xs text-app-subtle mb-1">Y</label>
-                        <input type="number" min="0" max="@(_screenshotHeight)"
-                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
-                               value="@_selY"
-                               @onchange="@(e => UpdateManualCoord(y: ParseCoord(e.Value)))" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-app-subtle mb-1">Width</label>
-                        <input type="number" min="1" max="@(_screenshotWidth)"
-                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
-                               value="@_selW"
-                               @onchange="@(e => UpdateManualCoord(w: ParseCoord(e.Value)))" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-app-subtle mb-1">Height</label>
-                        <input type="number" min="1" max="@(_screenshotHeight)"
-                               class="w-20 px-2 py-1.5 rounded bg-app-surface-3 border border-app-border-strong text-sm text-center"
-                               value="@_selH"
-                               @onchange="@(e => UpdateManualCoord(h: ParseCoord(e.Value)))" />
-                    </div>
-                    <button class="px-3 py-1.5 text-xs rounded bg-app-surface-3 hover:bg-app-surface-3 transition-colors text-app-muted"
-                            @onclick="ClearSelection">Clear</button>
-                </div>
+                }
             </div>
 
-            <div class="flex justify-between items-center px-5 py-4 border-t border-app-border bg-app-surface-2 gap-4">
-                <p class="text-sm text-app-muted m-0">
-                    Click and drag on the screenshot to select the region.
-                    Coordinates are mapped to actual screen pixels.
-                </p>
-                <div class="flex gap-2">
-                    <Button Text="Cancel" Size="sm" Variant="secondary" OnClick="Cancel" />
-                    <Button Text="Apply" Size="sm" Variant="success" OnClick="Apply" />
-                </div>
+            <div class="flex flex-wrap items-end justify-center gap-3">
+                <NumberInput Label="X" Class="w-24" Value="_draftX" Error="@FieldError("x", _draftX, 0, _screenshotWidth - 1)" Min="0" Max="@(_screenshotWidth - 1)" Suffix="px"
+                             ValueChanged="@(v => UpdateManualCoord("x", v))" />
+                <NumberInput Label="Y" Class="w-24" Value="_draftY" Error="@FieldError("y", _draftY, 0, _screenshotHeight - 1)" Min="0" Max="@(_screenshotHeight - 1)" Suffix="px"
+                             ValueChanged="@(v => UpdateManualCoord("y", v))" />
+                <NumberInput Label="Width" Class="w-24" Value="_draftW" Error="@FieldError("w", _draftW, 1, _screenshotWidth)" Min="1" Max="_screenshotWidth" Suffix="px"
+                             ValueChanged="@(v => UpdateManualCoord("w", v))" />
+                <NumberInput Label="Height" Class="w-24" Value="_draftH" Error="@FieldError("h", _draftH, 1, _screenshotHeight)" Min="1" Max="_screenshotHeight" Suffix="px"
+                             ValueChanged="@(v => UpdateManualCoord("h", v))" />
+                <Button Text="Clear" Variant="ghost" Disabled="@(_draftX == null && _draftY == null && _draftW == null && _draftH == null)" OnClick="ClearSelection" />
             </div>
+
+            @if (BoundsError != null)
+            {
+                <p class="text-xs text-app-danger" role="status">@BoundsError</p>
+            }
+            <p class="text-xs text-app-muted">
+                Drag on the screenshot or enter coordinates. Values are in actual screen pixels.
+            </p>
         </div>
-    </div>
-}
+    </ChildContent>
+    <Footer>
+        <Button Text="Cancel" Variant="ghost" OnClick="Cancel" />
+        <Button Text="Apply region" Variant="primary" Disabled="@(!_hasSelection || !RegionValid)" OnClick="Apply" />
+    </Footer>
+</Modal>
 
 @code {
+    private double? _draftX, _draftY, _draftW, _draftH;
+    private Timer? _resizeTimer;
+    private bool _disposed;
+    private readonly HashSet<string> _editedCoordinates = [];
+    private double _encodedScale = 1;
+    private bool CoordinatesValid => ValidCoordinate(_draftX, 0, _screenshotWidth - 1)
+        && ValidCoordinate(_draftY, 0, _screenshotHeight - 1)
+        && ValidCoordinate(_draftW, 1, _screenshotWidth)
+        && ValidCoordinate(_draftH, 1, _screenshotHeight);
+    private bool RegionValid => CoordinatesValid
+        && _draftX + _draftW <= _screenshotWidth && _draftY + _draftH <= _screenshotHeight;
+    private string? BoundsError => _editedCoordinates.Count > 0 && CoordinatesValid && !RegionValid
+        ? "The region must fit inside the screenshot." : null;
+
+    private string? FieldError(string field, double? value, int min, int max) =>
+        !_editedCoordinates.Contains(field) || ValidCoordinate(value, min, max)
+            ? null : $"Enter a whole pixel value from {min} to {max}.";
+
+    private static bool ValidCoordinate(double? value, int min, int max) =>
+        value is { } v && double.IsFinite(v) && v == Math.Truncate(v) && v >= min && v <= max;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await RefreshViewport();
+        if (_disposed) return;
+        _resizeTimer = new Timer(_ => InvokeAsync(RefreshViewport), null, 500, 500);
+    }
+
+    private async Task RefreshViewport()
+    {
+        if (_disposed || !IsVisible || _screenshotWidth == 0) return;
+        var viewport = await DomInterop.GetViewportAsync();
+        if (_disposed) return;
+        var scale = Math.Min(_encodedScale, Math.Min(Math.Max(1, viewport.Width * 0.9 - 64) / _screenshotWidth,
+            Math.Max(1, viewport.Height - 340) / _screenshotHeight));
+        if (Math.Abs(scale - _scale) < 0.0001) return;
+        _scale = scale;
+        _displayWidth = Math.Max(1, Math.Floor(_screenshotWidth * scale));
+        _displayHeight = Math.Max(1, Math.Floor(_screenshotHeight * scale));
+        _containerRect = null;
+        _isDragging = false;
+        UpdateDisplaySelection();
+        StateHasChanged();
+    }
+
+    private void SyncDrafts()
+    {
+        _draftX = _hasSelection ? _selX : null; _draftY = _hasSelection ? _selY : null;
+        _draftW = _hasSelection ? _selW : null; _draftH = _hasSelection ? _selH : null;
+    }
+
     private ElementReference _containerRef;
     private string? _screenshotDataUrl;
     private string _actualResolution = "";
@@ -176,6 +194,8 @@
             (double)MaxDisplayWidth / _screenshotWidth,
             (double)MaxDisplayHeight / _screenshotHeight);
         _scale = Math.Min(_scale, 1.0);
+        _encodedScale = _scale;
+        _editedCoordinates.Clear();
 
         _displayWidth = Math.Round(_screenshotWidth * _scale);
         _displayHeight = Math.Round(_screenshotHeight * _scale);
@@ -218,8 +238,10 @@
         else
         {
             _hasSelection = false;
+            _selX = _selY = _selW = _selH = 0;
         }
 
+        SyncDrafts();
         StateHasChanged();
     }
 
@@ -279,6 +301,8 @@
         MapDisplayToReal();
 
         _hasSelection = _selW > 2 && _selH > 2;
+        _editedCoordinates.Clear();
+        SyncDrafts();
     }
 
     private void OnMouseUp(MouseEventArgs e)
@@ -321,31 +345,37 @@
         _displaySelH = (int)Math.Round(_selH * _scale);
     }
 
-    // Non-numeric input leaves the coordinate unchanged instead of throwing.
-    private static int? ParseCoord(object? value)
-        => int.TryParse(value?.ToString(), out var parsed) ? parsed : null;
-
-    private void UpdateManualCoord(int? x = null, int? y = null, int? w = null, int? h = null)
+    private void UpdateManualCoord(string coordinate, double? value)
     {
-        if (x.HasValue) _selX = Math.Clamp(x.Value, 0, _screenshotWidth - 1);
-        if (y.HasValue) _selY = Math.Clamp(y.Value, 0, _screenshotHeight - 1);
-        if (w.HasValue) _selW = Math.Clamp(w.Value, 1, _screenshotWidth - _selX);
-        if (h.HasValue) _selH = Math.Clamp(h.Value, 1, _screenshotHeight - _selY);
-
-        _hasSelection = _selW > 0 && _selH > 0;
+        _editedCoordinates.Add(coordinate);
+        switch (coordinate)
+        {
+            case "x": _draftX = value; break;
+            case "y": _draftY = value; break;
+            case "w": _draftW = value; break;
+            case "h": _draftH = value; break;
+        }
+        if (!RegionValid) return;
+        _selX = (int)_draftX!.Value;
+        _selY = (int)_draftY!.Value;
+        _selW = (int)_draftW!.Value;
+        _selH = (int)_draftH!.Value;
+        _hasSelection = true;
         UpdateDisplaySelection();
     }
 
     private void ClearSelection()
     {
         _hasSelection = false;
+        _editedCoordinates.Clear();
         _selX = _selY = _selW = _selH = 0;
+        SyncDrafts();
         _displaySelX = _displaySelY = _displaySelW = _displaySelH = 0;
     }
 
     private async Task Apply()
     {
-        if (!_hasSelection) return;
+        if (!_hasSelection || !RegionValid) return;
 
         var region = new ScreenRegion(_selX, _selY, _selW, _selH);
         await OnApply.InvokeAsync(region);
@@ -358,6 +388,8 @@
 
     public void Dispose()
     {
+        _disposed = true;
+        _resizeTimer?.Dispose();
         _screenshotDataUrl = null;
     }
 }

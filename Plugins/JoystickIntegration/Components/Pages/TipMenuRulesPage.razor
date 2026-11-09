@@ -1,130 +1,128 @@
 @page "/plugins/com-multishock-joystickintegration/tip-menu-rules"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">Individual Tip-Menu Items</h1>
-            <p class="text-sm mt-1 text-app-muted">
-                Give specific tip-menu items their own reaction. A matching rule takes priority over
-                <a href="/plugins/com-multishock-joystickintegration/tip-brackets" class="jtv-brand">tip brackets</a>.
-            </p>
-        </div>
-        <Toggle Label="@(Service.Config.Enabled ? "Enabled" : "Disabled")" Value="Service.Config.Enabled"
-            ValueChanged="@(v => Service.SetEnabled(v))" />
-    </div>
+<PageHeader Title="Tip menu items" Icon="list"
+            Description="Give specific tip menu items their own reaction, separate from the tip brackets. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" Value="Config.Enabled" ValueChanged="@(v => Service.SetEnabled(v))" />
+    </Actions>
+</PageHeader>
 
-    <div class="flex flex-wrap items-center gap-4">
-        <Toggle Label="Matching rule skips tip brackets" Value="Service.Config.RulesOverrideBrackets"
-            ValueChanged="@(v => Service.SetRulesOverrideBrackets(v))" />
-        <div style="flex: 1;"></div>
-        <Button Text="Add Rule" Variant="secondary" Size="sm" OnClick="AddRule" />
-    </div>
-
-    @if (Service.Config.Rules.Count == 0)
+<div class="max-w-4xl space-y-4">
+    @if (!Config.Enabled)
     {
-        <div class="jtv-card"><div class="jtv-empty">
-            <p>No rules yet. Add one and set the tip-menu item name it should match.</p>
-        </div></div>
+        <Alert Variant="neutral">Tip menu rules are off. Tip menu tips still reach your flows through the Tip Menu Item trigger.</Alert>
     }
-    else
-    {
-        @foreach (var rule in Service.Config.Rules)
-        {
-            <div class="jtv-card" @key="rule.Id">
-                <div class="jtv-card-header">
-                    <div class="flex items-center gap-2" style="flex: 1;">
-                        <Toggle Value="rule.Enabled" ValueChanged="@(v => Update(rule, r => r.Enabled = v))" />
-                        <TextInput Placeholder="tip-menu item name (e.g. Spank)" Value="@rule.ItemName"
-                            ValueChanged="@(v => Update(rule, r => r.ItemName = v ?? ""))" Class="flex-1" />
+
+    <Card>
+        <SettingRow Label="Skip tip brackets on a match"
+                    Description="When a rule matches a tip, don't also run the tip brackets for it.">
+            <Toggle AriaLabel="Skip tip brackets on a match" Value="Config.RulesOverrideBrackets"
+                    ValueChanged="@(v => Service.SetRulesOverrideBrackets(v))" />
+        </SettingRow>
+    </Card>
+
+    <Card Title="Rules"
+          Description="A rule fires when the tip menu item contains its text, ignoring case. The first enabled match wins."
+          NoPadding="@(Config.Rules.Count > 0)">
+        <Actions>
+            @if (Config.Rules.Count > 0)
+            {
+                <Button Variant="secondary" Size="sm" Icon="plus" Text="Add rule" OnClick="AddRule" />
+            }
+        </Actions>
+        <ChildContent>
+            @if (Config.Rules.Count == 0)
+            {
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm text-app-muted">No rules yet.</p>
+                        <p class="mt-0.5 text-xs text-app-subtle">Add a rule, enter the tip menu item it should match and pick the shockers it runs on.</p>
                     </div>
-                    <button class="jtv-toolbar-btn-sm danger" @onclick="@(() => Service.RemoveRule(rule.Id))" title="Remove rule">
-                        <LucideIcon Name="trash-2" Class="w-4 h-4" />
-                    </button>
+                    <Button Variant="primary" Icon="plus" Text="Add rule" OnClick="AddRule" />
                 </div>
-                @if (rule.Enabled)
-                {
-                    <div class="jtv-card-body space-y-4">
-                        <div class="flex flex-wrap items-end gap-3">
-                            <div class="grow min-w-[16rem]">
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
-                                <ShockerSelect Label="" MultiSelect="true" SelectedIds="rule.SelectedShockerIds"
-                                    SelectedIdsChanged="@(ids => Update(rule, r => r.SelectedShockerIds = ids))" />
+            }
+            else
+            {
+                <ul class="divide-y divide-app-border">
+                    @foreach (var rule in Config.Rules)
+                    {
+                        var name = string.IsNullOrWhiteSpace(rule.ItemName) ? "Unnamed item" : rule.ItemName;
+                        var expanded = _expanded.Contains(rule.Id);
+                        <li @key="rule.Id">
+                            <div class="flex items-center gap-3 px-4 py-2.5">
+                                <Toggle AriaLabel="@($"Enable rule for {name}")" Value="rule.Enabled"
+                                        ValueChanged="@(v => Update(rule, r => r.Enabled = v))" />
+                                <button type="button" class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl py-1 text-left"
+                                        aria-expanded="@(expanded ? "true" : "false")" aria-controls="@(expanded ? $"rule-{rule.Id}" : null)"
+                                        @onclick="@(() => ToggleExpanded(rule.Id))">
+                                    <LucideIcon Name="chevron-right" Size="14"
+                                                Class="@($"shrink-0 text-app-muted transition-transform {(expanded ? "rotate-90" : "")}")" />
+                                    <span class="@($"truncate text-sm font-medium {(string.IsNullOrWhiteSpace(rule.ItemName) ? "text-app-muted" : "text-app-text")}")">@name</span>
+                                    <span class="hidden truncate text-xs text-app-muted sm:inline">
+                                        @ActionOptions.Describe(rule.CommandType, rule.Intensity, rule.Duration, rule.SelectedShockerIds.Count)
+                                    </span>
+                                </button>
+                                @if (RuleIssue(rule) is { } issue)
+                                {
+                                    <span class="shrink-0"><SummaryChip Summary="@(new(Config.Enabled && rule.Enabled ? ReactionStatus.Attention : ReactionStatus.Off, issue))" /></span>
+                                }
+                                <Button Variant="ghost" Size="icon-sm" Icon="trash-2" Title="Remove rule"
+                                        AriaLabel="@($"Remove rule for {name}")" OnClick="@(() => RequestRemove(rule))" />
                             </div>
-                            <div class="w-36">
-                                <Select TValue="string" Label="Command" Value="@rule.CommandType"
-                                    ValueChanged="@(v => Update(rule, r => r.CommandType = v ?? "Vibrate"))" Options="@CommandTypeOptions" />
-                            </div>
-                            <div class="w-36">
-                                <Select TValue="string" Label="Selection" Value="@rule.Mode.ToString()"
-                                    ValueChanged="@(v => Update(rule, r => r.Mode = ParseMode(v)))" Options="@SelectionModeOptions" />
-                            </div>
-                            @if (rule.CommandType == "Shock")
+                            @if (expanded)
                             {
-                                <div>
-                                    <label class="block text-xs font-medium mb-1 text-app-muted">Warning</label>
-                                    <Toggle Value="rule.WarningVibrate" ValueChanged="@(v => Update(rule, r => r.WarningVibrate = v))" />
+                                <div id="@($"rule-{rule.Id}")" class="space-y-4 border-t border-app-border bg-app-surface-2/40 px-4 py-4 sm:pl-16">
+                                    <TextInput Label="Tip menu item" Placeholder="For example: Spank" Value="@rule.ItemName"
+                                               Description="Matches any tip menu item that contains this text."
+                                               ValueChanged="@(v => Update(rule, r => r.ItemName = v ?? ""))" />
+                                    <ActionFields ShockerIds="rule.SelectedShockerIds"
+                                                  ShockerIdsChanged="@(ids => Update(rule, r => r.SelectedShockerIds = ids))"
+                                                  Command="@rule.CommandType"
+                                                  CommandChanged="@(v => Update(rule, r => r.CommandType = v))"
+                                                  Mode="rule.Mode"
+                                                  ModeChanged="@(v => Update(rule, r => r.Mode = v))"
+                                                  Intensity="rule.Intensity"
+                                                  IntensityChanged="@(v => Update(rule, r => r.Intensity = v))"
+                                                  Duration="rule.Duration"
+                                                  DurationChanged="@(v => Update(rule, r => r.Duration = v))"
+                                                  WarningVibrate="rule.WarningVibrate"
+                                                  WarningVibrateChanged="@(v => Update(rule, r => r.WarningVibrate = v))">
+                                        <div class="sm:col-span-2 lg:col-span-4">
+                                            <Toggle Label="Scale duration with the tip amount" Value="rule.ScaleWithTokens"
+                                                    ValueChanged="@(v => Update(rule, r => r.ScaleWithTokens = v))" />
+                                        </div>
+                                        @if (rule.ScaleWithTokens)
+                                        {
+                                            <NumberField Label="Tokens per duration" Suffix="tokens" Min="1" Max="100000" Value="rule.ScaleTokenUnit"
+                                                         Description="Each multiple adds the duration again."
+                                                         ValueChanged="@(v => Update(rule, r => r.ScaleTokenUnit = (int)Math.Round(v)))" />
+                                            <NumberField Label="Maximum duration" Suffix="s" Min="0.1" Max="60" Step="0.1" Value="rule.MaxDuration"
+                                                         ValueChanged="@(v => Update(rule, r => r.MaxDuration = v))" />
+                                        }
+                                    </ActionFields>
                                 </div>
                             }
-                        </div>
-
-                        <div class="space-y-2">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
-                                <Slider Min="1" Max="100" Value="rule.Intensity"
-                                    ValueChanged="@(v => Update(rule, r => r.Intensity = (int)v))" Class="flex-1" ShowValue="false" />
-                                <span class="text-xs text-app-muted w-12">@rule.Intensity%</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
-                                <Slider Min="0.1" Max="15" Step="0.1" Value="rule.Duration"
-                                    ValueChanged="@(v => Update(rule, r => r.Duration = Math.Round(v, 1)))" Class="flex-1" ShowValue="false" />
-                                <span class="text-xs text-app-muted w-12">@rule.Duration.ToString("0.0")s</span>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-3">
-                            <Toggle Label="Scale duration with tokens" Value="rule.ScaleWithTokens"
-                                ValueChanged="@(v => Update(rule, r => r.ScaleWithTokens = v))" />
-                            @if (rule.ScaleWithTokens)
-                            {
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-app-muted">per</span>
-                                    <NumberInput Value="@((double)rule.ScaleTokenUnit)" Min="1" Max="100000" Class="w-24"
-                                        ValueChanged="@(v => Update(rule, r => r.ScaleTokenUnit = (int)Math.Clamp(v ?? 1, 1, 100000)))" />
-                                    <span class="text-xs text-app-muted">tokens, max</span>
-                                    <NumberInput Value="@rule.MaxDuration" Min="0.1" Max="60" Class="w-24"
-                                        ValueChanged="@(v => Update(rule, r => r.MaxDuration = Math.Clamp(v ?? 15, 0.1, 60)))" />
-                                    <span class="text-xs text-app-muted">s</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-        }
-    }
+                        </li>
+                    }
+                </ul>
+            }
+        </ChildContent>
+    </Card>
 </div>
+
+<ConfirmDialog IsOpen="@(_pendingRemove is not null)" Title="Remove this rule?"
+               Message="@($"The rule for {RuleName(_pendingRemove)} and its shocker settings will be deleted.")"
+               ConfirmText="Remove rule" OnCancel="@(() => _pendingRemove = null)" OnConfirm="ConfirmRemove" />
 
 @code {
     private static readonly string PluginId = JoystickIntegrationPlugin.PluginId;
     private TipRulesConfigService Service => PluginServiceLocator.GetRequiredService<TipRulesConfigService>(PluginId);
+    private TipRulesConfig Config => Service.Config;
 
-    private readonly IEnumerable<Select<string>.SelectOption<string>> CommandTypeOptions =
-    [
-        new("Shock", "Shock"),
-        new("Vibrate", "Vibrate"),
-        new("Beep", "Beep"),
-    ];
-
-    private readonly IEnumerable<Select<string>.SelectOption<string>> SelectionModeOptions =
-    [
-        new("All", "All"),
-        new("Random", "Random"),
-        new("RoundRobin", "Round Robin"),
-    ];
+    private readonly HashSet<string> _expanded = [];
+    private TipRule? _pendingRemove;
 
     protected override void OnInitialized()
     {
@@ -133,16 +131,62 @@
 
     private void OnConfigChanged() => InvokeAsync(StateHasChanged);
 
-    private void AddRule() => Service.AddRule(new TipRule());
+    // New rules start disabled: they have no item name or shockers until the user fills them in.
+    private void AddRule()
+    {
+        var rule = new TipRule { Enabled = false };
+        _expanded.Add(rule.Id);
+        Service.AddRule(rule);
+    }
+
+    private static string RuleName(TipRule? rule) =>
+        string.IsNullOrWhiteSpace(rule?.ItemName) ? "this item" : rule.ItemName;
+
+    private void RequestRemove(TipRule rule)
+    {
+        if (!string.IsNullOrWhiteSpace(rule.ItemName) || rule.SelectedShockerIds.Count > 0)
+        {
+            _pendingRemove = rule;
+        }
+        else
+        {
+            RemoveRule(rule.Id);
+        }
+    }
+
+    private void ConfirmRemove()
+    {
+        if (_pendingRemove is { } rule)
+        {
+            _pendingRemove = null;
+            RemoveRule(rule.Id);
+        }
+    }
+
+    private void RemoveRule(string id)
+    {
+        _expanded.Remove(id);
+        Service.RemoveRule(id);
+    }
+
+    private static string? RuleIssue(TipRule rule) =>
+        string.IsNullOrWhiteSpace(rule.ItemName) ? "No item name"
+        : rule.SelectedShockerIds.Count == 0 ? "No shockers"
+        : null;
+
+    private void ToggleExpanded(string id)
+    {
+        if (!_expanded.Remove(id))
+        {
+            _expanded.Add(id);
+        }
+    }
 
     private void Update(TipRule rule, Action<TipRule> mutate)
     {
         mutate(rule);
         Service.UpdateRule(rule);
     }
-
-    private static SelectionMode ParseMode(string? value) =>
-        Enum.TryParse<SelectionMode>(value, out var mode) ? mode : SelectionMode.All;
 
     public void Dispose()
     {

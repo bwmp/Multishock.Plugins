@@ -3,121 +3,114 @@
 @using SpeechToText.Services
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center gap-2">
-        <div class="w-3 h-3 rounded-full @(RecognitionService.IsListening ? "bg-app-success" : "bg-app-subtle")"></div>
-        <span class="text-sm font-medium">
-            @(RecognitionService.IsListening ? "Listening" : "Idle")
-        </span>
-    </div>
-
-    <Toggle Label="Auto-start listening on app startup"
+<div class="max-w-4xl space-y-4">
+<fieldset disabled="@IsSaving" class="space-y-4">
+<Card Title="Recognition">
+@if (SavedMicrophoneMissing) { <Alert Variant="warning">Saved microphone not found; review the input selection before saving.</Alert> }
+    <SettingRow Label="Auto-start listening on app startup" Description="Begin listening when MultiShock opens."><Toggle AriaLabel="Auto-start listening on app startup"
             Value="AutoStartListening"
-            ValueChanged="ToggleAutoStartListening" />
-
-    <Toggle Label="Use default microphone"
+            ValueChanged="ToggleAutoStartListening" /></SettingRow>
+    <SettingRow Label="Use default microphone" Description="Follow the default recording device selected in Windows."><Toggle AriaLabel="Use default microphone"
             Value="UseDefaultMicrophone"
-            ValueChanged="ToggleUseDefaultMicrophone" />
-
-    @if (!UseDefaultMicrophone)
-    {
-        <div class="max-w-md">
-            <Select Label="Microphone Input" TValue="int"
+            ValueChanged="ToggleUseDefaultMicrophone" /></SettingRow>
+@if (!UseDefaultMicrophone) {
+    <SettingRow Label="Microphone input" Description="Choose the recording device used for speech recognition."><Select Class="[&_label]:sr-only" Label="Microphone input" TValue="int"
                     Value="MicrophoneDeviceNumber"
                     ValueChanged="OnMicrophoneChanged"
-                    Options="MicrophoneOptions"
-                    Description="Select which microphone Whisper uses for capture" />
-        </div>
-    }
-
-    <Toggle Label="Auto-restart listener after unexpected stop"
-            Value="AutoRestartOnFailure"
-            ValueChanged="ToggleAutoRestart" />
-
-    <div class="max-w-sm">
-        <TextInput Label="Recognition Culture"
+                    Options="MicrophoneOptions" /></SettingRow>
+}
+    <SettingRow Label="Recognition culture" Description="Language and region tag, for example en-US for English (United States) or de-DE for German."><TextInput Class="[&_label]:sr-only" Label="Recognition culture"
                    Placeholder="en-US"
                    Value="@Culture"
-                   ValueChanged="@(value => Culture = value?.Trim() ?? string.Empty)" />
-    </div>
-
-    <div class="w-56">
-        <NumberInput Label="Minimum Confidence"
+                   ValueChanged="@(value => Culture = value?.Trim() ?? string.Empty)" /></SettingRow>
+    <SettingRow Label="Minimum confidence" Description="Ignore recognition results below this confidence, from 0 to 1."><NumberInput Class="[&_label]:sr-only" Label="Minimum confidence"
                      Value="MinimumConfidence"
                      Min="0"
                      Max="1"
                      Step="0.01"
-                     ValueChanged="@(value => MinimumConfidence = Math.Clamp(value ?? 0.1, 0.0, 1.0))" />
-    </div>
+                     ValueChanged="@(value => MinimumConfidence = value)" Error="@MinimumConfidenceError" /></SettingRow>
+</Card>
+<Card Title="Model" Description="Choose a supported model or supply a local model file.">
+    <SettingRow Label="Whisper model" Description="Larger models use more memory and take longer to load."><Select Class="[&_label]:sr-only" Label="Whisper model" TValue="string" Value="@WhisperModel" ValueChanged="@(value => WhisperModel = value ?? "TinyEn")" Options="ModelOptions" /></SettingRow>
+    <SettingRow Label="Auto-download model when missing" Description="Download the selected model if it is not stored locally."><Toggle AriaLabel="Auto-download model when missing"
+            Value="DownloadModelIfMissing"
+            ValueChanged="ToggleDownloadModelIfMissing" /></SettingRow>
+    <SettingRow Label="Whisper model path (optional)" Description="Use this local model file instead of the selected download."><TextInput Class="[&_label]:sr-only" Label="Whisper model path (optional)"
+                   Placeholder="C:\Models\ggml-tiny.en.bin"
+                   Value="@WhisperModelPath"
+                   ValueChanged="@(value => WhisperModelPath = value?.Trim() ?? string.Empty)" /></SettingRow>
+</Card>
+<details class="panel group/advanced">
+<summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+    <span class="min-w-0"><span class="panel-title block">Advanced</span><span class="panel-desc block">Tune capture segments and recovery after unexpected stops.</span></span>
+    <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/advanced:rotate-90" />
+</summary>
+<div class="border-t border-app-border p-4">
 
-    <div class="w-56">
-        <NumberInput Label="Restart Delay (ms)"
+    <SettingRow Label="Auto-restart listener after unexpected stop" Description="Retry listening automatically after capture fails."><Toggle AriaLabel="Auto-restart listener after unexpected stop"
+            Value="AutoRestartOnFailure"
+            ValueChanged="ToggleAutoRestart" /></SettingRow>
+    <SettingRow Label="Restart delay" Description="Wait this long before retrying after an unexpected stop."><NumberInput Class="[&_label]:sr-only" Label="Restart delay"
                      Value="RestartDelayMs"
                      Min="250"
                      Max="30000"
                      Step="50"
-                     ValueChanged="@(value => RestartDelayMs = Math.Clamp(value ?? 2000, 250, 30000))" />
-    </div>
+                     ValueChanged="@(value => RestartDelayMs = value)" Error="@RestartDelayMsError" Suffix="ms" /></SettingRow>
 
-    <div class="max-w-sm">
-        <TextInput Label="Whisper Model"
-                   Placeholder="TinyEn"
-                   Value="@WhisperModel"
-                   ValueChanged="@(value => WhisperModel = value?.Trim() ?? string.Empty)" />
-    </div>
-
-    <Toggle Label="Auto-download model when missing"
-            Value="DownloadModelIfMissing"
-            ValueChanged="ToggleDownloadModelIfMissing" />
-
-    <div class="max-w-sm">
-        <TextInput Label="Whisper Model Path (optional)"
-                   Placeholder="C:\\Models\\ggml-tiny.en.bin"
-                   Value="@WhisperModelPath"
-                   ValueChanged="@(value => WhisperModelPath = value?.Trim() ?? string.Empty)" />
-    </div>
-
-    <div class="w-56">
-        <NumberInput Label="Segment Duration (ms)"
+    <SettingRow Label="Segment duration" Description="Audio length sent to recognition in each segment."><NumberInput Class="[&_label]:sr-only" Label="Segment duration"
                      Value="SegmentDurationMs"
                      Min="1000"
                      Max="10000"
                      Step="250"
-                     ValueChanged="@(value => SegmentDurationMs = Math.Clamp(value ?? 3500, 1000, 10000))" />
-    </div>
-
-    <div class="w-56">
-        <NumberInput Label="Silence Threshold"
+                     ValueChanged="@(value => SegmentDurationMs = value)" Error="@SegmentDurationMsError" Suffix="ms" /></SettingRow>
+    <SettingRow Label="Silence threshold" Description="Average energy is measured from 0 to 1; higher thresholds skip more audio. Supported threshold: 0.0001 to 0.05."><NumberInput Class="[&_label]:sr-only" Label="Silence threshold"
                      Value="SilenceEnergyThreshold"
                      Min="0.0001"
                      Max="0.05"
                      Step="0.0005"
-                     ValueChanged="@(value => SilenceEnergyThreshold = Math.Clamp(value ?? 0.0015, 0.0001, 0.05))" />
-    </div>
-
-    <div class="flex gap-2">
-        <Button Text="Save" Variant="secondary" OnClick="SaveSettings" />
-        @if (RecognitionService.IsListening)
-        {
-            <Button Text="Stop Listening" Variant="danger" OnClick="StopListening" />
-        }
-        else
-        {
-            <Button Text="Start Listening" Variant="primary" OnClick="StartListening" />
-        }
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(StatusMessage))
-    {
-        <div class="text-xs @(StatusIsError ? "text-app-danger" : "text-app-muted")">@StatusMessage</div>
-    }
-
-    <p class="text-xs text-app-subtle">
-        Triggers: <code>speechtotext.sentence</code> and <code>speechtotext.word</code>
-    </p>
+                     ValueChanged="@(value => SilenceEnergyThreshold = value)" Error="@SilenceEnergyThresholdError" /></SettingRow>
+</div>
+</details>
+</fieldset>
+<p class="text-sm text-app-muted">Saving restarts an active listener to apply microphone and model changes. A stopped listener stays stopped.</p>
+<div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
+<p class="text-sm text-app-muted" role="status">@(IsSaving ? "Applying settings…" : IsDirty ? "Unsaved changes" : HasSaved ? "Saved" : null)</p>
+<Button Text="@(IsSaving ? "Applying…" : "Save changes")" Disabled="@(!IsDirty || HasInvalidNumbers || IsSaving)" Title="@(HasInvalidNumbers ? "Correct invalid values before saving" : IsSaving ? "Applying settings" : IsDirty ? null : "No unsaved changes")" OnClick="SaveSettings" />
+</div>
+@if (!string.IsNullOrWhiteSpace(StatusMessage)) {
+@if (StatusIsError) { <Alert Variant="danger">@StatusMessage</Alert> } else { <p class="text-sm text-app-muted" role="status">@StatusMessage</p> }
+}
 </div>
 
 @code {
+    private string? MinimumConfidenceError => MinimumConfidence is { } value && double.IsFinite(value) && value >= 0 && value <= 1 ? null : "Enter a number from 0 to 1.";
+    private string? RestartDelayMsError => RestartDelayMs is { } value && double.IsFinite(value) && value >= 250 && value <= 30000 && value == Math.Truncate(value) ? null : "Enter a whole number from 250 to 30000.";
+    private string? SegmentDurationMsError => SegmentDurationMs is { } value && double.IsFinite(value) && value >= 1000 && value <= 10000 && value == Math.Truncate(value) ? null : "Enter a whole number from 1000 to 10000.";
+    private string? SilenceEnergyThresholdError => SilenceEnergyThreshold is { } value && double.IsFinite(value) && value >= 0.0001 && value <= 0.05 ? null : "Enter a number from 0.0001 to 0.05.";
+    private bool HasInvalidNumbers => MinimumConfidenceError != null || RestartDelayMsError != null || SegmentDurationMsError != null || SilenceEnergyThresholdError != null;
+    private bool IsDirty => AutoStartListening != SettingsService.AutoStartListening ||
+        AutoRestartOnFailure != SettingsService.AutoRestartOnFailure ||
+        UseDefaultMicrophone != SettingsService.UseDefaultMicrophone ||
+        MicrophoneDeviceNumber != SavedMicrophoneDeviceNumber ||
+        Culture != SettingsService.Culture ||
+        MinimumConfidence != SettingsService.MinimumConfidence ||
+        RestartDelayMs != SettingsService.RestartDelayMs ||
+        WhisperModel != SettingsService.WhisperModel ||
+        DownloadModelIfMissing != SettingsService.DownloadModelIfMissing ||
+        WhisperModelPath != SettingsService.WhisperModelPath ||
+        SegmentDurationMs != SettingsService.SegmentDurationMs ||
+        SilenceEnergyThreshold != SettingsService.SilenceEnergyThreshold;
+
+    private static readonly List<Select<string>.SelectOption<string>> ModelOptions = Enum.GetNames<Whisper.net.Ggml.GgmlType>().Select(name => new Select<string>.SelectOption<string>(name, ModelLabel(name))).ToList();
+
+    private static string ModelLabel(string name)
+    {
+        var label = System.Text.RegularExpressions.Regex.Replace(name, "([a-z0-9])([A-Z])", "$1 $2");
+        return label.Replace("En", "(English only)", StringComparison.Ordinal)
+            .Replace("V1", "v1", StringComparison.Ordinal).Replace("V2", "v2", StringComparison.Ordinal)
+            .Replace("V3", "v3", StringComparison.Ordinal);
+    }
+
     private static readonly string PluginIdValue = SpeechToTextPlugin.PluginId;
 
     private SpeechToTextSettingsService SettingsService =>
@@ -130,17 +123,21 @@
     private bool AutoRestartOnFailure;
     private bool UseDefaultMicrophone = true;
     private int MicrophoneDeviceNumber;
+    private int SavedMicrophoneDeviceNumber;
+    private bool SavedMicrophoneMissing;
     private string Culture = "en-US";
-    private double MinimumConfidence = 0.1;
-    private double RestartDelayMs = 2000;
+    private double? MinimumConfidence = 0.1;
+    private double? RestartDelayMs = 2000;
     private string WhisperModel = "TinyEn";
     private bool DownloadModelIfMissing = true;
     private string WhisperModelPath = string.Empty;
-    private double SegmentDurationMs = 3500;
-    private double SilenceEnergyThreshold = 0.0015;
+    private double? SegmentDurationMs = 3500;
+    private double? SilenceEnergyThreshold = 0.0015;
 
     private string? StatusMessage;
     private bool StatusIsError;
+    private bool IsSaving;
+    private bool HasSaved;
     private List<Select<int>.SelectOption<int>> MicrophoneOptions = [];
 
     [Parameter]
@@ -150,6 +147,8 @@
     {
         ReadSettings();
         RefreshMicrophoneOptions();
+        SavedMicrophoneDeviceNumber = MicrophoneDeviceNumber;
+        SavedMicrophoneMissing = MicrophoneDeviceNumber != SettingsService.MicrophoneDeviceNumber;
 
         RecognitionService.StatusMessage += OnStatus;
         RecognitionService.ErrorOccurred += OnError;
@@ -174,72 +173,67 @@
 
     private async Task SaveSettings()
     {
-        SettingsService.AutoStartListening = AutoStartListening;
-        SettingsService.AutoRestartOnFailure = AutoRestartOnFailure;
-        SettingsService.UseDefaultMicrophone = UseDefaultMicrophone;
-        SettingsService.MicrophoneDeviceNumber = MicrophoneDeviceNumber;
-        SettingsService.Culture = Culture;
-        SettingsService.MinimumConfidence = MinimumConfidence;
-        SettingsService.RestartDelayMs = (int)RestartDelayMs;
-        SettingsService.WhisperModel = WhisperModel;
-        SettingsService.DownloadModelIfMissing = DownloadModelIfMissing;
-        SettingsService.WhisperModelPath = WhisperModelPath;
-        SettingsService.SegmentDurationMs = (int)SegmentDurationMs;
-        SettingsService.SilenceEnergyThreshold = SilenceEnergyThreshold;
-
-        StatusIsError = false;
-        StatusMessage = "Settings saved";
-    }
-
-    private async Task StartListening()
-    {
-        await SaveSettings();
-        var started = await RecognitionService.StartListeningAsync();
-
-        if (!started)
+        if (IsSaving || HasInvalidNumbers) return;
+        IsSaving = true;
+        try
         {
-            StatusIsError = true;
-            StatusMessage = "Unable to start speech recognition";
-        }
-    }
+            var wasListening = RecognitionService.IsListening;
+            SettingsService.AutoStartListening = AutoStartListening;
+            SettingsService.AutoRestartOnFailure = AutoRestartOnFailure;
+            SettingsService.UseDefaultMicrophone = UseDefaultMicrophone;
+            SettingsService.MicrophoneDeviceNumber = MicrophoneDeviceNumber;
+            SavedMicrophoneDeviceNumber = MicrophoneDeviceNumber;
+            SavedMicrophoneMissing = false;
+            SettingsService.Culture = Culture;
+            SettingsService.MinimumConfidence = MinimumConfidence!.Value;
+            SettingsService.RestartDelayMs = (int)RestartDelayMs!.Value;
+            SettingsService.WhisperModel = WhisperModel;
+            SettingsService.DownloadModelIfMissing = DownloadModelIfMissing;
+            SettingsService.WhisperModelPath = WhisperModelPath;
+            SettingsService.SegmentDurationMs = (int)SegmentDurationMs!.Value;
+            SettingsService.SilenceEnergyThreshold = SilenceEnergyThreshold!.Value;
 
-    private async Task StopListening()
-    {
-        await RecognitionService.StopListeningAsync();
+            if (wasListening && !await RecognitionService.StartListeningAsync())
+            {
+                StatusIsError = true;
+                StatusMessage = "Settings saved, but listening could not restart. Check microphone and model settings, then start listening again.";
+                return;
+            }
+
+            StatusIsError = false;
+            StatusMessage = null;
+            HasSaved = true;
+        }
+        finally { IsSaving = false; }
     }
 
     private Task ToggleAutoStartListening(bool value)
     {
         AutoStartListening = value;
-        SettingsService.AutoStartListening = value;
         return Task.CompletedTask;
     }
 
     private Task ToggleAutoRestart(bool value)
     {
         AutoRestartOnFailure = value;
-        SettingsService.AutoRestartOnFailure = value;
         return Task.CompletedTask;
     }
 
     private Task ToggleUseDefaultMicrophone(bool value)
     {
         UseDefaultMicrophone = value;
-        SettingsService.UseDefaultMicrophone = value;
         return Task.CompletedTask;
     }
 
     private Task OnMicrophoneChanged(int value)
     {
         MicrophoneDeviceNumber = value;
-        SettingsService.MicrophoneDeviceNumber = value;
         return Task.CompletedTask;
     }
 
     private Task ToggleDownloadModelIfMissing(bool value)
     {
         DownloadModelIfMissing = value;
-        SettingsService.DownloadModelIfMissing = value;
         return Task.CompletedTask;
     }
 

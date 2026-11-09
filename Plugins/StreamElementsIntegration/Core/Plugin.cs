@@ -17,9 +17,9 @@ public class StreamElementsIntegrationPlugin : IPlugin, IConfigurablePlugin, IPl
     public static readonly string PluginId = "com.multishock.streamelementsintegration";
 
     public string Id => PluginId;
-    public string Name => "StreamElements Integration";
+    public string Name => "StreamElements";
     public string Version => BuildStamp.Version;
-    public string Description => "StreamElements integration for tips, cheers, follows, subscribers, hosts, raids, and store redemptions";
+    public string Description => "React to tips, cheers, subscriptions, follows, hosts, raids and store redemptions with shocker actions or flow triggers.";
 
     private StreamElementsConnectionService? _connection;
     private static ILogger? _logger;
@@ -89,12 +89,12 @@ public class StreamElementsIntegrationPlugin : IPlugin, IConfigurablePlugin, IPl
     [
         new NavigationItem { Text = "StreamElements", Href = "/streamelementsintegration", Icon = "zap", Order = 51 },
         new NavigationItem { Text = "Tips", Href = "/streamelements-tip", Icon = "dollar-sign", Order = 52 },
-        new NavigationItem { Text = "Cheers / Bits", Href = "/streamelements-cheer", Icon = "gem", Order = 53 },
+        new NavigationItem { Text = "Cheers", Href = "/streamelements-cheer", Icon = "gem", Order = 53 },
         new NavigationItem { Text = "Follows", Href = "/streamelements-follow", Icon = "user-plus", Order = 54 },
-        new NavigationItem { Text = "Subscribers", Href = "/streamelements-subscriber", Icon = "star", Order = 55 },
+        new NavigationItem { Text = "Subscriptions", Href = "/streamelements-subscriber", Icon = "star", Order = 55 },
         new NavigationItem { Text = "Hosts", Href = "/streamelements-host", Icon = "tv", Order = 56 },
         new NavigationItem { Text = "Raids", Href = "/streamelements-raid", Icon = "swords", Order = 57 },
-        new NavigationItem { Text = "Store Redemptions", Href = "/streamelements-redemption", Icon = "gift", Order = 58 },
+        new NavigationItem { Text = "Store redemptions", Href = "/streamelements-redemption", Icon = "gift", Order = 58 },
     ];
 
     // ========== FLOW NODES ==========

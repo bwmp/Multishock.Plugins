@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.streamlabsintegration",
-  "name": "Streamlabs Integration",
+  "name": "Streamlabs",
   "version": "0.1.0",
   "entryPoint": "StreamlabsIntegration.dll",
-  "description": "Streamlabs integration with flow trigger nodes for donations, subscriptions, follows, bits/cheers, hosts, raids, and super chats via the Streamlabs Socket API",
+  "description": "React to donations, cheers, subscriptions, follows, hosts, raids and super chats with shocker actions or flow triggers.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

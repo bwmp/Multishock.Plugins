@@ -3,283 +3,244 @@
 @using StreamElementsIntegration.Models
 @implements IDisposable
 
-<div class="p-4 mx-auto">
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">@Info.DisplayName Configuration</h1>
-            <p class="text-sm mt-1 text-app-muted">@Description</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <Toggle Label="@(Cfg.Enabled ? "Enabled" : "Disabled")" Value="Cfg.Enabled" ValueChanged="@(v => ToggleEventEnabled(v))" />
-            <Button Text="Add Section" Variant="primary" OnClick="AddSection">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-            </Button>
-        </div>
-    </div>
+<PageHeader Title="@Info.DisplayName" Icon="@Info.Icon" Description="@($"{Description} Changes save automatically.")">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" AriaLabel="@($"Enable {Info.DisplayName.ToLowerInvariant()} reactions")" Value="Cfg.Enabled" ValueChanged="ToggleEventEnabled" />
+        <Button Text="Add section" Icon="plus" Variant="secondary" OnClick="AddSection" />
+    </Actions>
+</PageHeader>
 
-    <div class="se-card mb-4">
-        <div class="se-card-header">
-            <span>Setup Path</span>
-        </div>
-        <div class="se-card-body">
-            <div class="flex flex-wrap gap-2">
-                <a href="/plugins/com-multishock-streamelementsintegration/streamelementsintegration" class="se-nav-link">
-                    <LucideIcon Name="plug" Size="16" />
-                    <span>Back to Connection</span>
-                </a>
-                @foreach (var e in StreamElementsEventCatalog.All)
+<div class="max-w-4xl space-y-4">
+    @if (!Cfg.Enabled)
+    {
+        <Alert Variant="neutral">Reactions are off. You can set up sections now; nothing runs until you switch on Enabled.</Alert>
+    }
+    @if (Info.HasKeyword)
+    {
+        <p class="text-sm text-app-muted">The first enabled section whose keyword matches runs; a section without a keyword handles everything else.</p>
+    }
+
+    @foreach (var sec in Cfg.Sections)
+    {
+        var expanded = ExpandedSections.Contains(sec.Id);
+        var index = Cfg.Sections.IndexOf(sec);
+        var name = SectionName(sec);
+        var issue = ReactionStatus.SectionIssue(sec, Info);
+        <section class="panel" @key="sec.Id" aria-label="@name">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 @(expanded ? "border-b border-app-border" : "")">
+                <button type="button" class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl py-1 text-left"
+                        aria-expanded="@(expanded ? "true" : "false")" aria-controls="@($"section-{sec.Id}")"
+                        @onclick="@(() => ToggleSectionExpanded(sec.Id))">
+                    <LucideIcon Name="chevron-right" Size="16" Class="@($"shrink-0 text-app-muted transition-transform {(expanded ? "rotate-90" : "")}")" />
+                    <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium text-app-text">@name</span>
+                        <span class="block truncate text-xs text-app-subtle">@SectionDetail(sec)</span>
+                    </span>
+                </button>
+                @if (!sec.Enabled)
                 {
-                    <a href="@($"/plugins/com-multishock-streamelementsintegration/streamelements-{e.Type}")"
-                       class="se-nav-link @(e.Type == Info.Type ? "active" : "")">
-                        <LucideIcon Name="@e.Icon" Size="16" />
-                        <span>@e.DisplayName</span>
-                    </a>
+                    <ReactionChip State="ReactionState.Off" Text="Off" />
                 }
+                else if (issue != null)
+                {
+                    <ReactionChip State="@(Cfg.Enabled ? ReactionState.NeedsAttention : ReactionState.Off)" Text="@issue" />
+                }
+                else
+                {
+                    <ReactionChip State="@(Cfg.Enabled ? ReactionState.Ready : ReactionState.Off)" Text="@(Cfg.Enabled ? "Ready" : "Off")" />
+                }
+                <Toggle AriaLabel="@($"Enable section {name}")" Value="sec.Enabled" ValueChanged="@(v => ToggleSectionEnabled(sec, v))" />
+                <div class="flex items-center">
+                    <Button Variant="ghost" Size="sm" Icon="arrow-up" AriaLabel="@($"Move {name} up")" Title="Move section up" Disabled="@(index == 0)" OnClick="@(() => MoveSection(sec, -1))" />
+                    <Button Variant="ghost" Size="sm" Icon="arrow-down" AriaLabel="@($"Move {name} down")" Title="Move section down" Disabled="@(index == Cfg.Sections.Count - 1)" OnClick="@(() => MoveSection(sec, 1))" />
+                    <Button Variant="ghost" Size="sm" Icon="copy" AriaLabel="@($"Duplicate {name}")" Title="Duplicate section" OnClick="@(() => DuplicateSection(sec))" />
+                    <Button Variant="ghost" Size="sm" Icon="trash-2" AriaLabel="@($"Delete {name}")" Title="Delete section" OnClick="@(() => RequestRemoveSection(sec))" />
+                </div>
             </div>
-        </div>
-    </div>
-
-    <div class="space-y-3">
-        @foreach (var sec in Cfg.Sections)
-        {
-            <div class="se-card @(!sec.Enabled ? "opacity-50" : "")">
-                <div class="se-card-header cursor-pointer hover:opacity-80" @onclick="@(() => ToggleSectionExpanded(sec.Id))">
-                    <div class="flex items-center gap-2">
-                        <div class="flex gap-1" @onclick:stopPropagation="true">
-                            <Button Variant="outline" Size="icon-sm" Disabled="@(Cfg.Sections.IndexOf(sec) == 0)"
-                                OnClick="@(() => MoveSection(sec, -1))" Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="arrow-up" Class="w-4 h-4" />
-                            </Button>
-                            <Button Variant="outline" Size="icon-sm" Disabled="@(Cfg.Sections.IndexOf(sec) == Cfg.Sections.Count - 1)"
-                                OnClick="@(() => MoveSection(sec, 1))" Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="arrow-down" Class="w-4 h-4" />
-                            </Button>
-                        </div>
-                        <div @onclick:stopPropagation="true">
-                            <Toggle Value="sec.Enabled" ValueChanged="@(v => ToggleSectionEnabled(sec, v))" />
-                        </div>
-                        <span>@sec.Name</span>
-                        @if (Info.HasKeyword && !string.IsNullOrWhiteSpace(sec.Keyword))
+            <div id="@($"section-{sec.Id}")" hidden="@(!expanded)" class="panel-body space-y-4">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <TextInput Class="@(Info.HasKeyword ? null : "sm:col-span-2")" Label="Section name" Value="@sec.Name" ValueChanged="@(v => SetName(sec, v ?? ""))" />
+                    @if (Info.HasKeyword)
+                    {
+                        <TextInput Label="Keyword (optional)" Placeholder="Any message" Description="@KeywordDescription" Value="@sec.Keyword" ValueChanged="@(v => SetKeyword(sec, v ?? ""))" />
+                    }
+                    <Select Label="Command" Value="@sec.CommandType" ValueChanged="@((string? v) => SetCommand(sec, v))" Options="@CommandTypeOptions" />
+                    <Select Label="Mode" Value="@sec.Mode.ToString()" ValueChanged="@((string? v) => SetMode(sec, v))" Options="@SelectionModeOptions" />
+                    @if (Info.HasAmount && sec.Brackets.Count > 0)
+                    {
+                        <Select Label="Matching" Description="With brackets, round down uses the highest threshold at or below the amount. Exact needs the same amount." Value="@(sec.FixedAmount ? "exact" : "round")" ValueChanged="@((string? v) => SetFixed(sec, v == "exact"))" Options="@MatchingModeOptions" />
+                    }
+                    <div class="@(Info.HasAmount && sec.Brackets.Count > 0 ? null : "sm:col-span-2")">
+                        <ShockerSelect Label="Shockers" MultiSelect="true" SelectedIds="sec.SelectedShockerIds" SelectedIdsChanged="@(ids => UpdateShockers(sec, ids))" />
+                        @if (sec.SelectedShockerIds.Count == 0)
                         {
-                            <span class="se-badge font-mono">"@sec.Keyword"</span>
+                            <p class="mt-1.5 flex items-center gap-1.5 text-xs text-app-warning">
+                                <LucideIcon Name="alert-triangle" Size="12" Class="shrink-0" />
+                                <span>Select at least one shocker. This section won't run until you do.</span>
+                            </p>
                         }
-                        else
-                        {
-                            <span class="se-badge">Default</span>
-                        }
-                        <span class="se-badge">@sec.CommandType</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        @if (Info.HasAmount)
-                        {
-                            <span class="se-badge">@sec.Brackets.Count brackets</span>
-                        }
-                        <div class="flex items-center gap-1" @onclick:stopPropagation="true">
-                            <Button Variant="outline" Size="icon-sm" OnClick="@(() => DuplicateSection(sec))"
-                                Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="copy" Class="w-4 h-4" />
-                            </Button>
-                            <Button Variant="danger" Size="icon-sm" OnClick="@(() => RemoveSection(sec))"
-                                Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="trash2" Class="w-4 h-4" />
-                            </Button>
+                    @if (!Info.HasAmount || sec.Brackets.Count == 0)
+                    {
+                        <div class="flex flex-wrap items-start gap-4 sm:col-span-2">
+                            <div class="w-28"><NumberField Label="Intensity" Description="How strong the action is." Suffix="%" Min="1" Max="100" Value="sec.Intensity" ValueChanged="@(v => SetIntensity(sec, (int)v))" /></div>
+                            <div class="w-28"><NumberField Label="Duration" Description="How long the action lasts." Suffix="s" Min="0.1" Max="15" Step="0.1" Value="sec.Duration" ValueChanged="@(v => SetDuration(sec, v))" /></div>
                         </div>
-                        <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ExpandedSections.Contains(sec.Id) ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
+                    }
+                    @if (sec.CommandType == "Shock")
+                    {
+                        <div class="sm:col-span-2">
+                            <Toggle Label="Vibrate as a warning before each shock" Value="sec.WarningVibrate" ValueChanged="@(v => SetWarning(sec, v))" />
+                        </div>
+                    }
                 </div>
 
-                @if (ExpandedSections.Contains(sec.Id))
+                @if (Info.HasAmount)
                 {
-                    <div class="se-card-body space-y-4">
-                        <div class="flex flex-wrap items-end gap-3">
-                            <div class="grow">
-                                <TextInput Label="Name" Value="@sec.Name"
-                                    ValueChanged="@(v => SetName(sec, v ?? ""))" />
+                    var unit = AmountUnit;
+                    <div class="border-t border-app-border pt-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-medium text-app-text">Brackets</h3>
+                                <p class="text-xs text-app-muted">Set intensity and duration by @unit.</p>
                             </div>
-                            @if (Info.HasKeyword)
-                            {
-                                <div class="grow">
-                                    <TextInput Label="Keyword (opt)" Placeholder="e.g. shock" Value="@sec.Keyword"
-                                        ValueChanged="@(v => SetKeyword(sec, v ?? ""))" />
-                                </div>
-                            }
-                            <div class="w-40">
-                                <Select Label="Command" Value="@sec.CommandType"
-                                    ValueChanged="@((string v) => SetCommand(sec, v))" Options="@CommandTypeOptions" />
-                            </div>
-                            @if (sec.CommandType == "Shock")
-                            {
-                                <div>
-                                    <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
-                                    <Toggle Value="sec.WarningVibrate" ValueChanged="@(v => SetWarning(sec, v))" />
-                                </div>
-                            }
-                            <div class="w-40">
-                                <Select Label="Mode" Value="@sec.Mode.ToString()"
-                                    ValueChanged="@((string v) => SetMode(sec, v))" Options="@SelectionModeOptions" />
-                            </div>
-                            @if (Info.HasAmount)
-                            {
-                                <div class="w-40">
-                                    <Select Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")"
-                                        ValueChanged="@((string v) => SetFixed(sec, v == "exact"))" Options="@MatchingModeOptions" />
-                                </div>
-                            }
-                            <div class="grow" style="min-width: 16rem;">
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
-                                <ShockerSelect Label="" MultiSelect="true"
-                                    SelectedIds="sec.SelectedShockerIds"
-                                    SelectedIdsChanged="@(ids => UpdateShockers(sec, ids))" />
-                            </div>
+                            <Button Text="Add bracket" Icon="plus" Variant="secondary" Size="sm" OnClick="@(() => Service.AddBracket(Info.Type, sec.Id))" />
                         </div>
-
-                        @if (Info.HasAmount)
+                        @if (sec.Brackets.Count == 0)
                         {
-                            <div class="flex items-center justify-between pt-3 border-t border-app-border">
-                                <div>
-                                    <label class="text-sm font-medium text-app-text">@Info.AmountLabel Brackets</label>
-                                    <p class="text-xs mt-0.5 text-app-muted">
-                                        Define intensity &amp; duration at different @Info.AmountLabel.ToLowerInvariant() amounts
-                                    </p>
-                                </div>
-                                <Button Text="Add Bracket" Variant="secondary" Size="sm" OnClick="@(() => Service.AddBracket(Info.Type, sec.Id))">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                </Button>
-                            </div>
-
-                            @if (sec.Brackets.Count == 0)
-                            {
-                                <div class="se-empty">
-                                    <p class="text-sm">No brackets configured</p>
-                                    <p class="text-xs">Add a bracket to define behavior at different @Info.AmountLabel.ToLowerInvariant() amounts — otherwise this section won't fire.</p>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="space-y-2">
-                                    <div class="se-bracket-header">
-                                        <span class="w-24">@Info.AmountLabel ≥</span>
-                                        <span class="flex-1">Intensity</span>
-                                        <span class="flex-1">Duration</span>
-                                        <span class="w-8"></span>
-                                    </div>
-                                    @foreach (var b in sec.Brackets.OrderBy(x => x.Threshold).ToList())
-                                    {
-                                        <div class="se-bracket">
-                                            <div class="w-24">
-                                                <NumberInput Value="b.Threshold" Min="0" Step="1"
-                                                    ValueChanged="@(v => SetThreshold(b, v))" />
-                                            </div>
-                                            <div class="flex items-center gap-2 flex-1">
-                                                <Slider Min="1" Max="100" Value="b.Intensity"
-                                                    ValueChanged="@(v => SetBracketIntensity(b, (int)v))" Class="flex-1 min-w-0" ShowValue="false" />
-                                                <NumberInput Value="@((double)b.Intensity)" Min="1" Max="100"
-                                                    ValueChanged="@(v => SetBracketIntensity(b, (int)Math.Clamp(v ?? 50, 1, 100)))" Class="w-16" />
-                                                <span class="text-xs text-app-muted">%</span>
-                                            </div>
-                                            <div class="flex items-center gap-2 flex-1">
-                                                <Slider Min="0.1" Max="15" Step="0.1" Value="b.Duration"
-                                                    ValueChanged="@(v => SetBracketDuration(b, v))" Class="flex-1 min-w-0" ShowValue="false" />
-                                                <NumberInput Value="b.Duration" Min="0.1" Max="15" Step="0.1"
-                                                    ValueChanged="@(v => SetBracketDuration(b, Math.Clamp(v ?? 1.0, 0.1, 15.0)))" Class="w-16" />
-                                                <span class="text-xs text-app-muted">s</span>
-                                            </div>
-                                            <Button Variant="danger" Size="icon-sm" OnClick="@(() => Service.RemoveBracket(Info.Type, sec.Id, b.Id))"
-                                                Class="w-8 h-8 p-0 flex items-center justify-center">
-                                                <LucideIcon Name="trash2" Class="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    }
-                                </div>
-                            }
+                            <p class="mt-2 text-xs text-app-muted">No brackets: every amount uses this section's intensity and duration.</p>
                         }
                         else
                         {
-                            <div class="space-y-2 pt-3 border-t border-app-border">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
-                                    <Slider Min="1" Max="100" Value="sec.Intensity"
-                                        ValueChanged="@(v => SetIntensity(sec, (int)v))" Class="flex-1" ShowValue="false" />
-                                    <NumberInput Value="@((double)sec.Intensity)" Min="1" Max="100"
-                                        ValueChanged="@(v => SetIntensity(sec, (int)Math.Clamp(v ?? 30, 1, 100)))" Class="w-16" />
-                                    <span class="text-xs text-app-muted">%</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
-                                    <Slider Min="0.1" Max="15" Step="0.1" Value="sec.Duration"
-                                        ValueChanged="@(v => SetDuration(sec, v))" Class="flex-1" ShowValue="false" />
-                                    <NumberInput Value="sec.Duration" Min="0.1" Max="15" Step="0.1"
-                                        ValueChanged="@(v => SetDuration(sec, Math.Clamp(v ?? 1.0, 0.1, 15.0)))" Class="w-16" />
-                                    <span class="text-xs text-app-muted">s</span>
-                                </div>
+                            <div class="-mx-4 mt-2 overflow-x-auto">
+                                <table class="w-full min-w-[28rem] text-sm">
+                                    <thead>
+                                        <tr class="border-b border-app-border text-left text-xs text-app-muted">
+                                            <th scope="col" class="w-36 py-2 pl-4 pr-3 font-medium">From</th>
+                                            <th scope="col" class="w-32 px-3 py-2 font-medium">Intensity</th>
+                                            <th scope="col" class="w-32 px-3 py-2 font-medium">Duration</th>
+                                            <th scope="col" class="py-2 pl-3 pr-4"><span class="sr-only">Actions</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-app-border">
+                                        @{ var row = 0; }
+                                        @foreach (var b in sec.Brackets.OrderBy(x => x.Threshold).ToList())
+                                        {
+                                            row++;
+                                            var rowName = $"bracket {row}";
+                                            <tr @key="b.Id">
+                                                <td class="py-2 pl-4 pr-3"><NumberField Label="@($"From ({unit}), {rowName}")" Class="[&_label]:sr-only" Suffix="@unit" Min="0" Max="double.MaxValue" Step="@AmountStep" Value="b.Threshold" ValueChanged="@(v => SetThreshold(b, v))" /></td>
+                                                <td class="px-3 py-2"><NumberField Label="@($"Intensity, {rowName}")" Class="[&_label]:sr-only" Suffix="%" Min="1" Max="100" Value="b.Intensity" ValueChanged="@(v => SetBracketIntensity(b, (int)v))" /></td>
+                                                <td class="px-3 py-2"><NumberField Label="@($"Duration, {rowName}")" Class="[&_label]:sr-only" Suffix="s" Min="0.1" Max="15" Step="0.1" Value="b.Duration" ValueChanged="@(v => SetBracketDuration(b, v))" /></td>
+                                                <td class="py-2 pl-3 pr-4 text-right"><Button Variant="ghost" Size="icon-sm" Icon="trash-2" AriaLabel="@($"Remove bracket from {b.Threshold} {unit}")" Title="Remove bracket" OnClick="@(() => RequestRemoveBracket(sec, b))" /></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
                         }
                     </div>
                 }
             </div>
-        }
-
-        @if (Cfg.Sections.Count == 0)
-        {
-            <div class="se-card">
-                <div class="se-card-body">
-                    <div class="se-empty">
-                        <p class="text-sm">No sections configured</p>
-                        <p class="text-xs">Add a section to make @Info.DisplayName.ToLowerInvariant() events trigger your shockers.</p>
-                        <Button Text="Create Your First Section" Variant="primary" Class="mt-3" OnClick="AddSection" />
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
+        </section>
+    }
+    @if (Cfg.Sections.Count == 0)
+    {
+        <EmptyState Icon="layers" Title="No sections yet" Description="A section picks the shockers and the action for this event.">
+            <Actions><Button Text="Add section" Icon="plus" OnClick="AddSection" /></Actions>
+        </EmptyState>
+    }
 </div>
+
+<ConfirmDialog IsOpen="@(_pendingRemoval != null)"
+               Title="Delete section?"
+               Message="@RemovalMessage"
+               ConfirmText="Delete section"
+               OnCancel="CancelRemoveSection"
+               OnConfirm="ConfirmRemoveSection" />
+
+<ConfirmDialog IsOpen="@(_pendingBracket != null)"
+               Title="Remove bracket?"
+               Message="Removing this bracket changes which amounts run an action. This can't be undone."
+               ConfirmText="Remove bracket"
+               OnCancel="CancelRemoveBracket"
+               OnConfirm="ConfirmRemoveBracket" />
 
 @code {
     [Parameter, EditorRequired] public EventTypeInfo Info { get; set; } = default!;
     [Parameter] public string Description { get; set; } = "";
+
+    private string KeywordDescription => Info.Type == StreamElementsEventType.Redemption
+        ? "Runs when the message or item name contains this text."
+        : "Runs when the message contains this text.";
+    private bool IsMoney => Info.Type == StreamElementsEventType.Tip;
+
+    private string AmountUnit => IsMoney ? "amount" : Info.AmountLabel.ToLowerInvariant();
+    private double AmountStep => IsMoney ? 0.01 : 1;
 
     private static readonly string PluginId = StreamElementsIntegrationPlugin.PluginId;
     private ActionConfigService Service => PluginServiceLocator.GetRequiredService<ActionConfigService>(PluginId);
     private EventActionConfig Cfg => Service.Get(Info.Type);
 
     private readonly HashSet<string> ExpandedSections = new();
+    private EventSection? _pendingRemoval;
+    private (EventSection Section, AmountBracket Bracket)? _pendingBracket;
 
-    private readonly Select<string>.SelectOption<string>[] SelectionModeOptions =
+    private void RequestRemoveBracket(EventSection section, AmountBracket bracket) => _pendingBracket = (section, bracket);
+    private void CancelRemoveBracket() => _pendingBracket = null;
+    private void ConfirmRemoveBracket()
+    {
+        if (_pendingBracket is { } pending)
+            Service.RemoveBracket(Info.Type, pending.Section.Id, pending.Bracket.Id);
+        _pendingBracket = null;
+    }
+
+    private static readonly Select<string>.SelectOption<string>[] SelectionModeOptions =
     [
-        new("All", "All"),
-        new("Random", "Random"),
-        new("RoundRobin", "Round Robin"),
+        new(nameof(SelectionMode.All), "All shockers"),
+        new(nameof(SelectionMode.Random), "One random shocker"),
+        new(nameof(SelectionMode.RoundRobin), "Round robin"),
     ];
 
-    private readonly Select<string>.SelectOption<string>[] CommandTypeOptions =
+    private static readonly Select<string>.SelectOption<string>[] CommandTypeOptions =
     [
         new("Shock", "Shock"),
         new("Vibrate", "Vibrate"),
         new("Beep", "Beep"),
     ];
 
-    private readonly Select<string>.SelectOption<string>[] MatchingModeOptions =
+    private static readonly Select<string>.SelectOption<string>[] MatchingModeOptions =
     [
-        new("round", "Round Down"),
+        new("round", "Round down"),
         new("exact", "Exact"),
     ];
 
     protected override void OnInitialized()
     {
         Service.ConfigChanged += OnChanged;
-        foreach (var sec in Cfg.Sections)
-            ExpandedSections.Add(sec.Id);
+        if (Cfg.Sections.Count == 1)
+            ExpandedSections.Add(Cfg.Sections[0].Id);
     }
 
     private void OnChanged() => InvokeAsync(StateHasChanged);
 
-    // ----- Event-level -----
+    private static string SectionName(EventSection sec) =>
+        string.IsNullOrWhiteSpace(sec.Name) ? "Untitled section" : sec.Name;
+
+    private string SectionDetail(EventSection sec)
+    {
+        var parts = new List<string>();
+        if (Info.HasKeyword)
+            parts.Add(string.IsNullOrWhiteSpace(sec.Keyword) ? "Any message" : $"Keyword “{sec.Keyword}”");
+        parts.Add(Info.HasAmount && sec.Brackets.Count > 0
+            ? $"{sec.CommandType} · {ReactionStatus.Count(sec.Brackets.Count, "bracket", "brackets")}"
+            : $"{sec.CommandType} · {sec.Intensity}% · {sec.Duration.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} s");
+        parts.Add(ReactionStatus.Count(sec.SelectedShockerIds.Count, "shocker", "shockers"));
+        return string.Join(" · ", parts);
+    }
+
+
     private void ToggleEventEnabled(bool v) => Service.SetEventEnabled(Info.Type, v);
 
     private void AddSection()
@@ -302,28 +263,47 @@
         if (dup != null) ExpandedSections.Add(dup.Id);
     }
 
+    private string RemovalMessage => _pendingRemoval == null
+        ? ""
+        : $"“{SectionName(_pendingRemoval)}” and its {ReactionStatus.Count(_pendingRemoval.Brackets.Count, "bracket", "brackets")} will be removed. This can't be undone.";
+
+    private void RequestRemoveSection(EventSection sec)
+    {
+        if (sec.Brackets.Count > 0 || sec.SelectedShockerIds.Count > 0 || !string.IsNullOrWhiteSpace(sec.Keyword))
+            _pendingRemoval = sec;
+        else
+            RemoveSection(sec);
+    }
+
+    private void CancelRemoveSection() => _pendingRemoval = null;
+
+    private void ConfirmRemoveSection()
+    {
+        if (_pendingRemoval != null)
+            RemoveSection(_pendingRemoval);
+        _pendingRemoval = null;
+    }
+
     private void RemoveSection(EventSection sec)
     {
         ExpandedSections.Remove(sec.Id);
         Service.RemoveSection(Info.Type, sec.Id);
     }
 
-    // ----- Section fields -----
     private void ToggleSectionEnabled(EventSection sec, bool v) { sec.Enabled = v; Service.Save(); }
     private void SetName(EventSection sec, string v) { sec.Name = v; Service.Save(); }
     private void SetKeyword(EventSection sec, string v) { sec.Keyword = v; Service.Save(); }
-    private void SetCommand(EventSection sec, string v) { sec.CommandType = v ?? "Vibrate"; Service.Save(); }
-    private void SetMode(EventSection sec, string v) { sec.Mode = Enum.TryParse<SelectionMode>(v, out var m) ? m : SelectionMode.All; Service.Save(); }
+    private void SetCommand(EventSection sec, string? v) { sec.CommandType = v ?? "Vibrate"; Service.Save(); }
+    private void SetMode(EventSection sec, string? v) { sec.Mode = Enum.TryParse<SelectionMode>(v, out var m) ? m : SelectionMode.All; Service.Save(); }
     private void SetWarning(EventSection sec, bool v) { sec.WarningVibrate = v; Service.Save(); }
     private void SetFixed(EventSection sec, bool v) { sec.FixedAmount = v; Service.Save(); }
     private void SetIntensity(EventSection sec, int v) { sec.Intensity = v; Service.Save(); }
-    private void SetDuration(EventSection sec, double? v) { sec.Duration = v ?? 1.0; Service.Save(); }
+    private void SetDuration(EventSection sec, double v) { sec.Duration = v; Service.Save(); }
     private void UpdateShockers(EventSection sec, List<string> ids) { sec.SelectedShockerIds = ids; Service.Save(); }
 
-    // ----- Brackets -----
-    private void SetThreshold(AmountBracket b, double? v) { b.Threshold = Math.Max(0, v ?? 0); Service.Save(); }
+    private void SetThreshold(AmountBracket b, double v) { b.Threshold = v; Service.Save(); }
     private void SetBracketIntensity(AmountBracket b, int v) { b.Intensity = v; Service.Save(); }
-    private void SetBracketDuration(AmountBracket b, double? v) { b.Duration = v ?? 1.0; Service.Save(); }
+    private void SetBracketDuration(AmountBracket b, double v) { b.Duration = v; Service.Save(); }
 
     public void Dispose() => Service.ConfigChanged -= OnChanged;
 }

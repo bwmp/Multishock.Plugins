@@ -94,7 +94,7 @@ public class JoystickAuthService : IDisposable
             $"&scope=bot" +
             $"&state={state}";
 
-        StatusChanged?.Invoke("Opening browser to authorize the bot on your channel...");
+        StatusChanged?.Invoke("Opening browser to authorize the bot on your channel…");
 
         try
         {
@@ -233,7 +233,7 @@ public class JoystickAuthService : IDisposable
             _tokens.InstalledClientId = _settings.ClientId;
             Save();
 
-            StatusChanged?.Invoke("Bot installed successfully!");
+            StatusChanged?.Invoke("Bot installed.");
             return true;
         }
         catch (Exception ex)
@@ -389,7 +389,7 @@ public class JoystickAuthService : IDisposable
     private static string ResultHtml(bool success, string message)
     {
         var color = success ? "#22c55e" : "#ef4444";
-        var title = success ? "Bot Installed!" : "Authorization Failed";
+        var title = success ? "Bot installed" : "Authorization failed";
         return $$"""
             <!DOCTYPE html><html><head><title>MultiShock - Joystick.tv</title>
             <style>

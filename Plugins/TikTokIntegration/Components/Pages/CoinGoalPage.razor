@@ -1,59 +1,111 @@
 @page "/plugins/com-multishock-tiktokintegration/coin-goal"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
-@using TikTokIntegration.Components.Config
 @implements IDisposable
 
-<div class="space-y-4">
-    <div>
-        <h1 class="text-xl font-bold text-app-text">Coin Goal</h1>
-        <p class="text-sm mt-1 text-app-muted">
-            Add up gift coins over time and fire an action every time the running total hits a goal — a meter that
-            builds up as viewers send gifts, instead of reacting to each gift on its own.
-        </p>
-    </div>
+<PageHeader Title="Coin goal" Icon="target"
+            Description="Add up gift coins over the stream and run an action each time the total reaches your goal, instead of reacting to each gift. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" Value="Config.Enabled" ValueChanged="@(v => Service.SetEnabled(v))" />
+    </Actions>
+</PageHeader>
 
-    <SimpleActionCard Title="Coin Goal Meter" Icon="target" Config="Service.Config"
-        Description="Each completed gift adds its full coin value to the meter. A single large gift can fill the meter more than once and will fire the action for each goal it crosses."
-        OnChanged="Save">
-        <ExtraTop>
-            <div class="flex flex-wrap items-end gap-4">
-                <div>
-                    <label class="block text-xs font-medium mb-1 text-app-muted">
-                        Goal (coins)
-                    </label>
-                    <NumberInput Value="@((double)Service.Config.GoalAmount)" Min="1" Max="1000000" Class="w-32"
-                        ValueChanged="@(v => UpdateGoal(v))" />
-                </div>
-                <div class="flex items-center gap-2 pb-1">
-                    <Toggle Label="Reset when stream ends" Value="Service.Config.ResetOnStreamEnd"
-                        ValueChanged="@(v => Service.SetResetOnStreamEnd(v))" />
-                </div>
-            </div>
+<div class="max-w-4xl space-y-4">
+    @if (!Config.Enabled)
+    {
+        <Alert Variant="neutral">The coin goal is off. Gift coins aren't counted toward it until you turn it on.</Alert>
+    }
 
-            <div class="space-y-1">
-                <div class="flex items-center justify-between text-xs text-app-muted">
-                    <span>Progress</span>
-                    <span>@Service.Accumulated / @Service.Config.GoalAmount coins</span>
-                </div>
-                <div class="w-full h-3 rounded-full overflow-hidden" style="background: rgba(255,255,255,0.08);">
-                    <div class="h-full rounded-full transition-all"
-                        style="width: @($"{Service.ProgressFraction * 100:0.#}%"); background: linear-gradient(90deg, #fe2c55, #ff6b81);"></div>
-                </div>
-                <div class="flex items-center justify-between pt-1">
-                    <span class="text-xs text-app-muted">
-                        Reached @Service.TimesReached time@(Service.TimesReached == 1 ? "" : "s") this session
+    <Card Title="Progress" Description="Every completed gift adds its full coin value. A large gift can pass the goal more than once and fires once for each time.">
+        <Actions>
+            <Button Variant="secondary" Size="sm" Icon="rotate-ccw" Text="Reset progress"
+                    Disabled="@NothingToReset" Title="@(NothingToReset ? "No coins counted yet" : null)"
+                    OnClick="@(() => Service.Reset())" />
+        </Actions>
+        <ChildContent>
+            <div class="space-y-2">
+                <div class="flex items-baseline justify-between gap-4 text-sm">
+                    <span class="tabular-nums text-app-text">
+                        <span class="font-semibold">@Service.Accumulated</span>
+                        <span class="text-app-muted">of @ActionOptions.Count(Config.GoalAmount, "coin", "coins")</span>
                     </span>
-                    <Button Text="Reset progress" Variant="secondary" Size="sm" OnClick="@(() => Service.Reset())" />
+                    <span class="text-xs text-app-muted">
+                        @ReachedText
+                    </span>
+                </div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-app-surface-3"
+                     role="progressbar" aria-label="Coin goal progress"
+                     aria-valuemin="0" aria-valuemax="@Config.GoalAmount" aria-valuenow="@Service.Accumulated">
+                    <div class="h-full rounded-full bg-app-primary transition-[width] duration-150"
+                         style="width: @(ProgressPercent)%"></div>
                 </div>
             </div>
-        </ExtraTop>
-    </SimpleActionCard>
+        </ChildContent>
+    </Card>
+
+    <Card Title="Goal">
+        <SettingRow Label="Coins per goal" Description="How many gift coins fill the meter once.">
+            <NumberField Label="Coins per goal" Class="w-28 [&_label]:sr-only" Value="Config.GoalAmount" Suffix="coins"
+                         Min="1" Max="1000000" ValueChanged="UpdateGoal" />
+        </SettingRow>
+        <SettingRow Label="Reset when the stream ends" Description="Start each stream from zero.">
+            <Toggle AriaLabel="Reset when the stream ends" Value="Config.ResetOnStreamEnd"
+                    ValueChanged="@(v => Service.SetResetOnStreamEnd(v))" />
+        </SettingRow>
+    </Card>
+
+    <Card Title="Action" Description="Runs each time the goal is reached.">
+        <SettingRow Label="Shockers" Description="The shockers the goal runs on.">
+            <Help>
+                @if (Config.SelectedShockerIds.Count == 0)
+                {
+                    <span class="inline-flex items-center gap-1.5 text-app-warning">
+                        <LucideIcon Name="alert-triangle" Size="12" Class="shrink-0" />
+                        Select at least one shocker. Nothing runs until you do.
+                    </span>
+                }
+            </Help>
+            <ChildContent>
+                <ShockerSelect Label="Shockers" Class="[&_label]:sr-only" MultiSelect="true" SelectedIds="Config.SelectedShockerIds"
+                               SelectedIdsChanged="@(ids => Update(c => c.SelectedShockerIds = ids))" />
+            </ChildContent>
+        </SettingRow>
+        <SettingRow Label="Command" Description="What the shockers do when the goal is reached.">
+            <Select TValue="string" Label="Command" Class="[&_label]:sr-only" Value="@Config.CommandType" Options="ActionOptions.Commands"
+                    ValueChanged="@(v => Update(c => c.CommandType = v ?? "Vibrate"))" />
+        </SettingRow>
+        @if (Config.CommandType == "Shock")
+        {
+            <SettingRow Label="Warning vibrate" Description="Vibrate briefly before each shock.">
+                <Toggle AriaLabel="Warning vibrate" Value="Config.WarningVibrate"
+                        ValueChanged="@(v => Update(c => c.WarningVibrate = v))" />
+            </SettingRow>
+        }
+        <SettingRow Label="Mode" Description="Run on every selected shocker, or pick one each time.">
+            <Select TValue="string" Label="Mode" Class="[&_label]:sr-only" Value="@Config.Mode.ToString()" Options="ActionOptions.Modes"
+                    ValueChanged="@(v => Update(c => c.Mode = ActionOptions.ParseMode(v)))" />
+        </SettingRow>
+        <SettingRow Label="Intensity" Description="How strong the action is.">
+            <NumberField Label="Intensity" Class="w-28 [&_label]:sr-only" Suffix="%" Value="Config.Intensity"
+                         Min="ActionOptions.MinIntensity" Max="ActionOptions.MaxIntensity"
+                         ValueChanged="@(v => Update(c => c.Intensity = ActionOptions.ClampIntensity(v)))" />
+        </SettingRow>
+        <SettingRow Label="Duration" Description="How long the action lasts.">
+            <NumberField Label="Duration" Class="w-28 [&_label]:sr-only" Suffix="s" Step="0.1" Value="Config.Duration"
+                         Min="ActionOptions.MinDuration" Max="ActionOptions.MaxDuration"
+                         ValueChanged="@(v => Update(c => c.Duration = ActionOptions.ClampDuration(v)))" />
+        </SettingRow>
+    </Card>
 </div>
 
 @code {
     private static readonly string PluginId = TikTokIntegrationPlugin.PluginId;
     private CoinGoalService Service => PluginServiceLocator.GetRequiredService<CoinGoalService>(PluginId);
+    private CoinGoalConfig Config => Service.Config;
+
+    private bool NothingToReset => Service.Accumulated == 0 && Service.TimesReached == 0;
+
+    private string ProgressPercent =>
+        (Service.ProgressFraction * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
 
     protected override void OnInitialized()
     {
@@ -63,9 +115,20 @@
 
     private void OnChanged() => InvokeAsync(StateHasChanged);
 
-    private void Save() => Service.SaveConfig();
+    private void Update(Action<CoinGoalConfig> mutate)
+    {
+        mutate(Config);
+        Service.SaveConfig();
+    }
 
-    private void UpdateGoal(double? value) => Service.SetGoalAmount((int)Math.Clamp(value ?? 100, 1, 1000000));
+    private string ReachedText => Service.TimesReached switch
+    {
+        0 => "Not reached yet this session",
+        1 => "Reached once this session",
+        var n => $"Reached {n} times this session",
+    };
+
+    private void UpdateGoal(double value) => Service.SetGoalAmount((int)Math.Clamp(Math.Round(value), 1, 1000000));
 
     public void Dispose()
     {

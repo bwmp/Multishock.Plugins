@@ -3,20 +3,40 @@
 @using Microsoft.Extensions.Logging.Abstractions
 @implements IAsyncDisposable
 
-<div class="space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h1 class="text-xl font-semibold">Heart Rate</h1>
-            <p class="text-sm text-app-muted">COOSPO H808S and standard BLE heart-rate monitors</p>
-        </div>
-        <span class="text-sm text-app-muted" role="status">@Snapshot.State</span>
-    </div>
+    <PageHeader Title="Heart rate" Icon="heart-pulse" Description="Use readings from a Bluetooth heart-rate monitor in flows.">
+        <Meta><span class="chip @(Snapshot.Error is not null ? "chip-danger" : Snapshot.State == HeartRateConnectionState.Connected ? "chip-ok" : Snapshot.State == HeartRateConnectionState.Reconnecting ? "chip-info" : Snapshot.State == HeartRateConnectionState.Connecting ? "chip-info" : "chip-neutral")" role="status"><span class="status-dot @StatusDotClass"></span> @StatusLabel</span></Meta>
+        <Actions>            <div class="flex flex-wrap gap-2">
+                @if (Scanning)
+                {
+                    <Button Text="Cancel scan" Variant="secondary" OnClick="CancelScan" />
+                }
+                else
+                {
+                    <Button Text="Scan for monitors" Icon="bluetooth" Disabled="Busy" OnClick="ScanAsync" />
+                }
+                @if (Snapshot.State != HeartRateConnectionState.Disconnected)
+                {
+                    <Button Text="Disconnect" Variant="secondary" Disabled="Busy" OnClick="DisconnectAsync" />
+                }
+            </div></Actions>
+    </PageHeader>
 
-    <section aria-label="Live heart rate" class="border-b border-app-border pb-6">
+<div class="max-w-4xl space-y-4">
+    <Card Title="Live reading" Description="Readings expire after 10 seconds without an update. Use Heart Rate Received or Get Heart Rate in the flow editor.">
         <div class="flex flex-wrap items-baseline gap-2">
-            <span class="text-4xl font-semibold tabular-nums">@(Snapshot.HasFreshReading(DateTimeOffset.UtcNow) ? Snapshot.Latest!.BeatsPerMinute.ToString() : "—")</span>
-            <span class="text-app-muted">BPM</span>
+            @if (Snapshot.HasFreshReading(DateTimeOffset.UtcNow))
+            {
+                <span class="text-2xl font-semibold tabular-nums">@Snapshot.Latest!.BeatsPerMinute</span>
+                <span class="text-app-muted">BPM</span>
+            }
+            else
+            {
+                <span class="text-2xl font-semibold" aria-hidden="true">--</span>
+                <span class="text-app-muted" aria-hidden="true">BPM</span>
+                <span class="sr-only">No reading</span>
+            }
         </div>
+        <span class="sr-only" aria-live="polite" aria-atomic="true">@ReadingAnnouncement</span>
         <p class="mt-2 text-sm text-app-muted">@Snapshot.StatusText(DateTimeOffset.UtcNow)</p>
         @if (Snapshot.Device is { } activeDevice)
         {
@@ -36,43 +56,29 @@
                 }
             </dl>
         }
-    </section>
+    </Card>
 
     @if (Snapshot.Error is { } error)
     {
-        <p class="text-sm text-app-danger" role="alert">@error</p>
+        <Alert Variant="danger" Title="Monitor error">@error</Alert>
     }
     @if (Message is not null)
     {
-        <p class="text-sm text-app-danger" role="alert">@Message</p>
+        <Alert Variant="danger" Title="Scan failed">@Message</Alert>
     }
 
-    <section aria-labelledby="monitors-heading" class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="monitors-heading" class="font-semibold">Monitor connection</h2>
-            <div class="flex flex-wrap gap-2">
-                @if (Scanning)
-                {
-                    <Button Text="Cancel scan" Variant="secondary" OnClick="CancelScan" />
-                }
-                else
-                {
-                    <Button Text="Scan for monitors" Icon="bluetooth" Disabled="Busy" OnClick="ScanAsync" />
-                }
-                @if (Snapshot.State != HeartRateConnectionState.Disconnected)
-                {
-                    <Button Text="Disconnect" Variant="secondary" Disabled="Busy" OnClick="DisconnectAsync" />
-                }
-            </div>
-        </div>
-        <p class="text-sm text-app-muted">Wear the H808S with its electrodes moistened to wake it. Enable Bluetooth in Windows and disconnect the strap from other Bluetooth apps before connecting here.</p>
+    <Card Title="Monitor connection" Description="Wear the H808S with its electrodes moistened to wake it. Enable Bluetooth in Windows and disconnect the strap from other Bluetooth apps before connecting here.">
         @if (Scanning)
         {
             <p class="text-sm text-app-muted" role="status">Scanning for nearby heart-rate monitors for 10 seconds…</p>
         }
         else if (Scanned && Devices.Count == 0)
         {
-            <p class="text-sm text-app-muted" role="status">No monitors found. Check that the strap is awake and nearby, then scan again.</p>
+            <div class="py-2 text-sm text-app-muted"><p>No monitors found</p><p class="text-xs text-app-subtle">Check that the strap is awake and nearby, then scan again.</p></div>
+        }
+        else if (Devices.Count == 0)
+        {
+            <p class="py-2 text-sm text-app-muted">Scan for nearby heart-rate monitors to choose one.</p>
         }
         <ul class="divide-y divide-app-border">
             @foreach (var device in Devices)
@@ -87,16 +93,11 @@
                 </li>
             }
         </ul>
-    </section>
+    </Card>
 
-    <section aria-labelledby="readings-heading" class="space-y-3">
-        <h2 id="readings-heading" class="font-semibold">Recent readings</h2>
-        @if (History.Count == 0)
-        {
-            <p class="text-sm text-app-muted">Readings appear after connecting. History is kept in memory for this session.</p>
-        }
-        else
-        {
+    @if (History.Count > 0)
+    {
+        <Card Title="Recent readings" Description="History is kept in memory for this session.">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead><tr class="border-b border-app-border text-app-muted"><th scope="col" class="py-2 pr-4">Time</th><th scope="col" class="py-2 pr-4">BPM</th><th scope="col" class="py-2">Contact</th></tr></thead>
@@ -108,12 +109,26 @@
                     </tbody>
                 </table>
             </div>
-        }
-        <p class="text-sm text-app-muted">Use “Heart Rate Received” or “Get Heart Rate” in the flow editor. Readings expire after 10 seconds without an update.</p>
-    </section>
+        </Card>
+    }
 </div>
 
 @code {
+    private string StatusLabel => Snapshot.Error is not null ? "Error" : Snapshot.State switch
+    {
+        HeartRateConnectionState.Connected => "Connected",
+        HeartRateConnectionState.Connecting => "Connecting",
+        HeartRateConnectionState.Reconnecting => "Reconnecting",
+        _ => "Disconnected"
+    };
+    private string StatusDotClass => Snapshot.Error is not null ? "bg-app-danger" : Snapshot.State switch
+    {
+        HeartRateConnectionState.Connected => "bg-app-success",
+        HeartRateConnectionState.Connecting => "bg-app-info",
+        HeartRateConnectionState.Reconnecting => "bg-app-info",
+        _ => "bg-app-subtle"
+    };
+
     private HeartRateMonitor Monitor = null!;
     private ILogger Logger = NullLogger.Instance;
     private HeartRateSnapshot Snapshot = new(HeartRateConnectionState.Disconnected, null, null, null);
@@ -126,6 +141,25 @@
     private bool Scanned;
     private bool Busy;
     private string? Message;
+    private string? ReadingAnnouncement;
+    private string? AnnouncedStatus;
+    private int? AnnouncedBpm;
+    private DateTimeOffset LastAnnouncement;
+
+    private void UpdateReadingAnnouncement()
+    {
+        var now = DateTimeOffset.UtcNow;
+        int? bpm = Snapshot.HasFreshReading(now) ? Snapshot.Latest!.BeatsPerMinute : null;
+        var statusChanged = AnnouncedStatus != StatusLabel;
+        if (!statusChanged && (now - LastAnnouncement < TimeSpan.FromSeconds(10)
+            || (bpm == AnnouncedBpm || (bpm.HasValue && AnnouncedBpm.HasValue && Math.Abs(bpm.Value - AnnouncedBpm.Value) < 5))))
+            return;
+
+        ReadingAnnouncement = $"{StatusLabel}. {(bpm.HasValue ? $"{bpm} BPM" : "No reading")}.";
+        AnnouncedStatus = StatusLabel;
+        AnnouncedBpm = bpm;
+        LastAnnouncement = now;
+    }
 
     private static string ContactText(HeartRateMeasurement reading) => reading.SensorContactDetected switch
     {
@@ -138,6 +172,7 @@
         Logger = PluginServiceLocator.GetService<IPluginHost>(HeartRatePlugin.PluginId)
             ?.CreateLogger("HeartRateIntegration.Plugin") ?? NullLogger.Instance;
         Snapshot = Monitor.Snapshot;
+        UpdateReadingAnnouncement();
         History = Monitor.History;
         RefreshTask = RefreshAsync();
     }
@@ -151,6 +186,7 @@
                 await InvokeAsync(() =>
                 {
                     Snapshot = Monitor.Snapshot;
+                    UpdateReadingAnnouncement();
                     History = Monitor.History;
                     StateHasChanged();
                 });
@@ -191,6 +227,7 @@
         {
             await Monitor.ConnectAsync(device);
             Snapshot = Monitor.Snapshot;
+            UpdateReadingAnnouncement();
             History = Monitor.History;
         }
         finally { Busy = false; }
@@ -203,6 +240,7 @@
         {
             await Monitor.DisconnectAsync();
             Snapshot = Monitor.Snapshot;
+            UpdateReadingAnnouncement();
         }
         finally { Busy = false; }
     }

@@ -1,249 +1,141 @@
 @page "/plugins/com-multishock-twitchintegration/cheer-config"
 @using MultiShock.PluginSdk
-@inject IDeviceActions DeviceActions
 @implements IDisposable
 @using global::TwitchIntegration.Components.Config
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">Bits/Cheers Configuration</h1>
-            <p class="text-sm mt-1 text-app-muted">Configure actions triggered by Twitch
-                cheers</p>
+<PageHeader Title="Cheers" Icon="coins" Description="Set how bit amounts control your shockers. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <div class="flex flex-wrap items-center gap-3" data-guided-setup="twitch-cheers-toolbar">
+            <Toggle Label="Enabled" AriaLabel="Enable cheer reactions" Value="ConfigService.Config.Enabled" ValueChanged="ToggleMasterEnabled" />
+            <Button Text="Add section" Icon="plus" Variant="secondary" OnClick="AddNewSection" />
         </div>
-        <div class="flex items-center gap-3" data-guided-setup="twitch-cheers-toolbar">
-            <Toggle Label="@(ConfigService.Config.Enabled ? "Enabled" : "Disabled")"
-                Value="ConfigService.Config.Enabled" ValueChanged="@((value) => ToggleMasterEnabled(value))" />
-            <Button Text="Add Section" Variant="primary" OnClick="@(() => AddNewSection())">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-            </Button>
-        </div>
-    </div>
+    </Actions>
+</PageHeader>
 
-    <div class="twitch-card mb-4">
-        <div class="twitch-card-header">
-            <span>Setup Path</span>
-        </div>
-        <div class="twitch-card-body">
-            <div class="flex flex-wrap gap-2">
-                <a href="/plugins/com-multishock-twitchintegration/twitchintegration"
-                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
-                    <LucideIcon Name="plug" Size="16" />
-                    <span>Back to Connection</span>
-                </a>
-                <a href="/plugins/com-multishock-twitchintegration/sub-config"
-                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface"
-                    data-guided-setup="twitch-cheers-open-subs">
-                    <LucideIcon Name="user-plus" Size="16" />
-                    <span>Continue to Subs / Gifted Subs</span>
-                </a>
-            </div>
-        </div>
-    </div>
+<div class="max-w-4xl space-y-4">
+    @if (!ConfigService.Config.Enabled)
+    {
+        <Alert Variant="neutral">Cheer reactions are off. You can set up sections now; nothing runs until you switch on Enabled. Cheers still reach your flows.</Alert>
+    }
+    <p class="text-sm text-app-muted">
+        A cheer whose message contains a section's keyword uses that section when one of its brackets matches the amount.
+        Otherwise the first section without a keyword handles it.
+    </p>
 
     <div class="space-y-3" data-guided-setup="twitch-cheers-sections">
         @foreach (var sec in ConfigService.Config.Sections)
         {
-            <div class="twitch-card @(!sec.Enabled ? "opacity-50" : "")">
-                <div class="twitch-card-header cursor-pointer hover:opacity-80"
-                    @onclick="@(() => ToggleSectionExpanded(sec.Id))">
-                    <div class="flex items-center gap-2">
-                        <div class="flex gap-1 w-16" @onclick:stopPropagation="true">
-                            <Button Variant="outline" Size="icon-sm"
-                                Disabled="@(ConfigService.Config.Sections.IndexOf(sec) == 0)"
-                                OnClick="@(() => MoveSection(sec, -1))" Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="arrow-up" Class="w-6 h-6" />
-                            </Button>
-                            <Button Variant="outline" Size="icon-sm"
-                                Disabled="@(ConfigService.Config.Sections.IndexOf(sec) == ConfigService.Config.Sections.Count - 1)"
-                                OnClick="@(() => MoveSection(sec, 1))" Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="arrow-down" Class="w-6 h-6" />
-                            </Button>
-                        </div>
-                        <div @onclick:stopPropagation="true">
-                            <Toggle Value="sec.Enabled" ValueChanged="@((e) => ToggleSectionEnabled(sec, e))" />
-                        </div>
-                        <span>@sec.Name</span>
-                        @if (string.IsNullOrEmpty(sec.Keyword))
-                        {
-                            <span class="twitch-badge twitch-badge-primary">Default</span>
-                        }
-                        else
-                        {
-                            <span class="twitch-badge font-mono">"@sec.Keyword"</span>
-                        }
-                        <span class="twitch-badge">@sec.CommandType</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="twitch-badge">@sec.Brackets.Count brackets</span>
-                        <div class="flex items-center gap-1" @onclick:stopPropagation="true">
-                            <Button Variant="outline" Size="icon-sm" OnClick="@(() => DuplicateSection(sec))"
-                                Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="copy" Class="w-6 h-6" />
-                            </Button>
-                            <Button Variant="danger" Size="icon-sm" OnClick="@(() => RemoveSection(sec))"
-                                Class="w-8 h-8 flex items-center justify-center">
-                                <LucideIcon Name="trash2" Class="w-6 h-6" />
-                            </Button>
-                        </div>
-                        <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ExpandedSections.Contains(sec.Id) ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+            var expanded = ExpandedSections.Contains(sec.Id);
+            var index = ConfigService.Config.Sections.IndexOf(sec);
+            var name = SectionName(sec);
+            var issue = SectionIssue(sec);
+            <section class="panel" @key="sec.Id" aria-label="@name">
+                <div class="@($"flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 {(expanded ? "border-b border-app-border" : "")}")">
+                    <button type="button" class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl py-1 text-left"
+                            aria-expanded="@(expanded ? "true" : "false")" aria-controls="@(expanded ? $"section-{sec.Id}" : null)"
+                            @onclick="@(() => ToggleSectionExpanded(sec.Id))">
+                        <LucideIcon Name="chevron-right" Size="16" Class="@($"shrink-0 text-app-muted transition-transform {(expanded ? "rotate-90" : "")}")" />
+                        <span class="min-w-0">
+                            <span class="block truncate text-sm font-medium text-app-text">@name</span>
+                            <span class="block truncate text-xs text-app-subtle">@SectionDetail(sec)</span>
+                        </span>
+                    </button>
+                    @if (sec.Enabled && issue != null)
+                    {
+                        <SummaryChip Summary="@(new ReactionSummary(ConfigService.Config.Enabled ? ReactionStatus.Attention : ReactionStatus.Off, issue))" />
+                    }
+                    <Toggle AriaLabel="@($"Enable section {name}")" Value="sec.Enabled" ValueChanged="@(v => ToggleSectionEnabled(sec, v))" />
+                    <div class="flex items-center">
+                        <Button Variant="ghost" Size="icon-sm" Icon="arrow-up" AriaLabel="@($"Move {name} up")" Title="Move section up" Disabled="@(index == 0)" OnClick="@(() => MoveSection(sec, -1))" />
+                        <Button Variant="ghost" Size="icon-sm" Icon="arrow-down" AriaLabel="@($"Move {name} down")" Title="Move section down" Disabled="@(index == ConfigService.Config.Sections.Count - 1)" OnClick="@(() => MoveSection(sec, 1))" />
+                        <Button Variant="ghost" Size="icon-sm" Icon="copy" AriaLabel="@($"Duplicate {name}")" Title="Duplicate section" OnClick="@(() => DuplicateSection(sec))" />
+                        <Button Variant="ghost" Size="icon-sm" Icon="trash-2" AriaLabel="@($"Delete {name}")" Title="Delete section" OnClick="@(() => RequestRemoveSection(sec))" />
                     </div>
                 </div>
 
-                @if (ExpandedSections.Contains(sec.Id))
+                @if (expanded)
                 {
-                    <div class="twitch-card-body space-y-4" data-guided-setup="twitch-cheers-editor">
-                        <div class="flex flex-wrap items-end gap-2">
-                            <div class="grow">
-                                <TextInput Label="Name" Value="@sec.Name"
-                                    ValueChanged="@((value) => UpdateSectionName(sec, value ?? ""))" />
-                            </div>
-                            <div class="grow">
-                                <TextInput Label="Keyword (opt)" Placeholder="e.g. shock" Value="@sec.Keyword"
-                                    ValueChanged="@((value) => UpdateSectionKeyword(sec, value ?? ""))" />
-                            </div>
-                            <div class="grow">
-                                <Select Label="Type" Value="@sec.CommandType"
-                                    ValueChanged="@((string value) => UpdateSectionCommandType(sec, value ?? "Vibrate"))"
-                                    Options="@CommandTypeOptions" />
+                    <div id="@($"section-{sec.Id}")" data-guided-setup="twitch-cheers-editor">
+                        <div class="panel-body grid gap-4 sm:grid-cols-2">
+                            <TextInput Label="Section name" Value="@sec.Name" ValueChanged="@(value => UpdateSectionName(sec, value ?? ""))" />
+                            <TextInput Label="Keyword (optional)" Placeholder="Any cheer" Value="@sec.Keyword"
+                                       ValueChanged="@(value => UpdateSectionKeyword(sec, value ?? ""))" />
+                            <Select TValue="string" Label="Command" Value="@sec.CommandType" Options="ActionOptions.Commands"
+                                    ValueChanged="@(value => UpdateSectionCommandType(sec, value ?? "Vibrate"))" />
+                            <Select TValue="string" Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")" Options="ActionOptions.Matching"
+                                    ValueChanged="@(value => UpdateSectionFixedAmount(sec, value == "exact"))" />
+                            <div class="sm:col-span-2">
+                                <ShockerSelect Label="Shockers" MultiSelect="true" SelectedIds="sec.SelectedShockerIds"
+                                               SelectedIdsChanged="@(ids => UpdateSectionShockers(sec, ids))" />
+                                @if (sec.SelectedShockerIds.Count == 0)
+                                {
+                                    <NoShockersHint Class="mt-1.5" />
+                                }
                             </div>
                             @if (sec.CommandType == "Shock")
                             {
-                                <div>
-                                    <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
-                                    <Toggle Value="sec.WarningVibrate"
-                                        ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
+                                <div class="sm:col-span-2">
+                                    <Toggle Label="Vibrate as a warning before each shock" Value="sec.WarningVibrate"
+                                            ValueChanged="@(v => UpdateSectionWarningVibrate(sec, v))" />
                                 </div>
                             }
-                            <div class="grow">
-                                <Select Label="Matching" Value="@(sec.FixedAmount ? "exact" : "round")"
-                                    ValueChanged="@((string value) => UpdateSectionFixedAmount(sec, value == "exact"))"
-                                    Options="@MatchingModeOptions" />
-                            </div>
-                            <div class="grow">
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
-                                @{
-                                    var loadedShockers = GetLoadedShockers().ToList();
-                                    var selectedCount = sec.SelectedShockerIds.Count;
-                                }
-                                @if (loadedShockers.Any())
-                                {
-                                    <ShockerSelect Label="" MultiSelect="true" SelectedIds="sec.SelectedShockerIds"
-                                        SelectedIdsChanged="@(async (ids) => { sec.SelectedShockerIds = ids; ConfigService.UpdateSection(sec); })" />
-                                }
-                                else
-                                {
-                                    <div class="twitch-input w-full flex items-center text-xs text-app-muted">
-                                        No shockers
-                                    </div>
-                                }
-                            </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-3 border-t border-app-border" data-guided-setup="twitch-cheers-brackets">
-                            <div>
-                                <label class="text-sm font-medium text-app-text">Bit Brackets</label>
-                                <p class="text-xs mt-0.5 text-app-muted">Define intensity & duration
-                                    at different bit amounts</p>
+                        <div class="border-t border-app-border" data-guided-setup="twitch-cheers-brackets">
+                            <div class="flex items-start justify-between gap-3 px-4 py-3">
+                                <div>
+                                    <h3 class="text-sm font-medium text-app-text">Bit brackets</h3>
+                                    <p class="text-xs text-app-muted">
+                                        @(sec.FixedAmount
+                                            ? "A cheer fires the bracket whose amount matches its bits exactly."
+                                            : "A cheer fires the highest bracket at or below its bits.")
+                                    </p>
+                                </div>
+                                <Button Text="Add bracket" Variant="secondary" Size="sm" Icon="plus" OnClick="@(() => AddBracketToSection(sec))" />
                             </div>
-                            <Button Text="Add Bracket" Variant="secondary" Size="sm"
-                                OnClick="@(() => AddBracketToSection(sec))">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                            </Button>
-                        </div>
 
-                        <BracketList TBracket="CheerBracket" CountLabel="Bits" Brackets="sec.Brackets"
-                            SelectionModeOptions="SelectionModeOptions" CountSelector="@(b => b.BitAmount)"
-                            IntensitySelector="@(b => b.Intensity)" DurationSelector="@(b => b.Duration)"
-                            ModeSelector="@(b => b.Mode.ToString())" OnMoveUp="@(bracket => MoveBracket(sec, bracket, -1))"
-                            OnMoveDown="@(bracket => MoveBracket(sec, bracket, 1))"
-                            OnCountChanged="@(change => UpdateBracketBitAmount(sec, change.Bracket, change.Value))"
-                            OnIntensityChanged="@(change => UpdateBracketIntensity(sec, change.Bracket, change.Value))"
-                            OnDurationChanged="@(change => UpdateBracketDuration(sec, change.Bracket, change.Value))"
-                            OnModeChanged="@(change => UpdateBracketMode(sec, change.Bracket, ParseSelectionMode(change.Value)))"
-                            OnRemove="@(bracket => RemoveBracket(sec, bracket))" EmptyTitle="No brackets configured"
-                            EmptyDescription="Add a bracket to define behavior at different bit amounts" />
+                            <BracketList TBracket="CheerBracket" CountLabel="Bits" Brackets="sec.Brackets"
+                                         CountSelector="@(b => b.BitAmount)" IntensitySelector="@(b => b.Intensity)"
+                                         DurationSelector="@(b => b.Duration)" ModeSelector="@(b => b.Mode.ToString())"
+                                         OnCountChanged="@(change => UpdateBracketBitAmount(sec, change.Bracket, change.Value))"
+                                         OnIntensityChanged="@(change => UpdateBracketIntensity(sec, change.Bracket, change.Value))"
+                                         OnDurationChanged="@(change => UpdateBracketDuration(sec, change.Bracket, change.Value))"
+                                         OnModeChanged="@(change => UpdateBracketMode(sec, change.Bracket, ActionOptions.ParseMode(change.Value)))"
+                                         OnRemove="@(bracket => RemoveBracket(sec, bracket))"
+                                         EmptyText="No brackets yet. This section won't run until you add one." />
+                        </div>
                     </div>
                 }
-            </div>
+            </section>
         }
 
         @if (!ConfigService.Config.Sections.Any())
         {
-            <div class="twitch-card">
-                <div class="twitch-card-body">
-                    <div class="twitch-empty py-8">
-                        <svg class="w-12 h-12 mb-2 text-app-muted" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        <p>No sections configured</p>
-                        <Button Text="Create Your First Section" Variant="primary" Class="mt-4"
-                            OnClick="@(() => AddNewSection())" />
-                    </div>
-                </div>
-            </div>
+            <Card>
+                <EmptyState Icon="coins" Title="No sections yet" Description="A section sets which shockers react to cheers and how strongly for each bit amount.">
+                    <Actions><Button Text="Add section" Icon="plus" Variant="primary" OnClick="AddNewSection" /></Actions>
+                </EmptyState>
+            </Card>
         }
-
-        <div class="twitch-card">
-            <div class="twitch-card-header cursor-pointer" @onclick="@(() => ShowHelpCard = !ShowHelpCard)">
-                <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-app-primary" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>How It Works</span>
-                </div>
-                <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ShowHelpCard ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
-            @if (ShowHelpCard)
-            {
-                <div class="twitch-card-body text-sm text-app-muted">
-                    <p class="mb-3">When a cheer arrives, keywords are matched to sections. The matching section's bracket
-                        (based on bit amount) determines the action.</p>
-                </div>
-            }
-        </div>
     </div>
+
+    <p class="text-sm text-app-muted">
+        Gifted subs and subscriptions have their own brackets.
+        <a href="/plugins/com-multishock-twitchintegration/sub-config" class="text-app-primary hover:underline" data-guided-setup="twitch-cheers-open-subs">Configure subscriptions</a>
+    </p>
 </div>
+
+<ConfirmDialog IsOpen="@(PendingRemoval != null)" Title="Delete section?"
+               Message="@($"{(PendingRemoval == null ? "" : SectionName(PendingRemoval))} will be removed with its keyword, shocker selection and {ActionOptions.Count(PendingRemoval?.Brackets.Count ?? 0, "bracket", "brackets")}.")"
+               ConfirmText="Delete section" OnCancel="@(() => PendingRemoval = null)" OnConfirm="ConfirmRemoveSection" />
 
 @code {
     private string pluginId = TwitchIntegration.TwitchIntegrationPlugin.PluginId;
     private CheerConfigService ConfigService => PluginServiceLocator.GetRequiredService<CheerConfigService>(pluginId);
 
     private HashSet<string> ExpandedSections = new();
-    private string? OpenShockerDropdown = null;
-    private bool ShowHelpCard = false;
-
-    private Select<string>.SelectOption<string>[] CommandTypeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("Shock", "Shock"),
-new Select<string>.SelectOption<string>("Vibrate", "Vibrate"),
-new Select<string>.SelectOption<string>("Beep", "Beep")
-};
-
-    private Select<string>.SelectOption<string>[] MatchingModeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("round", "Round Down"),
-new Select<string>.SelectOption<string>("exact", "Exact")
-};
-
-    private Select<string>.SelectOption<string>[] SelectionModeOptions = new[]
-    {
-new Select<string>.SelectOption<string>("All", "All"),
-new Select<string>.SelectOption<string>("Random", "Random"),
-new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
-};
+    private CheerSection? PendingRemoval;
 
     protected override void OnInitialized()
     {
@@ -254,25 +146,22 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
         }
     }
 
-    private IEnumerable<ShockerInfo> GetLoadedShockers() => DeviceActions.GetLoadedShockers();
+    private static string SectionName(CheerSection sec) =>
+        string.IsNullOrWhiteSpace(sec.Name) ? "Unnamed section" : sec.Name;
 
-    private static int ParseInt(object? value, int defaultValue)
+    private static string SectionDetail(CheerSection sec)
     {
-        if (value == null) return defaultValue;
-        return int.TryParse(value.ToString(), out var result) ? result : defaultValue;
+        var match = string.IsNullOrEmpty(sec.Keyword) ? "Any cheer" : $"Keyword \"{sec.Keyword}\"";
+        return $"{match} · {sec.CommandType} · {ActionOptions.Count(sec.Brackets.Count, "bracket", "brackets")}";
     }
 
-    private static double ParseDouble(object? value, double defaultValue)
+    private static string? SectionIssue(CheerSection sec) => (sec.Brackets.Count == 0, sec.SelectedShockerIds.Count == 0) switch
     {
-        if (value == null) return defaultValue;
-        return double.TryParse(value.ToString(), out var result) ? result : defaultValue;
-    }
-
-    private static SelectionMode ParseSelectionMode(object? value)
-    {
-        if (value == null) return SelectionMode.All;
-        return Enum.TryParse<SelectionMode>(value.ToString(), out var result) ? result : SelectionMode.All;
-    }
+        (true, true) => "No brackets or shockers",
+        (true, false) => "No brackets",
+        (false, true) => "No shockers",
+        _ => null,
+    };
 
     private void OnConfigChanged() => InvokeAsync(StateHasChanged);
 
@@ -280,32 +169,8 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
 
     private void ToggleSectionExpanded(string sectionId)
     {
-        if (ExpandedSections.Contains(sectionId))
-            ExpandedSections.Remove(sectionId);
-        else
+        if (!ExpandedSections.Remove(sectionId))
             ExpandedSections.Add(sectionId);
-    }
-
-    private void ToggleShockerDropdown(string sectionId)
-    {
-        OpenShockerDropdown = OpenShockerDropdown == sectionId ? null : sectionId;
-    }
-
-    private void SelectAllShockers(CheerSection sec, List<ShockerInfo> shockers)
-    {
-        foreach (var shocker in shockers)
-        {
-            var combinedId = $"{shocker.DeviceId}:{shocker.ShockerId}";
-            if (!sec.SelectedShockerIds.Contains(combinedId))
-                sec.SelectedShockerIds.Add(combinedId);
-        }
-        ConfigService.UpdateSection(sec);
-    }
-
-    private void ClearAllShockers(CheerSection sec)
-    {
-        sec.SelectedShockerIds.Clear();
-        ConfigService.UpdateSection(sec);
     }
 
     private void ToggleSectionEnabled(CheerSection sec, bool enabled)
@@ -344,12 +209,9 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
         ConfigService.UpdateSection(sec);
     }
 
-    private void ToggleShockerSelection(CheerSection sec, string shockerId)
+    private void UpdateSectionShockers(CheerSection sec, List<string> ids)
     {
-        if (sec.SelectedShockerIds.Contains(shockerId))
-            sec.SelectedShockerIds.Remove(shockerId);
-        else
-            sec.SelectedShockerIds.Add(shockerId);
+        sec.SelectedShockerIds = ids;
         ConfigService.UpdateSection(sec);
     }
 
@@ -364,6 +226,23 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
         };
         ConfigService.AddSection(newSection);
         ExpandedSections.Add(newSection.Id);
+    }
+
+    private void RequestRemoveSection(CheerSection sec)
+    {
+        if (sec.Brackets.Count > 0 || sec.SelectedShockerIds.Count > 0 || !string.IsNullOrWhiteSpace(sec.Keyword))
+        {
+            PendingRemoval = sec;
+            return;
+        }
+
+        RemoveSection(sec);
+    }
+
+    private void ConfirmRemoveSection()
+    {
+        if (PendingRemoval != null) RemoveSection(PendingRemoval);
+        PendingRemoval = null;
     }
 
     private void RemoveSection(CheerSection sec)
@@ -386,19 +265,19 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
 
     private void UpdateBracketBitAmount(CheerSection sec, CheerBracket bracket, int bitAmount)
     {
-        bracket.BitAmount = Math.Max(1, bitAmount);
+        bracket.BitAmount = bitAmount;
         ConfigService.UpdateBracket(sec.Id, bracket);
     }
 
     private void UpdateBracketIntensity(CheerSection sec, CheerBracket bracket, int intensity)
     {
-        bracket.Intensity = Math.Clamp(intensity, 1, 100);
+        bracket.Intensity = intensity;
         ConfigService.UpdateBracket(sec.Id, bracket);
     }
 
     private void UpdateBracketDuration(CheerSection sec, CheerBracket bracket, double duration)
     {
-        bracket.Duration = Math.Clamp(duration, 0.1, 15.0);
+        bracket.Duration = duration;
         ConfigService.UpdateBracket(sec.Id, bracket);
     }
 
@@ -425,11 +304,6 @@ new Select<string>.SelectOption<string>("RoundRobin", "Round Robin")
         {
             ExpandedSections.Add(duplicate.Id);
         }
-    }
-
-    private void MoveBracket(CheerSection sec, CheerBracket bracket, int direction)
-    {
-        ConfigService.MoveBracket(sec.Id, bracket.Id, direction);
     }
 
     public void Dispose()

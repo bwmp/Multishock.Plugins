@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.randomnodes",
-  "name": "Random Nodes",
+  "name": "Random nodes",
   "version": "1.1.0",
   "entryPoint": "RandomNodes.dll",
-  "description": "A grab bag of random utility nodes for MultiShock",
+  "description": "Add media status, randomness, text checks, time and delays to flows.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64", "osx-x64", "osx-arm64", "linux-x64", "linux-arm64"]
 }

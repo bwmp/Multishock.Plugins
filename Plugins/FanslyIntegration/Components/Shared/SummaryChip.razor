@@ -1,0 +1,19 @@
+<span class="@($"chip {ChipClass}")"><span class="@($"status-dot {DotClass}")"></span>@Summary.Text</span>
+
+@code {
+    [Parameter, EditorRequired] public ReactionSummary Summary { get; set; }
+
+    private string ChipClass => Summary.Status switch
+    {
+        ReactionStatus.Ready => "chip-ok",
+        ReactionStatus.Attention => "chip-warn",
+        _ => "chip-neutral",
+    };
+
+    private string DotClass => Summary.Status switch
+    {
+        ReactionStatus.Ready => "bg-app-success",
+        ReactionStatus.Attention => "bg-app-warning",
+        _ => "bg-app-subtle",
+    };
+}

@@ -4,181 +4,166 @@
 @using SteamVROverlay.Services
 @implements IDisposable
 
-<div class="space-y-5">
-    <div class="flex items-center gap-2">
-        <div class="w-3 h-3 rounded-full @StatusDotClass"></div>
-        <span class="text-sm font-medium">@StatusText</span>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(Overlay.LastError))
-    {
-        <Alert Variant="danger" Title="SteamVR error">@Overlay.LastError</Alert>
-    }
-
-    <Toggle Label="Enable plugin" Value="Enabled" ValueChanged="ToggleEnabled" />
-    <Toggle Label="Start the overlay with MultiShock" Value="AutoStart" ValueChanged="ToggleAutoStart" />
-
-    <section class="space-y-3">
-        <h3 class="text-sm font-semibold text-app-text">Placement</h3>
-
-        <div class="w-56">
-            <Select TValue="string"
+<div class="max-w-4xl space-y-4">
+<p class="text-sm text-app-muted">Changes save automatically.</p>
+@if (!string.IsNullOrWhiteSpace(Overlay.LastError)) { <Alert Variant="danger" Title="SteamVR error">@Overlay.LastError</Alert> }
+<Card Title="General">
+    <SettingRow Label="Overlay enabled" Description="Allow the overlay to run. Turning this off stops it; turning it on makes Start available."><Toggle AriaLabel="Overlay enabled" Value="Settings.Enabled" ValueChanged="ToggleEnabled" /></SettingRow>
+    <SettingRow Label="Start the overlay with MultiShock" Description="Start automatically when MultiShock opens, if the overlay is enabled."><Toggle AriaLabel="Start the overlay with MultiShock" Value="AutoStart" ValueChanged="ToggleAutoStart" /></SettingRow>
+</Card>
+<Card Title="Placement" Description="Offsets are in left-controller space: X right, Y up, Z toward your elbow. The right hand mirrors them.">
+<Actions><Button Text="Reset placement" Variant="secondary" Size="sm" Icon="rotate-ccw" OnClick="ResetPlacement" /></Actions>
+<ChildContent>
+    <SettingRow Label="Attach to" Description="Choose the controller that carries the panel."><Select Class="[&_label]:sr-only" TValue="string"
                     Label="Attach to"
                     Options="HandOptions"
                     Value="@HandValue"
-                    ValueChanged="OnHandChanged" />
-        </div>
-
-        <Slider Label="Panel width (cm)"
+                    ValueChanged="OnHandChanged" /></SettingRow>
+    <SettingRow Label="Panel width" Description="Set the physical width of the wrist panel in cm."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((WidthMeters * 100).ToString("0.#")) cm</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Panel width in cm"
                 Min="5" Max="60" Step="1"
                 Value="@(WidthMeters * 100)"
-                ValueChanged="@(v => WidthMeters = (float)(v / 100))" />
-
-        <div class="grid grid-cols-3 gap-3">
-            <NumberInput Label="Offset X (cm)" Step="0.5" Min="-50" Max="50"
-                         Value="@((double)(OffsetX * 100))"
-                         ValueChanged="@(v => OffsetX = (float)((v ?? 0) / 100))" />
-            <NumberInput Label="Offset Y (cm)" Step="0.5" Min="-50" Max="50"
-                         Value="@((double)(OffsetY * 100))"
-                         ValueChanged="@(v => OffsetY = (float)((v ?? 0) / 100))" />
-            <NumberInput Label="Offset Z (cm)" Step="0.5" Min="-50" Max="50"
-                         Value="@((double)(OffsetZ * 100))"
-                         ValueChanged="@(v => OffsetZ = (float)((v ?? 0) / 100))" />
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-            <NumberInput Label="Pitch (°)" Step="5" Min="-180" Max="180"
-                         Value="@((double)PitchDegrees)"
-                         ValueChanged="@(v => PitchDegrees = (float)(v ?? 0))" />
-            <NumberInput Label="Yaw (°)" Step="5" Min="-180" Max="180"
-                         Value="@((double)YawDegrees)"
-                         ValueChanged="@(v => YawDegrees = (float)(v ?? 0))" />
-            <NumberInput Label="Roll (°)" Step="5" Min="-180" Max="180"
-                         Value="@((double)RollDegrees)"
-                         ValueChanged="@(v => RollDegrees = (float)(v ?? 0))" />
-        </div>
-
-        <p class="text-xs text-app-subtle">
-            Offsets are in left-controller space: +X points right, +Y up, and +Z back toward your elbow.
-            The right hand uses the mirror image. Adjust while SteamVR is running to see the panel move.
-        </p>
-
-        <Toggle Label="Move the panel by grabbing it in VR" Value="GrabToMove" ValueChanged="ToggleGrabToMove" />
-        <p class="text-xs text-app-subtle">
-            @(GrabToMove
-                ? "Point your other controller at the panel, hold the grip, and let go where you want it. The offsets above update to match."
-                : "The grip is ignored on the panel, so it can't be moved by accident. Tap Move watch at the bottom of the watch to move it, or use the offsets above.")
-        </p>
-
-        <Button Text="Reset placement" Variant="secondary" Size="sm" Icon="rotate-ccw" OnClick="ResetPlacement" />
-
-        <Slider Label="Opacity" Min="10" Max="100" Step="5"
+                ValueChanged="@(v => WidthMeters = (float)(v / 100))" /></div></SettingRow>
+    <SettingRow WideControl="true" Class="!flex-col xl:!flex-row" Label="Position" Description="Offsets in left-controller space, mirrored for the right hand."><div class="grid w-full grid-cols-1 gap-2 sm:w-96 sm:grid-cols-3">
+        <div><span class="mb-1.5 block text-xs font-medium text-app-muted" aria-hidden="true">X</span><NumberInput Class="[&_label]:sr-only" Label="X in centimetres" Suffix="cm" Min="-50" Max="50" Step="0.1" Value="OffsetXInput" Error="@OffsetXError" ValueChanged="@(v => SetOffsetX(v))" /></div>
+        <div><span class="mb-1.5 block text-xs font-medium text-app-muted" aria-hidden="true">Y</span><NumberInput Class="[&_label]:sr-only" Label="Y in centimetres" Suffix="cm" Min="-50" Max="50" Step="0.1" Value="OffsetYInput" Error="@OffsetYError" ValueChanged="@(v => SetOffsetY(v))" /></div>
+        <div><span class="mb-1.5 block text-xs font-medium text-app-muted" aria-hidden="true">Z</span><NumberInput Class="[&_label]:sr-only" Label="Z in centimetres" Suffix="cm" Min="-50" Max="50" Step="0.1" Value="OffsetZInput" Error="@OffsetZError" ValueChanged="@(v => SetOffsetZ(v))" /></div></div></SettingRow>
+    <SettingRow WideControl="true" Class="!flex-col xl:!flex-row" Label="Rotation" Description="Tilt forward, turn sideways and rotate around the facing direction."><div class="grid w-full grid-cols-1 gap-2 sm:w-96 sm:grid-cols-3">
+        <div><span class="mb-1.5 block text-xs font-medium text-app-muted" aria-hidden="true">Pitch</span><NumberInput Class="[&_label]:sr-only" Label="Pitch in degrees" Suffix="°" Min="-180" Max="180" Step="0.1" Value="PitchDegreesInput" Error="@PitchDegreesError" ValueChanged="@(v => SetPitchDegrees(v))" /></div>
+        <div><span class="mb-1.5 block text-xs font-medium text-app-muted" aria-hidden="true">Yaw</span><NumberInput Class="[&_label]:sr-only" Label="Yaw in degrees" Suffix="°" Min="-180" Max="180" Step="0.1" Value="YawDegreesInput" Error="@YawDegreesError" ValueChanged="@(v => SetYawDegrees(v))" /></div>
+        <div><span class="mb-1.5 block text-xs font-medium text-app-muted" aria-hidden="true">Roll</span><NumberInput Class="[&_label]:sr-only" Label="Roll in degrees" Suffix="°" Min="-180" Max="180" Step="0.1" Value="RollDegreesInput" Error="@RollDegreesError" ValueChanged="@(v => SetRollDegrees(v))" /></div></div></SettingRow>
+    <SettingRow Label="Move the panel by grabbing it in VR" Description="Allow placement changes using the other controller."><Toggle AriaLabel="Move the panel by grabbing it in VR" Value="GrabToMove" ValueChanged="ToggleGrabToMove" /></SettingRow>
+    <SettingRow Label="Opacity" Description="Panel visibility in percent, from 10% to fully opaque."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((Opacity * 100).ToString("0.#"))%</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Opacity in percent" Min="10" Max="100" Step="5"
                 Value="@(Opacity * 100)"
-                ValueChanged="@(v => Opacity = (float)(v / 100))" />
-
-        <Slider Label="Curvature" Min="0" Max="100" Step="5"
+                ValueChanged="@(v => Opacity = (float)(v / 100))" /></div></SettingRow>
+    <SettingRow Label="Curvature" Description="Bend the panel in percent, from flat (0%) to fully curved (100%)."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((Curvature * 100).ToString("0.#"))%</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Curvature in percent" Min="0" Max="100" Step="5"
                 Value="@(Curvature * 100)"
-                ValueChanged="@(v => Curvature = (float)(v / 100))" />
-    </section>
-
-    <section class="space-y-3">
-        <h3 class="text-sm font-semibold text-app-text">Watch</h3>
-        <p class="text-xs text-app-subtle">
-            The time and the button that opens the shocker controls are always shown. Device batteries can also be shown or hidden from the watch.
-        </p>
-
-        <Toggle Label="Device batteries" Value="ShowBatteries" ValueChanged="ToggleShowBatteries" />
-        <Toggle Label="Media controls" Value="ShowMedia" ValueChanged="ToggleShowMedia" />
-        <Toggle Label="Volume and microphone" Value="ShowAudio" ValueChanged="ToggleShowAudio" />
-        <Toggle Label="Performance" Value="ShowPerformance" ValueChanged="ToggleShowPerformance" />
-
-        @if (ContributedItems.Count > 0)
-        {
-            <h4 class="text-xs font-semibold text-app-muted pt-1">From other plugins</h4>
-            @foreach (var item in ContributedItems)
-            {
-                <Toggle Label="@item.Label"
-                        Value="@Settings.IsWatchItemShown(item.Key)"
-                        ValueChanged="@(shown => SetWatchItemShown(item.Key, shown))" />
-            }
-        }
-    </section>
-
-    <section class="space-y-3">
-        <h3 class="text-sm font-semibold text-app-text">Visibility</h3>
-
-        <Toggle Label="Only show when you turn your wrist toward you"
+                ValueChanged="@(v => Curvature = (float)(v / 100))" /></div></SettingRow>
+</ChildContent>
+</Card>
+<Card Title="Watch" Description="The time and shocker controls are always available.">
+    <SettingRow Label="Device batteries" Description="Show the battery section on the watch."><Toggle AriaLabel="Device batteries" Value="ShowBatteries" ValueChanged="ToggleShowBatteries" /></SettingRow>
+    <SettingRow Label="Media controls" Description="Show current media and playback controls."><Toggle AriaLabel="Media controls" Value="ShowMedia" ValueChanged="ToggleShowMedia" /></SettingRow>
+    <SettingRow Label="Volume and microphone" Description="Show system volume and microphone controls."><Toggle AriaLabel="Volume and microphone" Value="ShowAudio" ValueChanged="ToggleShowAudio" /></SettingRow>
+    <SettingRow Label="Performance" Description="Show VR performance measurements."><Toggle AriaLabel="Performance" Value="ShowPerformance" ValueChanged="ToggleShowPerformance" /></SettingRow>
+@foreach (var item in ContributedItems) {
+<SettingRow Label="@item.Label"><Toggle AriaLabel="@item.Label" Value="@Settings.IsWatchItemShown(item.Key)" ValueChanged="@(shown => SetWatchItemShown(item.Key, shown))" /></SettingRow>
+}
+</Card>
+<Card Title="Visibility">
+    <SettingRow Label="Only show when you turn your wrist toward you" Description="Hide the panel when your wrist faces away."><Toggle AriaLabel="Only show when you turn your wrist toward you"
                 Value="GazeActivation"
-                ValueChanged="ToggleGazeActivation" />
-
-        @if (GazeActivation)
-        {
-            <Slider Label="Activation angle (°)" Min="10" Max="90" Step="5"
+                ValueChanged="ToggleGazeActivation" /></SettingRow>
+@if (GazeActivation) {
+    <SettingRow Label="Activation angle" Description="Maximum wrist angle in degrees that keeps the panel visible."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@(GazeAngleDegrees.ToString("0.#"))°</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Activation angle in degrees" Min="10" Max="90" Step="5"
                     Value="@((double)GazeAngleDegrees)"
-                    ValueChanged="@(v => GazeAngleDegrees = (float)v)" />
-
-            <div class="w-56">
-                <NumberInput Label="Hide delay (ms)" Step="50" Min="0" Max="5000"
-                             Value="@((double)HideDelayMs)"
-                             ValueChanged="@(v => HideDelayMs = (int)Math.Clamp(v ?? 400, 0, 5000))" />
-            </div>
-        }
-    </section>
-
-    <section class="space-y-3">
-        <h3 class="text-sm font-semibold text-app-text">Limits and safety</h3>
-
-        <Slider Label="Maximum intensity" Min="1" Max="100" Step="1"
+                    ValueChanged="@(v => GazeAngleDegrees = (float)v)" /></div></SettingRow>
+}
+@if (GazeActivation) {
+    <SettingRow Label="Hide delay" Description="Wait this long before hiding a panel that faces away."><NumberInput Class="[&_label]:sr-only" Label="Hide delay" Step="50" Min="0" Max="5000"
+                             Value="HideDelayMsInput" Error="@HideDelayMsError" Suffix="ms"
+                             ValueChanged="SetHideDelayMs" /></SettingRow>
+}
+</Card>
+<Card Title="Limits and safety">
+    <SettingRow Label="Maximum intensity" Description="Upper limit in percent for actions sent from the wrist panel."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((MaxIntensity).ToString("0.#"))%</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Maximum intensity in percent" Min="1" Max="100" Step="1"
                 Value="@((double)MaxIntensity)"
-                ValueChanged="@(v => MaxIntensity = (int)v)" />
-
-        <Slider Label="Maximum duration (seconds)" Min="0.1" Max="15" Step="0.1"
+                ValueChanged="@(v => MaxIntensity = (int)v)" /></div></SettingRow>
+    <SettingRow Label="Maximum duration" Description="Longest action in seconds the wrist panel can send."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((MaxDurationSeconds).ToString("0.#")) s</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Maximum duration in seconds" Min="0.1" Max="15" Step="0.1"
                 Value="@MaxDurationSeconds"
-                ValueChanged="@(v => MaxDurationSeconds = v)" />
-
-        <Slider Label="Starting intensity" Min="1" Max="@MaxIntensity" Step="1"
+                ValueChanged="@(v => MaxDurationSeconds = v)" /></div></SettingRow>
+    <SettingRow Label="Starting intensity" Description="Initial intensity in percent when opening the shocker controls."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((DefaultIntensity).ToString("0.#"))%</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Starting intensity in percent" Min="1" Max="@MaxIntensity" Step="1"
                 Value="@((double)DefaultIntensity)"
-                ValueChanged="@(v => DefaultIntensity = (int)v)" />
-
-        <Slider Label="Starting duration (seconds)" Min="0.1" Max="@MaxDurationSeconds" Step="0.1"
+                ValueChanged="@(v => DefaultIntensity = (int)v)" /></div></SettingRow>
+    <SettingRow Label="Starting duration" Description="Initial duration in seconds when opening the shocker controls."><div class="flex items-center gap-3"><span class="shrink-0 text-xs text-app-muted tabular-nums">@((DefaultDurationSeconds).ToString("0.#")) s</span><Slider ShowValue="false" Class="[&_label]:sr-only" Label="Starting duration in seconds" Min="0.1" Max="@MaxDurationSeconds" Step="0.1"
                 Value="@DefaultDurationSeconds"
-                ValueChanged="@(v => DefaultDurationSeconds = v)" />
-
-        <Toggle Label="Require press-and-hold on the shock button"
+                ValueChanged="@(v => DefaultDurationSeconds = v)" /></div></SettingRow>
+    <SettingRow Label="Require press-and-hold on the shock button" Description="Prevent a single click from sending a shock."><Toggle AriaLabel="Require press-and-hold on the shock button"
                 Value="HoldToShock"
-                ValueChanged="ToggleHoldToShock" />
-
-        @if (HoldToShock)
-        {
-            <div class="w-56">
-                <NumberInput Label="Hold time (ms)" Step="50" Min="200" Max="3000"
-                             Value="@((double)ShockHoldMs)"
-                             ValueChanged="@(v => ShockHoldMs = (int)Math.Clamp(v ?? 600, 200, 3000))" />
-            </div>
-        }
-
-        <Toggle Label="Send a warning vibration before each shock"
+                ValueChanged="ToggleHoldToShock" /></SettingRow>
+@if (HoldToShock) {
+    <SettingRow Label="Hold time" Description="Hold the shock button this long before it fires."><NumberInput Class="[&_label]:sr-only" Label="Hold time" Step="50" Min="200" Max="3000"
+                             Value="ShockHoldMsInput" Error="@ShockHoldMsError" Suffix="ms"
+                             ValueChanged="SetShockHoldMs" /></SettingRow>
+}
+    <SettingRow Label="Send a warning vibration before each shock" Description="Give the wearer a vibration before the shock is sent."><Toggle AriaLabel="Send a warning vibration before each shock"
                 Value="WarnBeforeShock"
-                ValueChanged="ToggleWarnBeforeShock" />
-    </section>
-
-    <div class="flex gap-2">
-        @if (Overlay.IsRunning)
-        {
-            <Button Text="Stop overlay" Variant="danger" OnClick="StopOverlay" />
-        }
-        else
-        {
-            <Button Text="Start overlay" Variant="primary" Disabled="@(!Enabled)" OnClick="StartOverlay" />
-        }
-    </div>
-
-    <p class="text-xs text-app-subtle">
-        The overlay attaches once SteamVR is running. It never launches SteamVR itself.
-    </p>
+                ValueChanged="ToggleWarnBeforeShock" /></SettingRow>
+</Card>
 </div>
 
 @code {
+    private double? OffsetXInput;
+    private string? OffsetXError => ValidOffsetX(OffsetXInput) ? null : "Enter a number from -50 to 50.";
+    private static bool ValidOffsetX(double? v) => v is { } value && double.IsFinite(value) && value >= -50 && value <= 50;
+    private void SetOffsetX(double? v)
+    {
+        OffsetXInput = v;
+        if (ValidOffsetX(v)) OffsetX = (float)(v!.Value / 100);
+    }
+
+    private double? OffsetYInput;
+    private string? OffsetYError => ValidOffsetY(OffsetYInput) ? null : "Enter a number from -50 to 50.";
+    private static bool ValidOffsetY(double? v) => v is { } value && double.IsFinite(value) && value >= -50 && value <= 50;
+    private void SetOffsetY(double? v)
+    {
+        OffsetYInput = v;
+        if (ValidOffsetY(v)) OffsetY = (float)(v!.Value / 100);
+    }
+
+    private double? OffsetZInput;
+    private string? OffsetZError => ValidOffsetZ(OffsetZInput) ? null : "Enter a number from -50 to 50.";
+    private static bool ValidOffsetZ(double? v) => v is { } value && double.IsFinite(value) && value >= -50 && value <= 50;
+    private void SetOffsetZ(double? v)
+    {
+        OffsetZInput = v;
+        if (ValidOffsetZ(v)) OffsetZ = (float)(v!.Value / 100);
+    }
+
+    private double? PitchDegreesInput;
+    private string? PitchDegreesError => ValidPitchDegrees(PitchDegreesInput) ? null : "Enter a number from -180 to 180.";
+    private static bool ValidPitchDegrees(double? v) => v is { } value && double.IsFinite(value) && value >= -180 && value <= 180;
+    private void SetPitchDegrees(double? v)
+    {
+        PitchDegreesInput = v;
+        if (ValidPitchDegrees(v)) PitchDegrees = (float)v!.Value;
+    }
+
+    private double? YawDegreesInput;
+    private string? YawDegreesError => ValidYawDegrees(YawDegreesInput) ? null : "Enter a number from -180 to 180.";
+    private static bool ValidYawDegrees(double? v) => v is { } value && double.IsFinite(value) && value >= -180 && value <= 180;
+    private void SetYawDegrees(double? v)
+    {
+        YawDegreesInput = v;
+        if (ValidYawDegrees(v)) YawDegrees = (float)v!.Value;
+    }
+
+    private double? RollDegreesInput;
+    private string? RollDegreesError => ValidRollDegrees(RollDegreesInput) ? null : "Enter a number from -180 to 180.";
+    private static bool ValidRollDegrees(double? v) => v is { } value && double.IsFinite(value) && value >= -180 && value <= 180;
+    private void SetRollDegrees(double? v)
+    {
+        RollDegreesInput = v;
+        if (ValidRollDegrees(v)) RollDegrees = (float)v!.Value;
+    }
+
+    private double? HideDelayMsInput;
+    private string? HideDelayMsError => ValidHideDelayMs(HideDelayMsInput) ? null : "Enter a whole number from 0 to 5000.";
+    private static bool ValidHideDelayMs(double? v) => v is { } value && double.IsFinite(value) && value >= 0 && value <= 5000 && value == Math.Floor(value);
+    private void SetHideDelayMs(double? v)
+    {
+        HideDelayMsInput = v;
+        if (ValidHideDelayMs(v)) HideDelayMs = (int)v!.Value;
+    }
+
+    private double? ShockHoldMsInput;
+    private string? ShockHoldMsError => ValidShockHoldMs(ShockHoldMsInput) ? null : "Enter a whole number from 200 to 3000.";
+    private static bool ValidShockHoldMs(double? v) => v is { } value && double.IsFinite(value) && value >= 200 && value <= 3000 && value == Math.Floor(value);
+    private void SetShockHoldMs(double? v)
+    {
+        ShockHoldMsInput = v;
+        if (ValidShockHoldMs(v)) ShockHoldMs = (int)v!.Value;
+    }
+
     private static readonly string PluginIdValue = SteamVROverlayPlugin.PluginId;
 
     private static readonly IEnumerable<Select<string>.SelectOption<string>> HandOptions =
@@ -199,13 +184,19 @@
     [Parameter]
     public string? PluginId { get; set; }
 
-    private bool Enabled;
     private bool AutoStart;
     private IReadOnlyList<(string Key, string Label)> ContributedItems = [];
 
     protected override void OnInitialized()
     {
-        Enabled = Settings.Enabled;
+        OffsetXInput = Math.Round(Settings.OffsetX * 100.0, 1);
+        OffsetYInput = Math.Round(Settings.OffsetY * 100.0, 1);
+        OffsetZInput = Math.Round(Settings.OffsetZ * 100.0, 1);
+        PitchDegreesInput = Math.Round((double)Settings.PitchDegrees, 1);
+        YawDegreesInput = Math.Round((double)Settings.YawDegrees, 1);
+        RollDegreesInput = Math.Round((double)Settings.RollDegrees, 1);
+        HideDelayMsInput = Settings.HideDelayMs;
+        ShockHoldMsInput = Settings.ShockHoldMs;
         AutoStart = Settings.AutoStart;
         Overlay.StateChanged += OnStateChanged;
         Settings.Changed += OnSettingsChanged;
@@ -307,13 +298,23 @@
     private int MaxIntensity
     {
         get => Settings.MaxIntensity;
-        set => Settings.MaxIntensity = value;
+        set
+        {
+            var startingIntensity = Settings.DefaultIntensity;
+            Settings.MaxIntensity = value;
+            Settings.DefaultIntensity = Math.Min(startingIntensity, Settings.MaxIntensity);
+        }
     }
 
     private double MaxDurationSeconds
     {
         get => Settings.MaxDurationSeconds;
-        set => Settings.MaxDurationSeconds = value;
+        set
+        {
+            var startingDuration = Settings.DefaultDurationSeconds;
+            Settings.MaxDurationSeconds = value;
+            Settings.DefaultDurationSeconds = Math.Min(startingDuration, Settings.MaxDurationSeconds);
+        }
     }
 
     private int DefaultIntensity
@@ -338,24 +339,6 @@
 
     private bool WarnBeforeShock => Settings.WarnBeforeShock;
 
-    private string StatusText => Overlay.State switch
-    {
-        OverlayRuntimeState.Running when Overlay.IsOverlayVisible => "Connected — panel visible",
-        OverlayRuntimeState.Running => "Connected — panel hidden",
-        OverlayRuntimeState.WaitingForSteamVr => "Waiting for SteamVR",
-        OverlayRuntimeState.RuntimeNotInstalled => "SteamVR is not installed",
-        OverlayRuntimeState.Error => "Error",
-        _ => "Stopped"
-    };
-
-    private string StatusDotClass => Overlay.State switch
-    {
-        OverlayRuntimeState.Running => "bg-app-success",
-        OverlayRuntimeState.WaitingForSteamVr => "bg-app-warning",
-        OverlayRuntimeState.Error or OverlayRuntimeState.RuntimeNotInstalled => "bg-app-danger",
-        _ => "bg-app-subtle"
-    };
-
     private void OnHandChanged(string? value)
     {
         Settings.Hand = string.Equals(value, "right", StringComparison.OrdinalIgnoreCase)
@@ -363,17 +346,11 @@
             : OverlayHand.Left;
     }
 
-    private Task ToggleEnabled(bool enabled)
+
+    private void ToggleEnabled(bool enabled)
     {
-        Enabled = enabled;
         Settings.Enabled = enabled;
-
-        if (!enabled)
-        {
-            Overlay.Stop();
-        }
-
-        return Task.CompletedTask;
+        if (!enabled) Overlay.Stop();
     }
 
     private Task ToggleAutoStart(bool enabled)
@@ -431,16 +408,32 @@
         return Task.CompletedTask;
     }
 
-    private void StartOverlay() => Overlay.Start();
-
-    private void StopOverlay() => Overlay.Stop();
-
-    private void ResetPlacement() => Settings.ResetPlacement();
+    private void ResetPlacement()
+    {
+        Settings.ResetPlacement();
+        OffsetXInput = Math.Round(Settings.OffsetX * 100.0, 1);
+        OffsetYInput = Math.Round(Settings.OffsetY * 100.0, 1);
+        OffsetZInput = Math.Round(Settings.OffsetZ * 100.0, 1);
+        PitchDegreesInput = Math.Round((double)Settings.PitchDegrees, 1);
+        YawDegreesInput = Math.Round((double)Settings.YawDegrees, 1);
+        RollDegreesInput = Math.Round((double)Settings.RollDegrees, 1);
+    }
 
     private void OnStateChanged(OverlayRuntimeState state) => InvokeAsync(StateHasChanged);
 
     // Moving the panel in VR saves its placement from the overlay thread; show the new offsets.
-    private void OnSettingsChanged() => InvokeAsync(StateHasChanged);
+    private void OnSettingsChanged() => InvokeAsync(() =>
+    {
+        if (ValidOffsetX(OffsetXInput)) OffsetXInput = Math.Round(Settings.OffsetX * 100.0, 1);
+        if (ValidOffsetY(OffsetYInput)) OffsetYInput = Math.Round(Settings.OffsetY * 100.0, 1);
+        if (ValidOffsetZ(OffsetZInput)) OffsetZInput = Math.Round(Settings.OffsetZ * 100.0, 1);
+        if (ValidPitchDegrees(PitchDegreesInput)) PitchDegreesInput = Math.Round((double)Settings.PitchDegrees, 1);
+        if (ValidYawDegrees(YawDegreesInput)) YawDegreesInput = Math.Round((double)Settings.YawDegrees, 1);
+        if (ValidRollDegrees(RollDegreesInput)) RollDegreesInput = Math.Round((double)Settings.RollDegrees, 1);
+        if (ValidHideDelayMs(HideDelayMsInput)) HideDelayMsInput = Settings.HideDelayMs;
+        if (ValidShockHoldMs(ShockHoldMsInput)) ShockHoldMsInput = Settings.ShockHoldMs;
+        StateHasChanged();
+    });
 
     public void Dispose()
     {

@@ -77,7 +77,7 @@ public class EventLogService : IDisposable
     {
         if (connected)
         {
-            AddLog("Connected to Joystick.tv!");
+            AddLog("Connected to Joystick.tv. Listening for events…");
         }
     }
 
@@ -88,26 +88,26 @@ public class EventLogService : IDisposable
     private void OnTip(JoystickTipEvent e)
     {
         var item = e.IsTipMenu ? $" for {e.TipMenuItem}" : "";
-        AddLog($"\U0001FA99 {e.UserName} tipped {e.Tokens} tokens{item}");
+        AddLog($"{e.UserName} tipped {e.Tokens} tokens{item}");
     }
 
-    private void OnFollow(JoystickFollowEvent e) => AddLog($"➕ {e.UserName} followed");
+    private void OnFollow(JoystickFollowEvent e) => AddLog($"{e.UserName} followed");
 
     private void OnSubscribe(JoystickSubscribeEvent e)
     {
         if (e.IsGifted)
         {
-            AddLog($"⭐ {e.UserName} gifted {e.Quantity} subscription(s)");
+            AddLog($"{e.UserName} gifted {e.Quantity} {(e.Quantity == 1 ? "subscription" : "subscriptions")}");
         }
         else
         {
-            AddLog($"⭐ {e.UserName} subscribed");
+            AddLog($"{e.UserName} subscribed");
         }
     }
 
-    private void OnWheelSpin(JoystickWheelSpinEvent e) => AddLog($"\U0001F3A1 {e.UserName} won {e.Prize}");
+    private void OnWheelSpin(JoystickWheelSpinEvent e) => AddLog($"{e.UserName} won {e.Prize}");
 
-    private void OnStreamState(JoystickStreamStateEvent e) => AddLog($"\U0001F4FA Stream {e.State}");
+    private void OnStreamState(JoystickStreamStateEvent e) => AddLog($"Stream {e.State}");
 
     public void Dispose()
     {

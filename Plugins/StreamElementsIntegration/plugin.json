@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.streamelementsintegration",
-  "name": "StreamElements Integration",
+  "name": "StreamElements",
   "version": "0.1.0",
   "entryPoint": "StreamElementsIntegration.dll",
-  "description": "StreamElements integration with flow trigger nodes for tips, cheers, follows, subscribers, hosts, raids, and store redemptions via the StreamElements realtime API",
+  "description": "React to tips, cheers, subscriptions, follows, hosts, raids and store redemptions with shocker actions or flow triggers.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

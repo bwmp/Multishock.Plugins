@@ -1,120 +1,82 @@
 @page "/plugins/com-multishock-twitchintegration/redeem-config"
 @using MultiShock.PluginSdk
-@inject IDeviceActions DeviceActions
-@inject IJSRuntime JSRuntime
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-xl font-bold text-app-text">Channel Point Redemptions</h1>
-            <p class="text-sm mt-1 text-app-muted">Configure actions triggered by channel
-                point redemptions</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <Toggle Label="@(RedeemConfigService.Config.Enabled ? "Enabled" : "Disabled")"
-                Value="RedeemConfigService.Config.Enabled" ValueChanged="@((value) => ToggleMasterEnabled(value))" />
-            <Button Text="Fetch Rewards" Variant="secondary" Disabled="@RedeemConfigService.IsFetchingRedeems"
-                OnClick="@(() => FetchRewards())">
-                @if (RedeemConfigService.IsFetchingRedeems)
-                {
-                    <LucideIcon Name="refresh-cw" Class="w-4 h-4 animate-spin" />
-                }
-                else
-                {
-                    <LucideIcon Name="refresh-cw" Class="w-4 h-4" />
-                }
-            </Button>
-        </div>
-    </div>
+<PageHeader Title="Channel points" Icon="ticket" Description="React when viewers redeem your channel point rewards. Reactions save automatically; reward details save to Twitch with Save changes.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+    <Actions>
+        <Toggle Label="Enabled" AriaLabel="Enable channel point reactions" Value="RedeemConfigService.Config.Enabled" ValueChanged="ToggleMasterEnabled" />
+        <Button Text="Refresh rewards" Icon="refresh-cw" Variant="secondary" Loading="RedeemConfigService.IsFetchingRedeems" OnClick="FetchRewards" />
+    </Actions>
+</PageHeader>
+
+<div class="max-w-4xl space-y-4">
+    @if (!RedeemConfigService.Config.Enabled)
+    {
+        <Alert Variant="neutral">Channel point reactions are off. You can set up rewards now; nothing runs until you switch on Enabled. Redemptions still reach your flows.</Alert>
+    }
 
     @if (!string.IsNullOrEmpty(StatusMessage))
     {
-        <div class="mb-4 text-sm px-4 py-3 rounded"
-            style="background: @(StatusIsSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(StatusIsSuccess ? "rgb(var(--ms-primary-rgb))" : "rgb(var(--ms-danger-rgb))");">
-            @StatusMessage
-        </div>
+        @if (StatusIsSuccess)
+        {
+            <p role="status" class="text-sm text-app-muted">@StatusMessage</p>
+        }
+        else
+        {
+            <Alert Variant="danger">@StatusMessage</Alert>
+        }
     }
 
-    <!-- Tab Navigation -->
-    <div class="flex gap-2 mb-4 border-b border-app-border">
-        <button @onclick="@(() => ActiveTab = "all")"
-            class="px-4 py-2 text-sm font-medium transition-colors @(ActiveTab == "all" ? "border-b-2" : "")"
-            style="color: @(ActiveTab == "all" ? "var(--ms-primary)))" : "var(--ms-muted)))"); border-color: var(--ms-primary)));">
-            All Rewards (@RedeemConfigService.Config.Redeems.Count)
-        </button>
-        <button @onclick="@(() => ActiveTab = "manageable")"
-            class="px-4 py-2 text-sm font-medium transition-colors @(ActiveTab == "manageable" ? "border-b-2" : "")"
-            style="color: @(ActiveTab == "manageable" ? "var(--ms-primary)))" : "var(--ms-muted)))"); border-color: var(--ms-primary)));">
-            Manageable (@RedeemConfigService.Config.Redeems.Count(r => r.IsManageable))
-        </button>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <Tabs Items="RewardTabs" @bind-Value="ActiveTab" />
+        <span class="text-xs text-app-muted">
+            @(RedeemConfigService.Config.LastFetchedUtc.HasValue
+                ? $"Last fetched {RedeemConfigService.Config.LastFetchedUtc.Value.ToLocalTime():g}"
+                : "Rewards not fetched yet")
+        </span>
     </div>
 
     <div class="space-y-3">
         @if (ActiveTab == "manageable")
         {
-            <!-- Create New Reward Button -->
-            <div class="twitch-card">
-                <div class="twitch-card-body">
-                    @if (!ShowCreateForm)
-                    {
-                        <Button Text="Create New Reward" Variant="primary" OnClick="@(() => ShowCreateForm = true)">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                        </Button>
-                    }
-                    else
-                    {
-                        <div class="space-y-3">
-                            <h3 class="font-medium text-app-text">Create New Reward</h3>
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Title</label>
-                                <input type="text" @bind="NewRewardTitle" class="twitch-input w-full" placeholder="Reward title" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Cost (Channel Points)</label>
-                                <input type="number" @bind="NewRewardCost" class="twitch-input w-full" min="1" placeholder="100" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Description (Optional)</label>
-                                <textarea @bind="NewRewardPrompt" class="twitch-input w-full" rows="2" placeholder="What does this reward do?"></textarea>
-                            </div>
-                            <div class="flex gap-2">
-                                <Button Text="Create" Variant="primary" Disabled="@IsCreatingReward" OnClick="@CreateReward" />
-                                <Button Text="Cancel" Variant="secondary" OnClick="@(() => { ShowCreateForm = false; ResetCreateForm(); })" />
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-
             var manageableRewards = RedeemConfigService.Config.Redeems.Where(r => r.IsManageable).OrderBy(r => r.RewardTitle).ToList();
 
-            @if (manageableRewards.Any())
+            @if (ShowCreateForm)
             {
-                @foreach (var redeem in manageableRewards)
-                {
-                    @RenderRedeemCard(redeem, true)
-                }
-            }
-            else
-            {
-                <div class="twitch-card">
-                    <div class="twitch-card-body">
-                        <div class="twitch-empty py-8">
-                            <svg class="w-12 h-12 mb-2 text-app-muted" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p>No manageable rewards</p>
-                            <p class="text-xs mt-1 text-app-muted">
-                                Create rewards through this plugin to manage them here
-                            </p>
+                <Card Title="Create reward" Description="Creates the reward on Twitch immediately. Only rewards created here can be turned on or off by a flow.">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <TextInput Label="Title" Value="@NewRewardTitle" ValueChanged="@(v => NewRewardTitle = v ?? string.Empty)" />
+                        <NumberInput Label="Cost" Suffix="pts" Min="1" Max="MaxRewardCost" Value="NewRewardCost" Error="@NewRewardCostError" ValueChanged="@(v => NewRewardCost = v)" />
+                        <div class="sm:col-span-2">
+                            <TextArea Label="Description (optional)" Rows="2" Value="@NewRewardPrompt" ValueChanged="@(v => NewRewardPrompt = v ?? string.Empty)" />
                         </div>
                     </div>
+                    <div class="mt-4 flex items-center justify-end gap-3 border-t border-app-border pt-3">
+                        <Button Text="Cancel" Variant="ghost" OnClick="@(() => { ShowCreateForm = false; ResetCreateForm(); })" />
+                        <Button Text="Create reward" Variant="primary" Loading="IsCreatingReward" Disabled="@(NewRewardCostError != null)" Title="@(NewRewardCostError == null ? null : "Correct the cost first")" OnClick="CreateReward" />
+                    </div>
+                </Card>
+            }
+            else if (manageableRewards.Any())
+            {
+                <div>
+                    <Button Text="Create reward" Icon="plus" Variant="secondary" Size="sm" OnClick="@(() => ShowCreateForm = true)" />
                 </div>
+            }
+
+            @foreach (var redeem in manageableRewards)
+            {
+                @RenderRedeemCard(redeem)
+            }
+
+            @if (!manageableRewards.Any() && !ShowCreateForm)
+            {
+                <Card>
+                    <EmptyState Icon="ticket" Title="No rewards created here" Description="Rewards you create here can also be turned on and off by a flow.">
+                        <Actions><Button Text="Create reward" Icon="plus" Variant="primary" OnClick="@(() => ShowCreateForm = true)" /></Actions>
+                    </EmptyState>
+                </Card>
             }
         }
         else
@@ -123,108 +85,68 @@
             {
                 @foreach (var redeem in RedeemConfigService.Config.Redeems.OrderBy(r => r.RewardTitle))
                 {
-                    @RenderRedeemCard(redeem, false)
+                    @RenderRedeemCard(redeem)
                 }
             }
             else
             {
-                <div class="twitch-card">
-                    <div class="twitch-card-body">
-                        <div class="twitch-empty py-8">
-                            <svg class="w-12 h-12 mb-2 text-app-muted" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p>No channel point rewards found</p>
-                            <p class="text-xs mt-1 text-app-muted">
-                                Click "Fetch Rewards" to load your channel point rewards from Twitch
-                            </p>
-                            <Button Text="Fetch Rewards" Variant="primary" Class="mt-4"
-                                Disabled="@RedeemConfigService.IsFetchingRedeems" OnClick="@(() => FetchRewards())" />
-                        </div>
-                    </div>
-                </div>
+                <Card>
+                    <EmptyState Icon="ticket" Title="No channel point rewards yet" Description="Load your channel point rewards from Twitch to give each one a reaction.">
+                        <Actions><Button Text="Refresh rewards" Icon="refresh-cw" Variant="primary" Loading="RedeemConfigService.IsFetchingRedeems" OnClick="FetchRewards" /></Actions>
+                    </EmptyState>
+                </Card>
             }
         }
 
-        @if (RedeemConfigService.Config.LastFetchedUtc.HasValue)
-        {
-            <div class="text-xs text-center text-app-muted">
-                Last fetched: @RedeemConfigService.Config.LastFetchedUtc.Value.ToLocalTime().ToString("g")
-            </div>
-        }
-
-        <div class="twitch-card">
-            <div class="twitch-card-header cursor-pointer" @onclick="@(() => ShowHelpCard = !ShowHelpCard)">
-                <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-app-primary" fill="none" stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>How It Works</span>
-                </div>
-                <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ShowHelpCard ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
-            @if (ShowHelpCard)
-            {
-                <div class="twitch-card-body text-sm text-app-muted">
-                    <p class="mb-2">Channel point redemptions trigger actions when viewers redeem custom rewards on your
-                        channel.</p>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li>Click "Fetch Rewards" to load your channel point rewards from Twitch</li>
-                        <li><strong>Manageable tab:</strong> Create and fully manage rewards through this plugin</li>
-                        <li><strong>All Rewards tab:</strong> Configure actions for any reward (can't enable/disable externally created rewards)</li>
-                        <li>Each reward can have different intensity, duration, and shocker selections</li>
-                        <li>Only rewards created through this plugin can be enabled/disable via the SetRedeemEnabled node</li>
-                    </ul>
-                </div>
-            }
-        </div>
+        <details class="panel group/help">
+            <summary class="flex cursor-pointer list-none items-center gap-2 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+                <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/help:rotate-90" />
+                <span class="panel-title">How it works</span>
+            </summary>
+            <ul class="list-disc space-y-1 border-t border-app-border p-4 pl-8 text-sm text-app-muted">
+                <li>Refresh rewards loads your channel point rewards from Twitch. Each reward can have its own shockers, intensity and duration.</li>
+                <li>All rewards lists every reward on your channel. You can set a reaction for any of them.</li>
+                <li>Created here lists rewards made on this page. Only these can be edited, deleted, or turned on and off with the Set Redeem Enabled flow node.</li>
+            </ul>
+        </details>
     </div>
 </div>
+
+<ConfirmDialog IsOpen="@(PendingDelete != null)" Title="Delete reward?"
+               Message="@($"{PendingDelete?.RewardTitle} will be deleted from your Twitch channel. Viewers can no longer redeem it. This can't be undone.")"
+               ConfirmText="Delete reward" IsConfirming="IsDeleting" OnCancel="@(() => PendingDelete = null)" OnConfirm="ConfirmDeleteReward" />
 
 @code {
     // Use service locator instead of @inject for plugin-specific services
     // This survives hot-reload where the DI container has stale types
     private static readonly string PluginId = TwitchIntegrationPlugin.PluginId;
     private RedeemConfigService RedeemConfigService => PluginServiceLocator.GetRequiredService<RedeemConfigService>(PluginId);
-    
+
+    private IReadOnlyList<Tabs.TabItem> RewardTabs => [
+        new("all", "All rewards", Badge: RedeemConfigService.Config.Redeems.Count.ToString()),
+        new("manageable", "Created here", Badge: RedeemConfigService.Config.Redeems.Count(r => r.IsManageable).ToString())];
     private string ActiveTab = "all";
     private HashSet<string> ExpandedRedeems = new();
-    private bool ShowHelpCard = false;
     private string? StatusMessage;
     private bool StatusIsSuccess;
 
-    // Create form state
     private bool ShowCreateForm = false;
     private bool IsCreatingReward = false;
     private string NewRewardTitle = "";
-    private int NewRewardCost = 100;
+    private double? NewRewardCost = 100;
     private string NewRewardPrompt = "";
 
-    // Edit form state
     private string? EditingRewardId = null;
     private string EditRewardTitle = "";
-    private int EditRewardCost = 100;
+    private double? EditRewardCost = 100;
+
+    private const int MaxRewardCost = int.MaxValue;
+    private string? NewRewardCostError => NumberField.Validate(NewRewardCost, 1, MaxRewardCost, 1);
+    private string? EditRewardCostError => NumberField.Validate(EditRewardCost, 1, MaxRewardCost, 1);
     private string EditRewardPrompt = "";
 
-    private readonly Select<string>.SelectOption<string>[] SelectionModeOptions = new[]
-    {
-        new Select<string>.SelectOption<string>("All", "All"),
-        new Select<string>.SelectOption<string>("Random", "Random"),
-        new Select<string>.SelectOption<string>("RoundRobin", "Round Robin"),
-    };
-
-    private readonly Select<string>.SelectOption<string>[] CommandTypeOptions = new[]
-    {
-        new Select<string>.SelectOption<string>("Shock", "Shock"),
-        new Select<string>.SelectOption<string>("Vibrate", "Vibrate"),
-        new Select<string>.SelectOption<string>("Beep", "Beep"),
-    };
+    private RedeemConfig? PendingDelete;
+    private bool IsDeleting;
 
     protected override void OnInitialized()
     {
@@ -235,152 +157,112 @@
         }
     }
 
-    private RenderFragment RenderRedeemCard(RedeemConfig redeem, bool isManageable) => __builder =>
+    private RenderFragment RenderRedeemCard(RedeemConfig redeem) => __builder =>
     {
         var isEditing = EditingRewardId == redeem.RewardId;
+        var expanded = ExpandedRedeems.Contains(redeem.Id);
+        var title = string.IsNullOrWhiteSpace(redeem.RewardTitle) ? "Untitled reward" : redeem.RewardTitle;
 
-        <div class="twitch-card @(!redeem.Enabled ? "opacity-50" : "")">
-            <div class="twitch-card-header cursor-pointer hover:opacity-80"
-                @onclick="@(() => ToggleExpanded(redeem.Id))">
-                <div class="flex items-center gap-2">
-                    <div @onclick:stopPropagation="true">
-                        <Toggle Value="redeem.Enabled" ValueChanged="@((e) => ToggleRedeemEnabled(redeem, e))" />
-                    </div>
-                    <span>@redeem.RewardTitle</span>
-                    <span class="twitch-badge twitch-badge-primary">@redeem.Cost pts</span>
-                    <span class="twitch-badge">@redeem.CommandType</span>
-                    @if (redeem.IsManageable)
-                    {
-                        <span class="twitch-badge" style="background: rgba(74, 158, 255, 0.2); color: rgb(var(--ms-primary-rgb));">Manageable</span>
-                    }
-                </div>
-                <div class="flex items-center gap-2">
-                    @if (redeem.SelectedShockerIds.Any())
-                    {
-                        <span class="twitch-badge">@redeem.SelectedShockerIds.Count shocker@(redeem.SelectedShockerIds.Count == 1 ? "" : "s")</span>
-                    }
-                    <svg class="w-4 h-4 shrink-0 text-app-muted transition-transform @(ExpandedRedeems.Contains(redeem.Id) ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
+        <section class="panel" @key="redeem.Id" aria-label="@title">
+            <div class="@($"flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 {(expanded ? "border-b border-app-border" : "")}")">
+                <button type="button" class="flex min-w-0 flex-1 items-center gap-2 rounded-ctl py-1 text-left"
+                        aria-expanded="@(expanded ? "true" : "false")" aria-controls="@(expanded ? $"reward-{redeem.Id}" : null)"
+                        @onclick="@(() => ToggleExpanded(redeem.Id))">
+                    <LucideIcon Name="chevron-right" Size="16" Class="@($"shrink-0 text-app-muted transition-transform {(expanded ? "rotate-90" : "")}")" />
+                    <span class="min-w-0">
+                        <span class="flex items-center gap-2">
+                            <span class="truncate text-sm font-medium text-app-text">@title</span>
+                            @if (redeem.IsManageable)
+                            {
+                                <Badge>Created here</Badge>
+                            }
+                        </span>
+                        <span class="block truncate text-xs text-app-subtle">@redeem.Cost points · @redeem.CommandType @redeem.Intensity% for @redeem.Duration.ToString("0.0") s</span>
+                    </span>
+                </button>
+                @if (redeem.Enabled && redeem.SelectedShockerIds.Count == 0)
+                {
+                    <SummaryChip Summary="@(new ReactionSummary(RedeemConfigService.Config.Enabled ? ReactionStatus.Attention : ReactionStatus.Off, "No shockers"))" />
+                }
+                <Toggle AriaLabel="@($"React to {title}")" Value="redeem.Enabled" ValueChanged="@(e => ToggleRedeemEnabled(redeem, e))" />
             </div>
 
-            @if (ExpandedRedeems.Contains(redeem.Id))
+            @if (expanded)
             {
-                <div class="twitch-card-body space-y-4">
-                    @if (isManageable && isEditing)
+                <div id="@($"reward-{redeem.Id}")" class="panel-body">
+                    @if (redeem.IsManageable && isEditing)
                     {
-                        <!-- Edit Form -->
-                        <div class="space-y-3 p-3 rounded" style="background: rgba(74, 158, 255, 0.05);">
-                            <h4 class="text-sm font-medium text-app-text">Edit Reward on Twitch</h4>
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Title</label>
-                                <input type="text" @bind="EditRewardTitle" class="twitch-input w-full" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Cost</label>
-                                <input type="number" @bind="EditRewardCost" class="twitch-input w-full" min="1" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Description</label>
-                                <textarea @bind="EditRewardPrompt" class="twitch-input w-full" rows="2"></textarea>
-                            </div>
-                            <div class="flex gap-2">
-                                <Button Text="Save Changes" Variant="primary" OnClick="@(() => SaveRewardEdit(redeem.RewardId))" />
-                                <Button Text="Cancel" Variant="secondary" OnClick="@(() => EditingRewardId = null)" />
-                            </div>
-                        </div>
-                    }
-
-                    <div class="flex flex-wrap items-end gap-3">
-                        <div class="grow">
-                            <label class="block text-xs font-medium mb-1 text-app-muted">Shockers</label>
-                            @{
-                                var loadedShockers = GetLoadedShockers().ToList();
-                            }
-                            @if (loadedShockers.Any())
-                            {
-                                <ShockerSelect Label="" MultiSelect="true" SelectedIds="redeem.SelectedShockerIds"
-                                    SelectedIdsChanged="@(async (ids) => { redeem.SelectedShockerIds = ids; RedeemConfigService.UpdateRedeem(redeem); await InvokeAsync(StateHasChanged); })" />
-                            }
-                            else
-                            {
-                                <div class="twitch-input w-full flex items-center text-xs text-app-muted">
-                                    No shockers
+                        <div class="mb-4 space-y-4 border-b border-app-border pb-4">
+                            <h3 class="text-sm font-medium text-app-text">Edit reward on Twitch</h3>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <TextInput Label="Title" Value="@EditRewardTitle" ValueChanged="@(v => EditRewardTitle = v ?? string.Empty)" />
+                                <NumberInput Label="Cost" Suffix="pts" Min="1" Max="MaxRewardCost" Value="EditRewardCost" Error="@EditRewardCostError" ValueChanged="@(v => EditRewardCost = v)" />
+                                <div class="sm:col-span-2">
+                                    <TextArea Label="Description (optional)" Rows="2" Value="@EditRewardPrompt" ValueChanged="@(v => EditRewardPrompt = v ?? string.Empty)" />
                                 </div>
-                            }
-                        </div>
-                        <div class="w-40">
-                            <Select Label="Mode" Value="@redeem.Mode.ToString()"
-                                ValueChanged="@((string value) => UpdateMode(redeem, ParseSelectionMode(value)))"
-                                Options="@SelectionModeOptions" />
-                        </div>
-                        <div class="w-40">
-                            <Select Label="Device Command" Value="@redeem.CommandType"
-                                ValueChanged="@((string value) => UpdateCommandType(redeem, value ?? "Shock"))"
-                                Options="@CommandTypeOptions" />
-                        </div>
-                        @if (redeem.CommandType == "Shock")
-                        {
-                            <div>
-                                <label class="block text-xs font-medium mb-1 text-app-muted">Warning Vibrate</label>
-                                <Toggle Value="redeem.WarningVibrate"
-                                    ValueChanged="@(v => UpdateWarningVibrate(redeem, v))" />
                             </div>
-                        }
-                    </div>
-
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-medium text-app-muted min-w-[5rem]">Intensity</span>
-                            <Slider Min="1" Max="100" Value="redeem.Intensity"
-                                ValueChanged="@(v => UpdateIntensity(redeem, (int)v))" Class="flex-1" ShowValue="false" />
-                            <NumberInput Value="@((double)redeem.Intensity)" Min="1" Max="100"
-                                ValueChanged="@(v => UpdateIntensity(redeem, (int)Math.Clamp(v ?? 50, 1, 100)))"
-                                Class="w-16" />
-                            <span class="text-xs text-app-muted">%</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-medium text-app-muted min-w-[5rem]">Duration</span>
-                            <Slider Min="0.1" Max="15" Step="0.1" Value="redeem.Duration"
-                                ValueChanged="@(v => UpdateDuration(redeem, v))" Class="flex-1" ShowValue="false" />
-                            <NumberInput Value="redeem.Duration" Min="0.1" Max="15" Step="0.1"
-                                ValueChanged="@(v => UpdateDuration(redeem, Math.Clamp(v ?? 1.0, 0.1, 15.0)))"
-                                Class="w-16" />
-                            <span class="text-xs text-app-muted">s</span>
-                        </div>
-                    </div>
-
-                    @if (isManageable && !isEditing)
-                    {
-                        <div class="flex gap-2 pt-2 border-t border-app-border">
-                            <Button Text="Edit Reward" Variant="secondary" OnClick="@(() => StartEditReward(redeem))">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </Button>
-                            <Button Text="Delete Reward" Variant="secondary" OnClick="@(() => DeleteReward(redeem.RewardId))"
-                                Style="color: rgb(var(--ms-danger-rgb));">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </Button>
+                            <div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
+                                <span role="status" class="text-xs text-app-muted">Saving updates this reward on Twitch immediately.</span>
+                                <Button Text="Cancel" Variant="ghost" OnClick="@(() => EditingRewardId = null)" />
+                                <Button Text="Save changes" Variant="primary" Disabled="@(EditRewardCostError != null)" Title="@(EditRewardCostError == null ? null : "Correct the cost first")" OnClick="@(() => SaveRewardEdit(redeem.RewardId))" />
+                            </div>
                         </div>
                     }
-                    else if (!isManageable)
+
+                    <SettingRow Label="Shockers" Description="The shockers this reward can run on.">
+                        <Help>
+                            @if (redeem.SelectedShockerIds.Count == 0)
+                            {
+                                <NoShockersHint />
+                            }
+                        </Help>
+                        <ChildContent>
+                            <ShockerSelect Label="Shockers" Class="[&_label]:sr-only" MultiSelect="true" SelectedIds="redeem.SelectedShockerIds"
+                                           SelectedIdsChanged="@(ids => UpdateShockers(redeem, ids))" />
+                        </ChildContent>
+                    </SettingRow>
+                    <SettingRow Label="Mode" Description="Which of the selected shockers react.">
+                        <Select TValue="string" Label="@($"Mode for {title}")" Class="[&_label]:sr-only" Value="@redeem.Mode.ToString()" Options="ActionOptions.Modes"
+                                ValueChanged="@(value => UpdateMode(redeem, ActionOptions.ParseMode(value)))" />
+                    </SettingRow>
+                    <SettingRow Label="Command" Description="What the shockers do.">
+                        <Select TValue="string" Label="@($"Command for {title}")" Class="[&_label]:sr-only" Value="@redeem.CommandType" Options="ActionOptions.Commands"
+                                ValueChanged="@(value => UpdateCommandType(redeem, value ?? "Shock"))" />
+                    </SettingRow>
+                    @if (redeem.CommandType == "Shock")
                     {
-                        <div class="text-xs p-2 rounded" style="background: rgba(245, 158, 11, 0.1); color: rgb(var(--ms-warning-rgb));">
-                            <strong>Note:</strong> This reward was created outside this plugin and can only be configured for actions here. To enable/disable it via the SetRedeemEnabled node, create it through this plugin.
+                        <SettingRow Label="Warning vibrate" Description="Vibrate briefly before each shock.">
+                            <Toggle AriaLabel="@($"Warning vibrate for {title}")" Value="redeem.WarningVibrate"
+                                    ValueChanged="@(v => UpdateWarningVibrate(redeem, v))" />
+                        </SettingRow>
+                    }
+                    <SettingRow Label="Intensity" Description="How strong the action is.">
+                        <NumberField Label="@($"Intensity for {title}")" Class="w-28 [&_label]:sr-only" Suffix="%" Min="1" Max="100" Value="redeem.Intensity"
+                                     ValueChanged="@(v => UpdateIntensity(redeem, (int)v))" />
+                    </SettingRow>
+                    <SettingRow Label="Duration" Description="How long the action lasts.">
+                        <NumberField Label="@($"Duration for {title}")" Class="w-28 [&_label]:sr-only" Suffix="s" Min="0.1" Max="15" Step="0.1" Value="redeem.Duration"
+                                     ValueChanged="@(v => UpdateDuration(redeem, v))" />
+                    </SettingRow>
+
+                    @if (redeem.IsManageable && !isEditing)
+                    {
+                        <div class="mt-3 flex items-center justify-between gap-2 border-t border-app-border pt-3">
+                            <Button Text="Edit reward" Icon="pencil" Variant="secondary" Size="sm" OnClick="@(() => StartEditReward(redeem))" />
+                            <Button Variant="ghost" Size="icon-sm" Icon="trash-2" AriaLabel="@($"Delete {title} from Twitch")" Title="Delete reward" OnClick="@(() => PendingDelete = redeem)" />
                         </div>
+                    }
+                    else if (!redeem.IsManageable)
+                    {
+                        <p class="mt-3 flex items-start gap-1.5 border-t border-app-border pt-3 text-xs text-app-muted">
+                            <LucideIcon Name="info" Size="12" Class="mt-0.5 shrink-0" />
+                            <span>Created outside MultiShock. Its reaction works, but the Set Redeem Enabled flow node can't turn it on or off. Create a reward here if you need that.</span>
+                        </p>
                     }
                 </div>
             }
-        </div>
+        </section>
     };
-
-    private IEnumerable<ShockerInfo> GetLoadedShockers() => DeviceActions.GetLoadedShockers();
 
     private void OnConfigChanged() => InvokeAsync(StateHasChanged);
 
@@ -388,15 +270,19 @@
 
     private void ToggleExpanded(string redeemId)
     {
-        if (ExpandedRedeems.Contains(redeemId))
-            ExpandedRedeems.Remove(redeemId);
-        else
+        if (!ExpandedRedeems.Remove(redeemId))
             ExpandedRedeems.Add(redeemId);
     }
 
     private void ToggleRedeemEnabled(RedeemConfig redeem, bool enabled)
     {
         RedeemConfigService.SetRedeemEnabled(redeem.Id, enabled);
+    }
+
+    private void UpdateShockers(RedeemConfig redeem, List<string> ids)
+    {
+        redeem.SelectedShockerIds = ids;
+        RedeemConfigService.UpdateRedeem(redeem);
     }
 
     private void UpdateIntensity(RedeemConfig redeem, int value)
@@ -466,13 +352,7 @@
             return;
         }
 
-        if (NewRewardCost < 1)
-        {
-            StatusMessage = "Cost must be at least 1 channel point";
-            StatusIsSuccess = false;
-            await InvokeAsync(StateHasChanged);
-            return;
-        }
+        if (NewRewardCostError != null) return;
 
         IsCreatingReward = true;
         StatusMessage = null;
@@ -480,7 +360,7 @@
 
         var result = await RedeemConfigService.CreateRewardAsync(
             NewRewardTitle,
-            NewRewardCost,
+            (int)NewRewardCost!.Value,
             string.IsNullOrWhiteSpace(NewRewardPrompt) ? null : NewRewardPrompt
         );
 
@@ -521,7 +401,7 @@
         var result = await RedeemConfigService.UpdateRewardAsync(
             rewardId,
             title: EditRewardTitle,
-            cost: EditRewardCost,
+            cost: (int)EditRewardCost!.Value,
             prompt: string.IsNullOrWhiteSpace(EditRewardPrompt) ? null : EditRewardPrompt
         );
 
@@ -536,27 +416,26 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task DeleteReward(string rewardId)
+    private async Task ConfirmDeleteReward()
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this reward? This will remove it from Twitch permanently."))
-        {
-            return;
-        }
+        if (PendingDelete == null) return;
 
+        IsDeleting = true;
         StatusMessage = null;
         await InvokeAsync(StateHasChanged);
 
-        var result = await RedeemConfigService.DeleteRewardAsync(rewardId);
-        StatusIsSuccess = result.Success;
-        StatusMessage = result.Message;
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private static SelectionMode ParseSelectionMode(object? value)
-    {
-        if (value == null) return SelectionMode.All;
-        return Enum.TryParse<SelectionMode>(value.ToString(), out var mode) ? mode : SelectionMode.All;
+        try
+        {
+            var result = await RedeemConfigService.DeleteRewardAsync(PendingDelete.RewardId);
+            StatusIsSuccess = result.Success;
+            StatusMessage = result.Message;
+        }
+        finally
+        {
+            IsDeleting = false;
+            PendingDelete = null;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     public void Dispose()

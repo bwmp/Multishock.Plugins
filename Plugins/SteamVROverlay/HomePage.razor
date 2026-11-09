@@ -1,26 +1,19 @@
 @page "/plugins/com-multishock-steamvroverlay/steamvroverlay"
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
+@using Microsoft.Extensions.Logging
 @using SteamVROverlay.Overlay
 @using SteamVROverlay.Services
 @implements IDisposable
+@inject NavigationManager Navigation
 
 <div class="space-y-5">
-    <div class="flex items-center gap-3">
-        <div class="w-3 h-3 rounded-full @StatusDotClass"></div>
-        <span class="font-semibold">SteamVR Wrist Overlay</span>
-        <span class="text-sm text-app-subtle">@StatusText</span>
-        <div class="flex-1"></div>
-        @if (Overlay.IsRunning)
-        {
-            <Button Text="Stop" Variant="danger" Size="sm" OnClick="Stop" />
-        }
-        else
-        {
-            <Button Text="Start" Variant="primary" Size="sm" OnClick="Start" />
-        }
-    </div>
+    <PageHeader Title="SteamVR overlay" Icon="watch" Description="Control shockers and view plugin information from your wrist in SteamVR.">
+        <Meta><span class="chip @(Overlay.State == OverlayRuntimeState.Running ? "chip-ok" : Overlay.State == OverlayRuntimeState.WaitingForSteamVr ? "chip-info" : Overlay.State is OverlayRuntimeState.Error or OverlayRuntimeState.RuntimeNotInstalled ? "chip-danger" : "chip-neutral")" role="status"><span class="status-dot @StatusDotClass"></span> @StatusText</span></Meta>
+        <Actions><Button Text="Settings" Icon="settings" Variant="ghost" OnClick="OpenSettings" />@if (Overlay.IsRunning) { <Button Text="Stop" Variant="secondary" OnClick="Stop" /> } else { <Button Text="Start" Disabled="@(!Settings.Enabled)" Title="@(!Settings.Enabled ? "Turn on Overlay enabled in Settings first" : null)" OnClick="Start" /> }</Actions>
+    </PageHeader>
 
+    @if (!Settings.Enabled) { <p class="text-sm text-app-muted">Turn on Overlay enabled in <a class="text-app-primary" href="@($"settings/plugins?open={PluginIdValue}")">Settings</a> to make Start available.</p> }
     @if (!string.IsNullOrWhiteSpace(Overlay.LastError))
     {
         <Alert Variant="danger" Title="SteamVR error">@Overlay.LastError</Alert>
@@ -38,10 +31,10 @@
         </Alert>
     }
 
-    <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+    <div class="max-w-4xl grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         <div class="space-y-2">
             <h2 class="text-sm font-semibold text-app-text">Panel preview</h2>
-            <div class="w-80 space-y-2">
+            <div class="w-full max-w-xs space-y-2">
                 <Tabs Items="PreviewViews" Value="@PreviewTarget" ValueChanged="OnPreviewTargetChanged" Variant="segmented" Class="w-full" />
                 @if (PluginPages.Count > 0)
                 {
@@ -59,79 +52,80 @@
                 <img src="@PreviewDataUrl"
                      alt="Preview of the wrist panel as it appears in SteamVR"
                      width="320"
-                     class="h-auto" />
+                     class="h-auto max-w-full" />
             }
             else
             {
-                <div class="w-80 h-80 rounded-lg border border-app-border grid place-items-center text-sm text-app-subtle">
-                    Preview unavailable
-                </div>
+                <Alert Variant="danger" Title="Preview unavailable">@(PreviewError ?? "Refresh the preview to try again.")</Alert>
             }
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <Button Text="Refresh preview" Variant="secondary" Size="sm" Icon="refresh-cw" OnClick="RefreshPreview" />
                 <Button Text="Send test notification"
                         Variant="secondary"
                         Size="sm"
                         Icon="bell"
+                        Title="@(Overlay.State != OverlayRuntimeState.Running ? "Start the overlay and wait for SteamVR before sending a notification" : null)"
                         Disabled="@(Overlay.State != OverlayRuntimeState.Running)"
                         OnClick="SendTestNotification" />
             </div>
+            @if (Overlay.State != OverlayRuntimeState.Running) { <p class="text-xs text-app-muted">Test notifications require the overlay to be running in SteamVR.</p> }
         </div>
 
         <div class="space-y-4 text-sm">
-            <div>
-                <h2 class="text-sm font-semibold text-app-text mb-2">Status</h2>
+            <Card Title="Status">
                 <dl class="space-y-1">
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <dt class="text-app-muted w-40">Attached to</dt>
                         <dd>@(Settings.Hand == OverlayHand.Right ? "Right controller" : "Left controller")</dd>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <dt class="text-app-muted w-40">Panel visible</dt>
                         <dd>@(Overlay.IsOverlayVisible ? "Yes" : "No")</dd>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <dt class="text-app-muted w-40">Activation</dt>
                         <dd>@(Settings.GazeActivation ? $"Wrist turned within {Settings.GazeAngleDegrees:0}°" : "Always visible")</dd>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <dt class="text-app-muted w-40">Panel width</dt>
                         <dd>@($"{Settings.WidthMeters * 100:0.#} cm")</dd>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <dt class="text-app-muted w-40">Shock button</dt>
                         <dd>@(Settings.HoldToShock ? $"Hold {Settings.ShockHoldMs / 1000.0:0.#}s" : "Single press")</dd>
                     </div>
                 </dl>
-            </div>
+            </Card>
 
-            <div>
-                <h2 class="text-sm font-semibold text-app-text mb-2">Using the panel</h2>
-                <ul class="space-y-1 text-app-muted list-disc pl-5">
-                    <li>Turn the wrist wearing the panel toward your face to reveal it.</li>
-                    <li>Point the other controller at it and use the trigger to click.</li>
-                    @if (Settings.GrabToMove)
-                    {
-                        <li>To move it, point at it, hold the grip, and let go where you want it. The new spot is saved.</li>
-                    }
-                    <li>Move watch at the bottom makes the whole watch grabbable with the trigger or grip until you tap Done.</li>
-                    <li>The watch stacks the time, what's playing, volume and microphone, and the VR app's performance, with device batteries at the bottom that the Batteries button shows or hides.</li>
-                    <li>Shockers near the bottom of the watch opens the shocker controls; Watch at the top goes back.</li>
-                    <li>Other plugins can add their own cards to the watch and pages below Shockers.</li>
-                    <li>After the wrist has been down for 10 seconds, raising it shows the watch again.</li>
-                    <li>Flows can pop up notifications in your view with the Show VR Notification node.</li>
-                </ul>
-            </div>
+            <details class="panel group/advanced">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+                    <span class="min-w-0"><span class="panel-title block">Using the panel</span><span class="panel-desc block">Learn wrist controls, placement and notifications.</span></span>
+                    <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/advanced:rotate-90" />
+                </summary>
+                <div class="border-t border-app-border p-4">
+                    <ul class="space-y-1 text-app-muted list-disc pl-5">
+                        <li>Turn the wrist wearing the panel toward your face to reveal it.</li>
+                        <li>Point the other controller at it and use the trigger to click.</li>
+                        @if (Settings.GrabToMove)
+                        {
+                            <li>To move it, point at it, hold the grip, and let go where you want it. The new spot is saved.</li>
+                        }
+                        <li>Move watch at the bottom makes the whole watch grabbable with the trigger or grip until you tap Done.</li>
+                        <li>The watch stacks the time, what's playing, volume and microphone, and the VR app's performance, with device batteries at the bottom that the Batteries button shows or hides.</li>
+                        <li>Shockers near the bottom of the watch opens the shocker controls; Watch at the top goes back.</li>
+                        <li>Other plugins can add their own cards to the watch and pages below Shockers.</li>
+                        <li>After the wrist has been down for 10 seconds, raising it shows the watch again.</li>
+                        <li>Flows can pop up notifications in your view with the Show VR Notification node.</li>
+                    </ul>
+                </div>
+            </details>
 
-            <p class="text-app-subtle">
-                Placement, the watch's cards, limits, and the hold-to-shock guard are configured in
-                Settings &rarr; Plugins &rarr; SteamVROverlay.
-            </p>
         </div>
     </div>
 </div>
 
 @code {
+    private void OpenSettings() => Navigation.NavigateTo($"settings/plugins?open={PluginIdValue}");
     private static readonly string PluginIdValue = SteamVROverlayPlugin.PluginId;
 
     private OverlaySettingsService Settings =>
@@ -150,6 +144,7 @@
     ];
 
     private string? PreviewDataUrl;
+    private string? PreviewError;
 
     /// <summary>A built-in view's name, or another plugin's page key.</summary>
     private string PreviewTarget = nameof(PanelView.Watch);
@@ -177,34 +172,37 @@
     private string StatusDotClass => Overlay.State switch
     {
         OverlayRuntimeState.Running => "bg-app-success",
-        OverlayRuntimeState.WaitingForSteamVr => "bg-app-warning",
+        OverlayRuntimeState.WaitingForSteamVr => "bg-app-info",
         OverlayRuntimeState.Error or OverlayRuntimeState.RuntimeNotInstalled => "bg-app-danger",
         _ => "bg-app-subtle"
     };
 
     private async Task RefreshPreview()
     {
-        PluginPages =
-        [
-            .. WatchProviders.Poll().SelectMany(c => c.Content.Pages.Select(page =>
-                new Select<string>.SelectOption<string>(WatchContent.PageKey(c.PluginId, page.Id), $"{page.Title} ({c.PluginName})")))
-        ];
-
-        if (!Enum.TryParse<PanelView>(PreviewTarget, out var view) && !IsPluginPage)
-        {
-            PreviewTarget = nameof(PanelView.Watch);
-            view = PanelView.Watch;
-        }
-
         try
         {
+            PreviewError = null;
+            PluginPages =
+            [
+                .. WatchProviders.Poll().SelectMany(c => c.Content.Pages.Select(page =>
+                    new Select<string>.SelectOption<string>(WatchContent.PageKey(c.PluginId, page.Id), $"{page.Title} ({c.PluginName})")))
+            ];
+
+            if (!Enum.TryParse<PanelView>(PreviewTarget, out var view) && !IsPluginPage)
+            {
+                PreviewTarget = nameof(PanelView.Watch);
+                view = PanelView.Watch;
+            }
+
             var png = IsPluginPage
                 ? await Overlay.RenderPreviewPngAsync(PanelView.Watch, PreviewTarget)
                 : await Overlay.RenderPreviewPngAsync(view);
             PreviewDataUrl = "data:image/png;base64," + Convert.ToBase64String(png);
         }
-        catch
+        catch (Exception ex)
         {
+            SteamVROverlayPlugin.Logger?.LogWarning(ex, "Failed to render SteamVR panel preview");
+            PreviewError = "The panel could not be rendered. Refresh to retry; details are in the plugin log.";
             PreviewDataUrl = null;
         }
     }

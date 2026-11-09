@@ -77,7 +77,7 @@ public class EventLogService : IDisposable
     {
         if (connected)
         {
-            AddLog("Connected to Fansly!");
+            AddLog("Connected to Fansly. Listening for events…");
         }
     }
 
@@ -88,22 +88,22 @@ public class EventLogService : IDisposable
     private void OnTip(FanslyTipEvent e)
     {
         var msg = string.IsNullOrEmpty(e.Message) ? "" : $" — \"{e.Message}\"";
-        AddLog($"\U0001FA99 {e.DisplayName} tipped {e.Amount} tokens{msg}");
+        AddLog($"{e.DisplayName} tipped {e.Amount} tokens{msg}");
     }
 
-    private void OnChat(FanslyChatEvent e) => AddLog($"\U0001F4AC {e.DisplayName}: {e.Text}");
+    private void OnChat(FanslyChatEvent e) => AddLog($"{e.DisplayName}: {e.Text}");
 
-    private void OnFollow(FanslyFollowEvent e) => AddLog($"➕ {e.DisplayName} followed");
+    private void OnFollow(FanslyFollowEvent e) => AddLog($"{e.DisplayName} followed");
 
     private void OnSubscribe(FanslySubscribeEvent e)
     {
         var tier = string.IsNullOrEmpty(e.Tier) ? "" : $" ({e.Tier})";
         AddLog(e.IsGifted
-            ? $"⭐ {e.DisplayName} received a gifted subscription{tier}"
-            : $"⭐ {e.DisplayName} subscribed{tier}");
+            ? $"{e.DisplayName} received a gifted subscription{tier}"
+            : $"{e.DisplayName} subscribed{tier}");
     }
 
-    private void OnStreamState(FanslyStreamStateEvent e) => AddLog($"\U0001F4FA Stream {e.State}");
+    private void OnStreamState(FanslyStreamStateEvent e) => AddLog($"Stream {e.State}");
 
     public void Dispose()
     {

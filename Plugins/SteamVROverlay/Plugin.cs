@@ -18,11 +18,11 @@ public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     public string Id => PluginId;
 
-    public string Name => "SteamVROverlay";
+    public string Name => "SteamVR overlay";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "In-VR wrist watch with the time, device batteries, media controls, performance stats, and shocker controls.";
+    public string Description => "Control shockers and view plugin information from your wrist in SteamVR.";
 
     private OverlaySettingsService? _settingsService;
     private WristOverlayService? _overlayService;
@@ -115,9 +115,9 @@ public class SteamVROverlayPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     [
         new NavigationItem
         {
-            Text = "SteamVR Overlay",
+            Text = "SteamVR overlay",
             Href = "/steamvroverlay",
-            Icon = "glasses",
+            Icon = "watch",
             Order = 55
         }
     ];

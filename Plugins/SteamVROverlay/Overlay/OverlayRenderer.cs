@@ -169,7 +169,7 @@ public sealed partial class OverlayRenderer : IDisposable
         }
 
         var row = region.Rect;
-        var valueWidth = _fontValue.MeasureText(value);
+        var valueWidth = OverlayText.MeasureText(value, _fontValue);
         var fittedLabel = OverlayText.Truncate(label, _fontLabel, row.Width - valueWidth - 16f);
         DrawText(fittedLabel, row.Left, row.Top + 18f, SKTextAlign.Left, _fontLabel, enabled ? OverlayTheme.Muted : OverlayTheme.Subtle);
         DrawText(value, row.Right, row.Top + 19f, SKTextAlign.Right, _fontValue, OverlayTheme.Text);
@@ -230,7 +230,7 @@ public sealed partial class OverlayRenderer : IDisposable
     private void DrawText(string text, float x, float baseline, SKTextAlign align, SKFont font, SKColor color)
     {
         _fill.Color = color;
-        _canvas.DrawText(text, x, baseline, align, font, _fill);
+        OverlayText.DrawText(_canvas, text, x, baseline, align, font, _fill);
     }
 
     private void DrawTextCentered(string text, SKRect rect, SKFont font, SKColor color)

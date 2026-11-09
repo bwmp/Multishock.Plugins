@@ -8,10 +8,10 @@
     var showImagePreview = !string.IsNullOrEmpty(Image.FilePath) && File.Exists(Image.FilePath);
 }
 
-<div class="region-preview-layout @(showImagePreview ? "has-preview" : "")">
-    <Card Title="Detection Region">
+<div class="grid grid-cols-1 items-start gap-4 @(showImagePreview ? "2xl:grid-cols-2" : "")">
+    <Card Title="Detection region" Description="Where on screen to look for this image.">
         <div class="space-y-4">
-            <Select Label="Region Type" TValue="RegionType"
+            <Select Label="Search area" TValue="RegionType"
                     Value="Image.Region.Type"
                     ValueChanged="OnRegionTypeSelect"
                     Options="RegionTypeOptions" />
@@ -20,8 +20,8 @@
 
             @if (Image.Region.Type == RegionType.Grid)
             {
-                <div>
-                    <label class="block text-xs font-medium text-app-muted mb-3">Active Sections</label>
+                <fieldset>
+                    <legend class="mb-2 text-xs font-medium text-app-muted">Sections to search</legend>
                     <div class="inline-block">
                         <div class="grid grid-cols-3 gap-1">
                             @for (var i = 0; i < 9; i++)
@@ -29,20 +29,21 @@
                                 var index = i;
                                 var isActive = Image.Region.GridSections?.Sections[index] ?? true;
                                 <button type="button"
-                                        class="w-16 h-12 rounded text-xs font-medium transition-all @(isActive ? "bg-app-success hover:bg-app-success" : "bg-app-danger/50 hover:bg-app-danger/50")"
+                                        class="h-12 w-16 rounded-ctl border text-xs font-medium transition-colors @(isActive ? "border-app-primary bg-app-primary/15 text-app-text hover:bg-app-primary/25" : "border-app-border bg-app-surface-2 text-app-subtle hover:border-app-border-strong")"
+                                        aria-pressed="@(isActive ? "true" : "false")"
+                                        aria-label="@($"Section {index + 1}")"
                                         @onclick="@(() => ToggleSection(index))">
-                                    @(index + 1)
+                                    @(index + 1) · @(isActive ? "On" : "Off")
                                 </button>
                             }
                         </div>
                         <div class="flex gap-2 mt-3">
-                            <Button Text="All" Size="sm" Variant="ghost" OnClick="EnableAllSections" />
-                            <Button Text="None" Size="sm" Variant="ghost" OnClick="DisableAllSections" />
-                            <Button Text="Visual Preview" Size="sm" Variant="primary" OnClick="OnOpenVisualSelector" />
+                            <Button Text="All on" Size="sm" Variant="secondary" OnClick="EnableAllSections" />
+                            <Button Text="All off" Size="sm" Variant="secondary" OnClick="DisableAllSections" />
+                            <Button Text="Pick on screenshot" Icon="grid-3x3" Size="sm" Variant="secondary" OnClick="OnOpenVisualSelector" />
                         </div>
                     </div>
-                    <p class="text-xs text-app-muted mt-2">Green = enabled, Red = disabled</p>
-                </div>
+                </fieldset>
             }
 
             @if (Image.Region.Type == RegionType.Custom)
@@ -53,28 +54,26 @@
     </Card>
     @if (showImagePreview)
     {
-        <Card Title="Image Preview">
-            <div class="rounded-lg border border-app-border overflow-hidden bg-black/20">
+        <Card Title="Image preview">
+            <div class="overflow-hidden rounded-ctl border border-app-border bg-app-surface-2">
                 <img src="@EditorUi.GetImageDataUri(Image.FilePath)"
                      alt="@Image.Name"
                      class="max-w-full max-h-64 mx-auto object-contain" />
             </div>
-            <div class="mt-3 flex flex-col gap-1 text-xs">
+            <div class="mt-3 flex flex-col gap-2 text-xs">
                 <div class="flex items-center gap-2">
-                    <span class="text-app-muted">Captured at:</span>
-                    <span class="text-app-text font-medium">@Image.CaptureResolution.Width&times;@Image.CaptureResolution.Height</span>
+                    <span class="text-app-muted">Captured at</span>
+                    <span class="font-mono text-app-text">@Image.CaptureResolution.Width&times;@Image.CaptureResolution.Height</span>
                     @if (IsResolutionMismatch())
                     {
-                        <span class="text-app-warning">(mismatch)</span>
+                        <span class="chip chip-warn">Differs from monitor</span>
                     }
                 </div>
                 @if (IsResolutionMismatch())
                 {
-                    <div class="flex items-center gap-2">
-                        <span class="text-app-muted">Auto-resize:</span>
-                        <Checkbox Label="@(Image.AutoResize ? $"Enabled (will resize to {GetCurrentMonitorResolution()?.Width}x{GetCurrentMonitorResolution()?.Height})" : "Disabled")"
-                                  Value="Image.AutoResize" ValueChanged="OnAutoResizeChanged" />
-                    </div>
+                    <Checkbox Label="Resize to match monitor"
+                              Description="@($"Scales the image to {GetCurrentMonitorResolution()?.Width}×{GetCurrentMonitorResolution()?.Height} before matching.")"
+                              Value="Image.AutoResize" ValueChanged="OnAutoResizeChanged" />
                 }
             </div>
         </Card>
@@ -93,9 +92,9 @@
 
     private static readonly IEnumerable<Select<RegionType>.SelectOption<RegionType>> RegionTypeOptions =
     [
-        new(RegionType.FullScreen, "Full Screen"),
-        new(RegionType.Grid, "Grid Sections"),
-        new(RegionType.Custom, "Custom Region"),
+        new(RegionType.FullScreen, "Full screen"),
+        new(RegionType.Grid, "Grid sections"),
+        new(RegionType.Custom, "Custom region"),
     ];
 
     private List<MonitorInfo> _monitors = [];

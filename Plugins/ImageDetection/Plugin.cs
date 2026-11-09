@@ -23,9 +23,9 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     // ========== PLUGIN METADATA ==========
 
     public string Id => PluginId;
-    public string Name => "Image Detection";
+    public string Name => "Image detection";
     public string Version => BuildStamp.Version;
-    public string Description => "Detects images on screen and triggers actions when found.";
+    public string Description => "Watch your screen for images, health bars and text, and send shocks, vibrations or beeps when they appear.";
 
     // ========== DEPENDENCY INJECTION ==========
 
@@ -188,14 +188,14 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     [
         new NavigationItem
         {
-            Text = "Image Detection",
+            Text = "Image detection",
             Href = "/imagedetection",
-            Icon = "scan-search",
+            Icon = "scan-eye",
             Order = 50
         },
         new NavigationItem
         {
-            Text = "Recent Detections",
+            Text = "Recent detections",
             Href = "/recent-detections",
             Icon = "history",
             Order = 51

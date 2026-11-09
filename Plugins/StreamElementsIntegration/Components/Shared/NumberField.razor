@@ -1,0 +1,55 @@
+@using System.Globalization
+
+@* Keeps an empty, out-of-range or off-step entry visible with an error instead of saving a clamped or rounded value. *@
+<NumberInput Label="@Label" Class="@Class" Description="@Description" Suffix="@Suffix" Min="Min" Max="Max" Step="Step"
+             Value="@(_error is null ? Value : _draft)" Error="@_error" ValueChanged="OnValueChanged" />
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Suffix { get; set; }
+    [Parameter] public double Value { get; set; }
+    [Parameter] public double Min { get; set; }
+    [Parameter] public double Max { get; set; }
+    [Parameter] public double Step { get; set; } = 1;
+    [Parameter] public EventCallback<double> ValueChanged { get; set; }
+
+    private double? _draft;
+    private string? _error;
+
+    private async Task OnValueChanged(double? value)
+    {
+        _draft = value;
+        _error = Validate(value, Min, Max, Step);
+        if (_error is null)
+        {
+            await ValueChanged.InvokeAsync(value!.Value);
+        }
+    }
+
+    internal static string? Validate(double? value, double min, double max, double step)
+    {
+        if (value is not { } number)
+        {
+            return "Enter a value. Not saved.";
+        }
+        if (number < min || number > max)
+        {
+            return $"Enter {Format(min)} to {Format(max)}. Not saved.";
+        }
+        if (IsWhole(step) && !IsWhole(number))
+        {
+            return "Enter a whole number. Not saved.";
+        }
+        if (!IsWhole(number / step))
+        {
+            return $"Enter a multiple of {Format(step)}. Not saved.";
+        }
+        return null;
+    }
+
+    private static bool IsWhole(double value) => Math.Abs(value - Math.Round(value)) < 1e-9;
+
+    private static string Format(double value) => value.ToString("#,0.##", CultureInfo.InvariantCulture);
+}

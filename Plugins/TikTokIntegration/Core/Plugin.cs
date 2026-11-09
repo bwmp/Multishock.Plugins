@@ -16,11 +16,11 @@ public class TikTokIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     public string Id => PluginId;
 
-    public string Name => "TikTok Integration";
+    public string Name => "TikTok Live";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "TikTok LIVE integration for gifts, chat, likes, follows, shares, and subscriptions";
+    public string Description => "Run shocker reactions and flow triggers from TikTok Live gifts, follows, likes and chat.";
 
     private TikTokConnectionService? _connectionService;
     private static ILogger? _logger;
@@ -106,37 +106,37 @@ public class TikTokIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     [
         new NavigationItem
         {
-            Text = "TikTok Integration",
+            Text = "TikTok Live",
             Href = "/tiktokintegration",
             Icon = "music",
             Order = 60
         },
         new NavigationItem
         {
-            Text = "Gift Brackets",
+            Text = "Gift brackets",
             Href = "/gift-config",
             Icon = "gift",
             Order = 61
         },
         new NavigationItem
         {
-            Text = "Individual Gifts",
+            Text = "Individual gifts",
             Href = "/individual-gifts",
             Icon = "sparkles",
             Order = 62
         },
         new NavigationItem
         {
-            Text = "Coin Goal",
+            Text = "Coin goal",
             Href = "/coin-goal",
             Icon = "target",
             Order = 63
         },
         new NavigationItem
         {
-            Text = "Follows / Shares / Subs",
+            Text = "Follows, shares and subs",
             Href = "/events-config",
-            Icon = "heart",
+            Icon = "user-plus",
             Order = 64
         }
     ];

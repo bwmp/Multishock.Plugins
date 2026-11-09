@@ -5,19 +5,32 @@
 @implements IDisposable
 
 <PageHeader Title="@GetPageTitle()"
-            Icon="@(string.IsNullOrEmpty(SelectedModule) ? "scan-eye" : null)"
-            Breadcrumb="@(string.IsNullOrEmpty(SelectedModule) ? null : BackToModules)">
+            Icon="@(SelectedModuleData == null ? "scan-eye" : null)"
+            Description="@GetPageDescription()"
+            Breadcrumb="@(SelectedModuleData == null ? null : BackToModules)">
     <Meta>
-        <Badge Variant="@(IsRunning ? "success" : "neutral")">
-            <span class="h-1.5 w-1.5 rounded-full @(IsRunning ? "bg-app-success" : "bg-app-subtle")"></span>
-            @(IsRunning ? "Running" : "Stopped")
-        </Badge>
+        @if (IsRunning)
+        {
+            <span role="status" class="chip chip-ok"><span class="status-dot bg-app-success"></span> Running</span>
+        }
+        else
+        {
+            <span role="status" class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Stopped</span>
+        }
     </Meta>
     <Actions>
-        <Button Text="Recent detections" Icon="history" Variant="secondary" OnClick="OpenRecentDetections" />
+        @if (SelectedModuleData is { } module)
+        {
+            <Toggle Label="Module enabled" Value="module.Enabled" ValueChanged="OnModuleEnabledChanged" />
+        }
+        else
+        {
+            <Button Text="Settings" Icon="settings" Variant="ghost" OnClick="@(() => NavManager.NavigateTo($"settings/plugins?open={ImageDetectionPlugin.PluginId}"))" />
+            <Button Text="Recent detections" Icon="history" Variant="secondary" OnClick="OpenRecentDetections" />
+        }
         <Button Text="@(IsRunning ? "Stop detection" : "Start detection")"
                 Icon="@(IsRunning ? "square" : "play")"
-                Variant="@(IsRunning ? "danger" : "primary")"
+                Variant="@(IsRunning ? "secondary" : "primary")"
                 OnClick="ToggleDetection" />
     </Actions>
 </PageHeader>
@@ -62,28 +75,40 @@ else
         ConfigService.ConfigurationChanged -= OnConfigChanged;
     }
 
-    private string GetPageTitle()
+    private DetectionModule? SelectedModuleData =>
+        !string.IsNullOrEmpty(SelectedModule) && ConfigService.Modules.TryGetValue(SelectedModule, out var module)
+            ? module
+            : null;
+
+    private string GetPageTitle() => SelectedModuleData?.Name ?? "Image detection";
+
+    private string GetPageDescription()
     {
-        if (string.IsNullOrEmpty(SelectedModule))
+        if (SelectedModuleData is not { } module)
         {
-            return "Image Detection";
+            return "Watch your screen for images, health bars and text, and send shocks, vibrations or beeps when they appear.";
         }
 
-        if (ConfigService.Modules.TryGetValue(SelectedModule, out var module))
-        {
-            return module.Name;
-        }
-
-        return "Image Detection";
+        return string.IsNullOrWhiteSpace(module.Description)
+            ? "Targets in this module. Changes save automatically."
+            : module.Description;
     }
 
     private RenderFragment BackToModules => __builder =>
     {
-        <button type="button" class="inline-flex items-center gap-1 hover:text-app-text" @onclick="GoBack">
+        <button type="button" class="inline-flex items-center gap-1 rounded-ctl hover:text-app-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-primary" @onclick="GoBack">
             <LucideIcon Name="arrow-left" Size="12" />
-            Image Detection
+            Image detection
         </button>
     };
+
+    private void OnModuleEnabledChanged(bool enabled)
+    {
+        if (SelectedModule != null)
+        {
+            ConfigService.SetModuleEnabled(SelectedModule, enabled);
+        }
+    }
 
     private Task ToggleDetection() => DetectionService.ToggleAsync();
 

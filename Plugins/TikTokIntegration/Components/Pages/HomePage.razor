@@ -1,202 +1,176 @@
 @page "/plugins/com-multishock-tiktokintegration/tiktokintegration"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
 @implements IDisposable
 
-@* Shared page header: same title, status and action band as every host screen. *@
-<PageHeader Title="TikTok Live"
-            Icon="music"
-            Description="React to gifts, likes, follows and comments during a TikTok live from a flow.">
+<PageHeader Title="TikTok Live" Icon="music"
+            Description="Run shocker reactions from gifts, follows, likes and other events during a TikTok live stream.">
     <Meta>
-        @if (Connection.IsConnected)
-        {
-            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
-        }
-        else if (Connection.IsConnecting)
-        {
-            <span class="chip chip-warn"><span class="status-dot bg-app-warning"></span> Connecting</span>
-        }
-        else
-        {
-            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
-        }
+        <ConnectionChip Connected="Connection.IsConnected" Connecting="Connection.IsConnecting"
+                        WaitingForLive="Connection.IsWaitingForLive" />
     </Meta>
     <Actions>
         @if (Connection.IsConnected)
         {
-            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
+            <Button Variant="secondary" Icon="unplug" Text="Disconnect" OnClick="Disconnect" />
+        }
+        else if (Connection.IsWaitingForLive)
+        {
+            <Button Variant="secondary" Icon="square" Text="Stop waiting" OnClick="Disconnect" />
         }
         else
         {
-            <Button Variant="primary" Icon="plug" Text="Connect"
-                    Disabled="@(Connection.IsConnecting)" OnClick="Connect" />
+            <Button Variant="primary" Icon="plug" Text="Connect" Loading="Connection.IsConnecting"
+                    Disabled="@string.IsNullOrWhiteSpace(_username)"
+                    Title="@(string.IsNullOrWhiteSpace(_username) ? "Enter a TikTok username first" : null)"
+                    OnClick="Connect" />
         }
     </Actions>
 </PageHeader>
 
-<div class="space-y-4">
+<div class="max-w-4xl space-y-4">
+    @if (!string.IsNullOrEmpty(_error) && !Connection.IsConnected && !Connection.IsConnecting && !Connection.IsWaitingForLive)
+    {
+        <Alert Variant="danger" Title="Couldn't connect to TikTok Live">@_error</Alert>
+    }
 
-    <div class="space-y-4">
-        <div class="tiktok-card">
-            <div class="tiktok-card-header">
-                <span>Connection</span>
-            </div>
-            <div class="tiktok-card-body space-y-4">
-                <div>
-                    <label class="block text-xs font-medium mb-1 text-app-muted">
-                        TikTok Username
-                    </label>
-                    <div class="flex gap-2">
-                        <TextInput Placeholder="username (without the at-sign)" Value="@Username"
-                            ValueChanged="@(v => UpdateUsername(v ?? ""))" Class="flex-1"
-                            Disabled="@(Connection.IsConnected || Connection.IsConnecting)" />
-                        @if (!Connection.IsConnected && !Connection.IsWaitingForLive)
-                        {
-                            <Button Text="Connect" Variant="primary"
-                                Disabled="@(string.IsNullOrWhiteSpace(Username) || Connection.IsConnecting)"
-                                OnClick="Connect" />
-                        }
-                        else
-                        {
-                            <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
-                        }
-                    </div>
-                    <p class="text-xs mt-1 text-app-muted">
-                        The streamer must be live for the connection to succeed. Enter your own @@username to react to
-                        your own stream.
+    <Card Title="Connection" Description="The streamer must be live to connect. Changes save automatically.">
+        <div>
+            <SettingRow Label="TikTok username" Description="The account whose live stream to watch. Enter your own to react to your stream.">
+                <Help>
+                    @if (Connection.IsConnected || Connection.IsConnecting)
+                    {
+                        <span>Disconnect to change it.</span>
+                    }
+                    else if (string.IsNullOrWhiteSpace(_username))
+                    {
+                        <span class="inline-flex items-center gap-1.5">
+                            <LucideIcon Name="info" Size="12" Class="shrink-0" />
+                            Enter a username to connect.
+                        </span>
+                    }
+                </Help>
+                <ChildContent>
+                    <TextInput Prefix="@@" Placeholder="username" Value="@_username" ValueChanged="UpdateUsername"
+                               Disabled="@(Connection.IsConnected || Connection.IsConnecting)" aria-label="TikTok username" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Connect on startup" Description="Connect when MultiShock starts.">
+                <Toggle AriaLabel="Connect on startup" Value="Settings.AutoConnect" ValueChanged="@(v => Settings.AutoConnect = v)" />
+            </SettingRow>
+            <SettingRow Label="Wait for the stream to start" Description="If the streamer isn't live yet, keep retrying until they go live.">
+                <Toggle AriaLabel="Wait for the stream to start" Value="Settings.WaitForLive" ValueChanged="@(v => Settings.WaitForLive = v)" />
+            </SettingRow>
+            <SettingRow Label="Reconnect automatically" Description="Reconnect if the connection drops during a stream.">
+                <Toggle AriaLabel="Reconnect automatically" Value="Settings.AutoReconnect" ValueChanged="@(v => Settings.AutoReconnect = v)" />
+            </SettingRow>
+        </div>
+        <Alert Variant="warning" Title="Unofficial connection" Class="mt-4">
+            TikTok has no official LIVE API. MultiShock reads the same public feed as the web player. It is read-only,
+            but connecting to LIVE data is against TikTok's Terms of Service, so use it at your own discretion. TikTok
+            sometimes changes this feed, which can need a plugin update.
+        </Alert>
+    </Card>
+
+    <Card Title="Reactions"
+          Description="Run shocker actions straight from TikTok events. For custom logic, use the TikTok triggers in a flow instead.">
+        <SettingRow Label="Gift brackets" Description="Set intensity and duration by gift coin value.">
+            <Meta><SummaryChip Summary="BracketSummary" /></Meta>
+            <ChildContent>
+                <NavButton Href="/plugins/com-multishock-tiktokintegration/gift-config" AriaLabel="Configure gift brackets" />
+            </ChildContent>
+        </SettingRow>
+        <SettingRow Label="Individual gifts" Description="Give specific gifts their own reaction.">
+            <Meta><SummaryChip Summary="RuleSummary" /></Meta>
+            <ChildContent>
+                <NavButton Href="/plugins/com-multishock-tiktokintegration/individual-gifts" AriaLabel="Configure individual gifts" />
+            </ChildContent>
+        </SettingRow>
+        <SettingRow Label="Coin goal" Description="Add up gift coins and react each time a goal is reached.">
+            <Meta><SummaryChip Summary="CoinGoalSummary" /></Meta>
+            <ChildContent>
+                <NavButton Href="/plugins/com-multishock-tiktokintegration/coin-goal" AriaLabel="Configure coin goal" />
+            </ChildContent>
+        </SettingRow>
+        <SettingRow Label="Follows, shares and subs" Description="React to follows, shares, subscriptions, viewer joins and likes.">
+            <Meta><SummaryChip Summary="EventsSummary" /></Meta>
+            <ChildContent>
+                <NavButton Href="/plugins/com-multishock-tiktokintegration/events-config" AriaLabel="Configure follow, share and subscription reactions" />
+            </ChildContent>
+        </SettingRow>
+    </Card>
+
+    <Card Title="Event log" Description="Events from this session, newest first." NoPadding="true">
+        <Actions>
+            @if (EventLog.Count > 0)
+            {
+                <Button Variant="ghost" Size="sm" Icon="trash-2" Text="Clear" OnClick="@(() => EventLog.Clear())" />
+            }
+        </Actions>
+        <ChildContent>
+            @if (EventLog.Count == 0)
+            {
+                <div class="px-4 py-6">
+                    <p class="text-sm text-app-muted">No events yet.</p>
+                    <p class="mt-0.5 text-xs text-app-subtle">
+                        @(Connection.IsConnected
+                            ? "Gifts, follows and shares appear here as they happen."
+                            : "Gifts, follows, shares and connection messages appear here once you connect to a live stream.")
                     </p>
                 </div>
-
-                <div class="flex flex-col gap-2">
-                    <Toggle Label="Auto-connect on app startup" Value="Settings.AutoConnect"
-                        ValueChanged="@(v => { Settings.AutoConnect = v; })" />
-                    <Toggle Label="Keep retrying until the streamer goes live" Value="Settings.WaitForLive"
-                        ValueChanged="@(v => { Settings.WaitForLive = v; })" />
-                    <Toggle Label="Auto-reconnect if the connection drops" Value="Settings.AutoReconnect"
-                        ValueChanged="@(v => { Settings.AutoReconnect = v; })" />
-                </div>
-
-                <details class="pt-3 border-t border-app-border">
-                    <summary class="text-sm cursor-pointer text-app-muted">
-                        Advanced: signing &amp; authentication
-                    </summary>
-                    <div class="mt-3 space-y-3">
-                        <div>
-                            <label class="block text-xs font-medium mb-1 text-app-muted">
-                                Euler Stream API Key (optional)
-                            </label>
-                            <TextInput InputType="password" Placeholder="Raises the connection signing rate limit"
-                                Value="@Settings.EulerApiKey" ValueChanged="@(v => { Settings.EulerApiKey = v ?? ""; })" />
-                            <p class="text-xs mt-1 text-app-muted">
-                                TikTok requires connection requests to be signed. This works anonymously for casual use;
-                                a free key from
-                                <a href="https://www.eulerstream.com/" target="_blank" style="color: #fe2c55;">
-                                    eulerstream.com</a>
-                                raises the rate limit if you hit "sign server" errors.
-                            </p>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1 text-app-muted">
-                                Custom Sign Server (optional)
-                            </label>
-                            <TextInput Placeholder="https://your-sign-server/" Value="@Settings.CustomSignServer"
-                                ValueChanged="@(v => { Settings.CustomSignServer = v ?? ""; })" />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1 text-app-muted">
-                                TikTok Session ID (optional)
-                            </label>
-                            <TextInput InputType="password" Placeholder="Only needed for restricted rooms"
-                                Value="@Settings.SessionId" ValueChanged="@(v => { Settings.SessionId = v ?? ""; })" />
-                            <p class="text-xs mt-1 text-app-muted">
-                                Most public streams do not need this. Keep it secret — it is your TikTok login token.
-                            </p>
-                        </div>
-                    </div>
-                </details>
-
-                <div class="text-xs px-3 py-2 rounded"
-                    style="background: rgba(255, 196, 0, 0.08); color: rgb(var(--ms-warning-rgb)); border: 1px solid rgba(255, 196, 0, 0.2);">
-                    TikTok does not provide an official LIVE API. This uses the same public webcast feed as the web
-                    player. It is read-only, but connecting to LIVE data is against TikTok's Terms of Service — use at
-                    your own discretion. TikTok occasionally changes the protocol, which may require a plugin update.
-                </div>
-            </div>
-        </div>
-
-        @if (!string.IsNullOrEmpty(ErrorMessage))
-        {
-            <div class="tiktok-card" style="border-color: rgb(var(--ms-danger-rgb));">
-                <div class="tiktok-card-body">
-                    <div class="flex items-center gap-2" style="color: rgb(var(--ms-danger-rgb));">
-                        <LucideIcon Name="triangle-alert" Class="w-5 h-5" />
-                        <span>@ErrorMessage</span>
-                    </div>
-                </div>
-            </div>
-        }
-
-        <div class="tiktok-card">
-            <div class="tiktok-card-header">
-                <span>Setup Path</span>
-            </div>
-            <div class="tiktok-card-body space-y-3">
-                <p class="text-sm text-app-muted">
-                    Configure how TikTok events map to your shockers:
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    <a href="/plugins/com-multishock-tiktokintegration/gift-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
-                        <LucideIcon Name="gift" Size="16" />
-                        <span>Gift Brackets</span>
-                    </a>
-                    <a href="/plugins/com-multishock-tiktokintegration/individual-gifts"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
-                        <LucideIcon Name="sparkles" Size="16" />
-                        <span>Individual Gifts</span>
-                    </a>
-                    <a href="/plugins/com-multishock-tiktokintegration/coin-goal"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
-                        <LucideIcon Name="target" Size="16" />
-                        <span>Coin Goal</span>
-                    </a>
-                    <a href="/plugins/com-multishock-tiktokintegration/events-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium border-app-border text-app-text bg-app-surface">
-                        <LucideIcon Name="heart" Size="16" />
-                        <span>Follows / Shares / Subs</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="tiktok-card">
-            <div class="tiktok-card-header">
-                <span>Event Log</span>
-                <Button Text="Clear" Variant="secondary" Size="sm" OnClick="@(() => EventLog.Clear())" />
-            </div>
-            <div class="tiktok-card-body">
-                <div class="space-y-1 max-h-64 overflow-y-auto">
-                    @if (EventLog.Count == 0)
+            }
+            else
+            {
+                <ol class="max-h-80 divide-y divide-app-border overflow-y-auto">
+                    @foreach (var entry in EventLog.Entries.Reverse())
                     {
-                        <p class="text-sm text-app-muted">
-                            No events yet. Connect to a live stream to see events here.
-                        </p>
+                        <li class="flex items-start gap-3 px-4 py-2 text-sm">
+                            <span class="shrink-0 pt-px font-mono text-xs text-app-subtle">@entry.Time.ToString("HH:mm:ss")</span>
+                            @if (entry.IsError)
+                            {
+                                <span class="flex min-w-0 items-start gap-1.5 text-app-danger">
+                                    <LucideIcon Name="alert-circle" Size="14" Class="mt-0.5 shrink-0" />
+                                    <span class="break-words">@entry.Message</span>
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="min-w-0 break-words text-app-text">@entry.Message</span>
+                            }
+                        </li>
                     }
-                    else
-                    {
-                        @foreach (var log in EventLog.Entries.TakeLast(50).Reverse())
-                        {
-                            <div class="flex gap-2 text-xs font-mono py-1 px-2 rounded"
-                                style="background: rgba(255, 255, 255, 0.02);">
-                                <span class="text-app-muted">[@log.Time.ToString("HH:mm:ss")]</span>
-                                <span style="color: @(log.IsError ? "rgb(var(--ms-danger-rgb))" : "var(--ms-text)))");">@log.Message</span>
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
+                </ol>
+            }
+        </ChildContent>
+    </Card>
+
+    <details class="panel group">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <span class="min-w-0">
+                <span class="panel-title block">Advanced</span>
+                <span class="panel-desc block">Connection signing, and a session ID for restricted rooms.</span>
+            </span>
+            <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open:rotate-90" />
+        </summary>
+        <div class="border-t border-app-border p-4">
+            <SettingRow Label="Euler Stream API key" Description="Optional. TikTok requires signed connection requests; this works anonymously for casual use.">
+                <Help>
+                    A free key from <a href="https://www.eulerstream.com/" target="_blank" rel="noopener noreferrer">eulerstream.com</a>
+                    raises the rate limit if you see sign server errors.
+                </Help>
+                <ChildContent>
+                    <TextInput InputType="password" Placeholder="Optional" Value="@Settings.EulerApiKey"
+                               ValueChanged="@(v => Settings.EulerApiKey = v ?? "")" aria-label="Euler Stream API key" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Custom sign server" Description="Optional. Use your own signing server instead of Euler Stream.">
+                <TextInput Placeholder="https://your-sign-server/" Value="@Settings.CustomSignServer"
+                           ValueChanged="@(v => Settings.CustomSignServer = v ?? "")" aria-label="Custom sign server" />
+            </SettingRow>
+            <SettingRow Label="TikTok session ID" Description="Only needed for restricted rooms. This is your TikTok login token, so keep it private.">
+                <TextInput InputType="password" Placeholder="Optional" Value="@Settings.SessionId"
+                           ValueChanged="@(v => Settings.SessionId = v ?? "")" aria-label="TikTok session ID" />
+            </SettingRow>
         </div>
-    </div>
+    </details>
 </div>
 
 @code {
@@ -204,45 +178,72 @@
     private TikTokConnectionService Connection => PluginServiceLocator.GetRequiredService<TikTokConnectionService>(PluginId);
     private TikTokSettingsService Settings => PluginServiceLocator.GetRequiredService<TikTokSettingsService>(PluginId);
     private EventLogService EventLog => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
+    private GiftConfigService Gifts => PluginServiceLocator.GetRequiredService<GiftConfigService>(PluginId);
+    private GiftRulesConfigService GiftRules => PluginServiceLocator.GetRequiredService<GiftRulesConfigService>(PluginId);
+    private CoinGoalService CoinGoal => PluginServiceLocator.GetRequiredService<CoinGoalService>(PluginId);
+    private EventsConfigService Events => PluginServiceLocator.GetRequiredService<EventsConfigService>(PluginId);
 
-    private string Username = "";
-    private string? ErrorMessage;
+    private string _username = "";
+    private string? _error;
+
+    private ReactionSummary BracketSummary => ActionOptions.SummarizeBrackets(
+        Gifts.Config.Enabled, Gifts.Config.Brackets.Count, Gifts.Config.SelectedShockerIds.Count);
+
+    private ReactionSummary RuleSummary
+    {
+        get
+        {
+            var on = GiftRules.Config.Rules.Where(r => r.Enabled).ToList();
+            return ActionOptions.SummarizeRules(GiftRules.Config.Enabled, GiftRules.Config.Rules.Count, on.Count,
+                (on.Count(r => r.GiftId == 0 && string.IsNullOrWhiteSpace(r.GiftName)), "a gift"),
+                (on.Count(r => r.SelectedShockerIds.Count == 0), "shockers"));
+        }
+    }
+
+    private ReactionSummary CoinGoalSummary
+    {
+        get
+        {
+            var config = CoinGoal.Config;
+            if (!config.Enabled) return ReactionSummary.Off;
+            return config.SelectedShockerIds.Count == 0
+                ? new(ReactionStatus.Attention, "No shockers")
+                : new(ReactionStatus.Ready, $"Every {ActionOptions.Count(config.GoalAmount, "coin", "coins")}");
+        }
+    }
+
+    private ReactionSummary EventsSummary => ActionOptions.SummarizeEvents(
+        [Events.Config.Follow, Events.Config.Share, Events.Config.Subscribe, Events.Config.Join, Events.Config.Likes]);
 
     protected override void OnInitialized()
     {
-        Username = Settings.Username;
+        _username = Settings.Username;
         Connection.ConnectionStateChanged += OnConnectionStateChanged;
         Connection.ErrorOccurred += OnError;
         EventLog.LogChanged += OnLogChanged;
     }
 
-    private void UpdateUsername(string value)
+    private void UpdateUsername(string? value)
     {
-        Username = value;
-        Settings.Username = value;
+        _username = value ?? "";
+        Settings.Username = _username;
     }
 
     private async Task Connect()
     {
-        ErrorMessage = null;
-        await Connection.ConnectAsync(Username);
+        _error = null;
+        await Connection.ConnectAsync(_username);
     }
 
-    private async Task Disconnect()
-    {
-        await Connection.DisconnectAsync();
-    }
+    private async Task Disconnect() => await Connection.DisconnectAsync();
 
     private void OnConnectionStateChanged(bool connected) => InvokeAsync(StateHasChanged);
 
-    private void OnError(string error)
+    private void OnError(string error) => InvokeAsync(() =>
     {
-        InvokeAsync(() =>
-        {
-            ErrorMessage = error;
-            StateHasChanged();
-        });
-    }
+        _error = error;
+        StateHasChanged();
+    });
 
     private void OnLogChanged() => InvokeAsync(StateHasChanged);
 

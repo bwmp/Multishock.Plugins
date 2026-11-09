@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.obsintegration",
-  "name": "OBS Integration",
+  "name": "OBS",
   "version": "1.2.0",
   "entryPoint": "OBSIntegration.dll",
-  "description": "Control OBS Studio through MultiShock - toggle sources, switch scenes, and more",
+  "description": "Connect to OBS Studio to switch scenes, toggle sources and react to stream events from a flow.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

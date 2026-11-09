@@ -14,9 +14,9 @@ public sealed class HeartRatePlugin : IReloadablePlugin, IPluginRouteProvider, I
 {
     public const string PluginId = "com.multishock.heartrateintegration";
     public string Id => PluginId;
-    public string Name => "Heart Rate";
+    public string Name => "Heart rate";
     public string Version => typeof(HeartRatePlugin).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
-    public string Description => "Live BLE heart rate from COOSPO H808S and other standard Bluetooth heart-rate monitors.";
+    public string Description => "Use readings from a Bluetooth heart-rate monitor in flows.";
     private IServiceProvider? _services;
     public IServiceProvider PluginServices => _services ?? throw new InvalidOperationException("Plugin not initialized.");
 
@@ -36,7 +36,7 @@ public sealed class HeartRatePlugin : IReloadablePlugin, IPluginRouteProvider, I
 
     public IEnumerable<NavigationItem> GetNavigationItems() =>
     [
-        new NavigationItem { Text = "Heart Rate", Href = "/heart-rate", Icon = "heart-pulse", Order = 70 }
+        new NavigationItem { Text = "Heart rate", Href = "/heart-rate", Icon = "heart-pulse", Order = 70 }
     ];
 
     public IEnumerable<IFlowNode> GetNodeTypes() => [new HeartRateReceivedNode(), new GetHeartRateNode()];

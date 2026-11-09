@@ -1,10 +1,10 @@
 {
   "manifestVersion": 2,
   "id": "com.multishock.vrchatosc",
-  "name": "VRChatOSC",
+  "name": "VRChat OSC",
   "version": "1.2.0",
   "entryPoint": "VRChatOSC.dll",
-  "description": "OSC send/receive integration for VRChat using FastOSC.",
+  "description": "Send OSC messages and use incoming avatar parameters in flows.",
   "sdkVersion": "1.15.0",
   "platforms": ["win-x64"]
 }

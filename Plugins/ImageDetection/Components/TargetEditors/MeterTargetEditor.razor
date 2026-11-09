@@ -24,40 +24,40 @@
 @if (DetectionService.IsRunning && !string.IsNullOrEmpty(ModuleId))
 {
     var currentVal = GetMeterCurrentValue();
-    <div class="p-3 rounded-lg bg-black/20 border border-app-border">
-        <div class="flex items-center justify-between mb-2">
-            <span class="text-xs text-app-muted font-medium uppercase tracking-wide">Live Value</span>
+    <div class="rounded-panel border border-app-border bg-app-surface p-3" role="status">
+        <div class="mb-2 flex items-center justify-between">
+            <span class="text-xs font-medium text-app-muted">Live fill level</span>
             @if (currentVal.HasValue)
             {
-                <span class="text-sm font-mono font-bold text-app-success">@currentVal.Value.ToString("F1")%</span>
+                <span class="font-mono text-sm font-semibold tabular-nums text-app-text">@currentVal.Value.ToString("F1")%</span>
             }
             else
             {
-                <span class="text-xs text-app-muted">Waiting for data...</span>
+                <span class="text-xs text-app-muted">Waiting for data…</span>
             }
         </div>
         @if (currentVal.HasValue)
         {
-            <div class="w-full h-2.5 rounded-full bg-app-surface overflow-hidden">
-                <div class="h-full rounded-full bg-app-success transition-all duration-300"
+            <div class="h-2 w-full overflow-hidden rounded-full bg-app-surface-3">
+                <div class="h-full rounded-full bg-app-primary transition-[width] duration-150"
                      style="width: @(currentVal.Value)%"></div>
             </div>
         }
     </div>
 }
 
-<Card Title="Step 1: Select Health Bar Region" Description="Define where the health bar is on your screen">
+<Card Title="1. Health bar region" Description="Where the health bar is on your screen.">
     <div class="space-y-4">
         @if (!string.IsNullOrEmpty(Image.Meter.RegionPreviewPath) && File.Exists(Image.Meter.RegionPreviewPath))
         {
-            <div class="p-3 rounded-lg bg-black/20 border border-app-border">
-                <span class="text-xs text-app-muted font-medium uppercase tracking-wide mb-2 block">Region Preview</span>
-                <div class="rounded border border-app-border overflow-hidden bg-black/30">
+            <div>
+                <span class="mb-1.5 block text-xs font-medium text-app-muted">Region preview</span>
+                <div class="overflow-hidden rounded-ctl border border-app-border bg-app-surface-2">
                     <img src="@EditorUi.GetImageDataUri(Image.Meter.RegionPreviewPath)"
                          alt="Region preview"
                          class="max-w-full max-h-24 mx-auto object-contain" />
                 </div>
-                <span class="text-xs text-app-muted mt-1 block">
+                <span class="mt-1 block font-mono text-xs text-app-muted">
                     @(Image.Region.CustomRegion != null
                         ? $"{Image.Region.CustomRegion.Width} x {Image.Region.CustomRegion.Height} px at ({Image.Region.CustomRegion.X}, {Image.Region.CustomRegion.Y})"
                         : "")
@@ -72,8 +72,8 @@
 
         <RegionPickerControls ModuleId="@ModuleId" TargetId="@Image.Id" OnCaptureRequested="OnPickRegion" />
 
-        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
-            <summary class="cursor-pointer text-sm text-app-muted">Manual coordinates</summary>
+        <details class="rounded-ctl border border-app-border px-3 py-2">
+            <summary class="cursor-pointer text-sm text-app-muted hover:text-app-text">Manual coordinates</summary>
             <div class="mt-3">
                 <ManualRegionInputs ModuleId="@ModuleId" Image="Image" />
             </div>
@@ -81,36 +81,36 @@
     </div>
 </Card>
 
-<Card Title="Step 2: Detection Settings" Description="Configure how the health bar is read">
+<Card Title="2. Reading the bar" Description="How the health bar is read and which changes count.">
     <div class="space-y-3">
 
-        <Select Label="Fill Direction" TValue="MeterFillDirection"
+        <Select Label="Fill direction" TValue="MeterFillDirection"
                 Value="Image.Meter.Direction"
                 ValueChanged="OnMeterDirectionChangedSelect"
                 Options="MeterDirectionOptions"
-                Description="Which direction the bar fills when full" />
+                Description="The direction the bar grows as it fills." />
 
-        <Checkbox Label="Decreases only (damage)" Description="Only trigger when the bar goes down - ignores healing or regeneration"
+        <Checkbox Label="Decreases only (damage)" Description="Only trigger when the bar goes down. Ignores healing and regeneration."
                   Value="Image.Meter.DecreasesOnly" ValueChanged="OnDecreasesOnlyChanged" />
 
-        <Slider Label="Min Change %" Value="Image.Meter.MinDeltaPercent"
+        <Slider Label="Minimum change (%)" Value="Image.Meter.MinDeltaPercent"
                 ValueChanged="UpdateMeterMinDelta"
                 Min="0.5" Max="20" Step="0.5" Filled="true" ShowValueDirection="right" />
         <p class="text-xs text-app-muted -mt-2">
             Ignore changes smaller than this. Increase if you get false triggers from bar animations.
         </p>
-        <div class="rounded-lg border border-app-border bg-black/15 px-3 py-3 space-y-3">
-            <div class="flex items-center justify-between">
+        <div class="space-y-3 rounded-ctl border border-app-border px-3 py-3">
+            <div class="flex items-center justify-between gap-3">
                 <div>
-                    <span class="text-sm text-app-muted font-medium">Bar Color</span>
+                    <span class="text-sm font-medium text-app-text">Bar color</span>
                     <p class="text-xs text-app-muted mt-0.5">
                         @if (Image.Meter.UseColorHint && Image.Meter.ColorHint != null)
                         {
-                            @($"Active - Hue {Image.Meter.ColorHint.HueMin}-{Image.Meter.ColorHint.HueMax}")
+                            @($"Active: hue {Image.Meter.ColorHint.HueMin}–{Image.Meter.ColorHint.HueMax}")
                         }
                         else
                         {
-                            @("Not set - using brightness-based detection")
+                            @("Not set. Using brightness-based detection.")
                         }
                     </p>
                 </div>
@@ -126,46 +126,41 @@
             @if (Image.Meter.UseColorHint)
             {
                 <div class="space-y-2">
-                    <label class="block text-xs font-medium text-app-muted">Quick preset</label>
-                    <div class="flex gap-2 flex-wrap">
-                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-app-success/30 text-app-success border border-app-success/40 hover:bg-app-success/50 transition-colors"
-                                @onclick="@(() => ApplyColorPreset("green"))">Green</button>
-                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-app-danger/30 text-app-danger border border-app-danger/40 hover:bg-app-danger/50 transition-colors"
-                                @onclick="@(() => ApplyColorPreset("red"))">Red</button>
-                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-app-info/30 text-app-info border border-app-info/40 hover:bg-app-info/50 transition-colors"
-                                @onclick="@(() => ApplyColorPreset("blue"))">Blue</button>
-                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-app-warning/30 text-app-warning border border-app-warning/40 hover:bg-app-warning/50 transition-colors"
-                                @onclick="@(() => ApplyColorPreset("yellow"))">Yellow</button>
-                        <button class="px-3 py-1.5 text-xs rounded-md font-medium bg-app-surface-3/30 text-app-muted border border-app-border-strong/40 hover:bg-app-surface-3/50 transition-colors"
-                                @onclick="@(() => ApplyColorPreset("white"))">White</button>
+                    <div class="text-xs font-medium text-app-muted">Color preset</div>
+                    <div class="flex flex-wrap gap-2">
+                        <Button Text="Green" Size="sm" Variant="secondary" OnClick="@(() => ApplyColorPreset("green"))" />
+                        <Button Text="Red" Size="sm" Variant="secondary" OnClick="@(() => ApplyColorPreset("red"))" />
+                        <Button Text="Blue" Size="sm" Variant="secondary" OnClick="@(() => ApplyColorPreset("blue"))" />
+                        <Button Text="Yellow" Size="sm" Variant="secondary" OnClick="@(() => ApplyColorPreset("yellow"))" />
+                        <Button Text="White" Size="sm" Variant="secondary" OnClick="@(() => ApplyColorPreset("white"))" />
                     </div>
 
                     @if (Image.Meter.ColorHint != null)
                     {
-                        <details class="rounded border border-app-border bg-black/10 px-2 py-1.5">
-                            <summary class="cursor-pointer text-xs text-app-subtle">Manual HSV tuning</summary>
+                        <details class="rounded-ctl border border-app-border px-2 py-1.5">
+                            <summary class="cursor-pointer text-xs text-app-muted hover:text-app-text">Manual HSV tuning</summary>
                             <div class="mt-2 space-y-2">
                                 <div class="grid grid-cols-2 gap-2">
-                                    <NumberInput Label="Hue Min" Value="(double)Image.Meter.ColorHint.HueMin"
+                                    <ValidatedNumberInput Label="Hue min" Value="(double)Image.Meter.ColorHint.HueMin"
                                                  ValueChanged="@(v => UpdateColorHint(h => h.HueMin = (int)Math.Clamp(v ?? 0, 0, 180)))"
                                                  Min="0" Max="180" Step="1" />
-                                    <NumberInput Label="Hue Max" Value="(double)Image.Meter.ColorHint.HueMax"
+                                    <ValidatedNumberInput Label="Hue max" Value="(double)Image.Meter.ColorHint.HueMax"
                                                  ValueChanged="@(v => UpdateColorHint(h => h.HueMax = (int)Math.Clamp(v ?? 0, 0, 180)))"
                                                  Min="0" Max="180" Step="1" />
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <NumberInput Label="Saturation Min" Value="(double)Image.Meter.ColorHint.SatMin"
+                                    <ValidatedNumberInput Label="Saturation min" Value="(double)Image.Meter.ColorHint.SatMin"
                                                  ValueChanged="@(v => UpdateColorHint(h => h.SatMin = (int)Math.Clamp(v ?? 0, 0, 255)))"
                                                  Min="0" Max="255" Step="1" />
-                                    <NumberInput Label="Saturation Max" Value="(double)Image.Meter.ColorHint.SatMax"
+                                    <ValidatedNumberInput Label="Saturation max" Value="(double)Image.Meter.ColorHint.SatMax"
                                                  ValueChanged="@(v => UpdateColorHint(h => h.SatMax = (int)Math.Clamp(v ?? 0, 0, 255)))"
                                                  Min="0" Max="255" Step="1" />
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <NumberInput Label="Brightness Min" Value="(double)Image.Meter.ColorHint.ValMin"
+                                    <ValidatedNumberInput Label="Brightness min" Value="(double)Image.Meter.ColorHint.ValMin"
                                                  ValueChanged="@(v => UpdateColorHint(h => h.ValMin = (int)Math.Clamp(v ?? 0, 0, 255)))"
                                                  Min="0" Max="255" Step="1" />
-                                    <NumberInput Label="Brightness Max" Value="(double)Image.Meter.ColorHint.ValMax"
+                                    <ValidatedNumberInput Label="Brightness max" Value="(double)Image.Meter.ColorHint.ValMax"
                                                  ValueChanged="@(v => UpdateColorHint(h => h.ValMax = (int)Math.Clamp(v ?? 0, 0, 255)))"
                                                  Min="0" Max="255" Step="1" />
                                 </div>
@@ -175,26 +170,26 @@
                 </div>
             }
         </div>
-        <details class="rounded-lg border border-app-border bg-black/15 px-3 py-2">
-            <summary class="cursor-pointer text-sm text-app-muted">Advanced tuning</summary>
+        <details class="rounded-ctl border border-app-border px-3 py-2">
+            <summary class="cursor-pointer text-sm text-app-muted hover:text-app-text">Advanced tuning</summary>
             <div class="mt-3 space-y-3">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                        <NumberInput Label="Smoothing Frames" Value="(double)Image.Meter.SmoothingFrames"
+                        <ValidatedNumberInput Label="Smoothing frames" Value="(double)Image.Meter.SmoothingFrames"
                                      ValueChanged="OnMeterSmoothingChanged"
                                      Min="1" Max="10" Step="1" />
                         <p class="text-xs text-app-muted mt-1">Averages this many readings to reduce noise. Higher = more stable but slower to react.</p>
                     </div>
                     <div>
-                        <NumberInput Label="Event Cooldown (ms)" Value="(double)Image.Meter.EventCooldownMs"
+                        <ValidatedNumberInput Label="Event cooldown" Value="(double)Image.Meter.EventCooldownMs"
                                      ValueChanged="OnMeterCooldownChanged"
-                                     Min="50" Max="5000" Step="50" />
+                                     Min="50" Max="5000" Step="50" Suffix="ms" />
                         <p class="text-xs text-app-muted mt-1">Minimum time between triggers. Prevents rapid repeated activations.</p>
                     </div>
                 </div>
 
                 <div>
-                    <Slider Label="Fill Sensitivity" Value="Image.Meter.FillSensitivity"
+                    <Slider Label="Fill sensitivity" Value="Image.Meter.FillSensitivity"
                             ValueChanged="OnMeterFillSensitivityChanged"
                             Min="0.05" Max="0.95" Step="0.05" Filled="true" ShowValueDirection="right" />
                     <p class="text-xs text-app-muted mt-1">
@@ -212,10 +207,10 @@
                     <div class="pl-6 space-y-2">
                         <div class="flex gap-2 items-end">
                             <div class="flex-1">
-                                <Select Label="Required Window" TValue="string"
+                                <Select Label="Required window" TValue="string"
                                         Value="GetRequiredWindowSelectionKey()"
                                         ValueChanged="OnRequiredFocusWindowSelect"
-                                        Placeholder="Select a window..."
+                                        Placeholder="Select a window…"
                                         Options="GetFocusWindowOptions()" />
                             </div>
                             <Button Text="Refresh" Size="sm" Variant="secondary" OnClick="RefreshWindowOptions" />
@@ -236,10 +231,10 @@
 
     private static readonly IEnumerable<Select<MeterFillDirection>.SelectOption<MeterFillDirection>> MeterDirectionOptions =
     [
-        new(MeterFillDirection.LeftToRight, "Left to Right"),
-        new(MeterFillDirection.RightToLeft, "Right to Left"),
-        new(MeterFillDirection.BottomToTop, "Bottom to Top"),
-        new(MeterFillDirection.TopToBottom, "Top to Bottom"),
+        new(MeterFillDirection.LeftToRight, "Left to right"),
+        new(MeterFillDirection.RightToLeft, "Right to left"),
+        new(MeterFillDirection.BottomToTop, "Bottom to top"),
+        new(MeterFillDirection.TopToBottom, "Top to bottom"),
     ];
 
     private List<WindowInfo> AvailableWindows = [];
@@ -392,7 +387,7 @@
                         Image.Meter.ColorHint = autoHsv;
                         Image.Meter.UseColorHint = true;
                         Save();
-                        PluginHost.ShowSuccessToast("Color Updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
+                        PluginHost.ShowSuccessToast("Color updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
                         return;
                     }
                 }
@@ -421,17 +416,17 @@
                     Image.Meter.ColorHint = autoHsv;
                     Image.Meter.UseColorHint = true;
                     Save();
-                    PluginHost.ShowSuccessToast("Color Updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
+                    PluginHost.ShowSuccessToast("Color updated", $"Detected hue range {autoHsv.HueMin}-{autoHsv.HueMax}");
                     return;
                 }
             }
             catch (Exception ex)
             {
-                PluginHost.ShowErrorToast("Re-detect Failed", $"Failed to re-detect color: {ex.Message}");
+                PluginHost.ShowErrorToast("Re-detect failed", $"Failed to re-detect color: {ex.Message}");
                 return;
             }
         }
 
-        PluginHost.ShowErrorToast("Re-detect Failed", "Could not detect bar color. Try re-picking the region first.");
+        PluginHost.ShowErrorToast("Re-detect failed", "Could not detect bar color. Try re-picking the region first.");
     }
 }

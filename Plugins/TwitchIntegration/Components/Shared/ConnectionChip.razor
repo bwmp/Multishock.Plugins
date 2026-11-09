@@ -1,0 +1,31 @@
+<span role="status" class="inline-flex">
+    <span class="@($"chip {ChipClass}")"><span class="@($"status-dot {DotClass}")"></span>@Text</span>
+</span>
+
+@code {
+    [Parameter] public bool Connected { get; set; }
+    [Parameter] public bool WaitingForLogin { get; set; }
+    [Parameter] public bool Connecting { get; set; }
+    [Parameter] public bool Reconnecting { get; set; }
+    [Parameter] public bool Failed { get; set; }
+
+    private string Text =>
+        Connected ? "Connected"
+        : WaitingForLogin ? "Waiting for login"
+        : Connecting ? "Connecting…"
+        : Reconnecting ? "Reconnecting…"
+        : Failed ? "Connection failed"
+        : "Disconnected";
+
+    private string ChipClass =>
+        Connected ? "chip-ok"
+        : WaitingForLogin || Connecting || Reconnecting ? "chip-info"
+        : Failed ? "chip-danger"
+        : "chip-neutral";
+
+    private string DotClass =>
+        Connected ? "bg-app-success"
+        : WaitingForLogin || Connecting || Reconnecting ? "bg-app-info"
+        : Failed ? "bg-app-danger"
+        : "bg-app-subtle";
+}

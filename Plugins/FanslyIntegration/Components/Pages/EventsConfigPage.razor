@@ -1,22 +1,20 @@
 @page "/plugins/com-multishock-fanslyintegration/events-config"
-@using MultiShock.PluginSdk
-@using MultiShock.PluginSdk.Components
-@using FanslyIntegration.Components.Config
 @implements IDisposable
 
-<div class="space-y-4">
-    <div>
-        <h1 class="text-xl font-bold text-app-text">Follows &amp; Subscriptions</h1>
-        <p class="text-sm mt-1 text-app-muted">
-            Configure reactions for non-tip events — no flow editor needed. Each is off by default.
-        </p>
-    </div>
+<PageHeader Title="Follows and subscriptions" Icon="user-plus"
+            Description="Run a shocker action when someone follows or subscribes. Each reaction runs only while its switch is on; you can set it up first. Changes save automatically.">
+    <Breadcrumb><BackLink /></Breadcrumb>
+</PageHeader>
 
-    <SimpleActionCard Title="New Follower" Icon="user-plus" Config="Events.Config.Follow"
-        Description="Fires when a viewer follows the streamer." OnChanged="SaveEvents" />
-
-    <SimpleActionCard Title="New Subscriber" Icon="star" Config="Events.Config.Subscribe"
-        Description="Fires on a new or gifted subscription." OnChanged="SaveEvents" />
+<div class="max-w-4xl space-y-4">
+    <Card Title="Event reactions">
+        <div class="divide-y divide-app-border">
+            <EventReactionRow Title="New follower" Icon="user-plus" Config="Events.Config.Follow"
+                              Description="When a viewer follows you." OnChanged="SaveEvents" />
+            <EventReactionRow Title="New subscriber" Icon="star" Config="Events.Config.Subscribe"
+                              Description="When a viewer subscribes or is gifted a subscription." OnChanged="SaveEvents" />
+        </div>
+    </Card>
 </div>
 
 @code {

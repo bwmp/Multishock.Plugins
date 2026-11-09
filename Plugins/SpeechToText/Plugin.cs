@@ -17,11 +17,11 @@ public class SpeechToTextPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProv
 
     public string Id => PluginId;
 
-    public string Name => "SpeechToText";
+    public string Name => "Speech to text";
 
     public string Version => BuildStamp.Version;
 
-    public string Description => "Continuous speech recognition with sentence and word triggers.";
+    public string Description => "Use recognized words and sentences to trigger flows.";
 
     private SpeechToTextSettingsService? _settingsService;
     private SpeechRecognitionService? _recognitionService;
@@ -106,7 +106,7 @@ public class SpeechToTextPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProv
     [
         new NavigationItem
         {
-            Text = "SpeechToText",
+            Text = "Speech to text",
             Href = "/speechtotext",
             Icon = "mic",
             Order = 50

@@ -67,7 +67,7 @@
             @if (_testResult != null)
             {
                 var testOk = _testResult.Success && (_testResult.Found || _testResult.MeterPercent.HasValue);
-                <div class="rounded-lg border p-3 space-y-2 @(testOk ? "border-app-success/40 bg-app-success/5" : "border-app-border-strong bg-black/10")">
+                <div class="space-y-2 rounded-ctl border p-3 @(testOk ? "border-app-success/40 bg-app-success/5" : "border-app-border bg-app-surface-2")">
                     <div class="flex items-center justify-between gap-3">
                         <span class="text-sm @(testOk ? "text-app-success" : _testResult.Success ? "text-app-muted" : "text-app-danger")">
                             @_testResult.Message

@@ -1,0 +1,8 @@
+<span class="@($"flex items-center gap-1.5 text-xs text-app-warning {Class}")">
+    <LucideIcon Name="alert-triangle" Size="12" Class="shrink-0" />
+    <span>Select at least one shocker. Nothing runs until you do.</span>
+</span>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+}

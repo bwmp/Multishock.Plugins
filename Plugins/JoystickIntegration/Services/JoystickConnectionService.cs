@@ -271,7 +271,7 @@ public class JoystickConnectionService : IAsyncDisposable
                 {
                     return;
                 }
-                OnStatusMessage?.Invoke("Reconnecting...");
+                OnStatusMessage?.Invoke("Reconnecting…");
                 await TryConnectOnceAsync(ct);
             }
             catch (OperationCanceledException)

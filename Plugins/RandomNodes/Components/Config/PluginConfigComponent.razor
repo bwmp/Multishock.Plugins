@@ -1,26 +1,10 @@
-@using MultiShock.PluginSdk
+@using MultiShock.PluginSdk.Components
 
-<div class="space-y-4">
-    <div class="text-sm text-app-muted">
-        <p>Random Nodes plugin is active.</p>
-    </div>
-
-    <div class="text-xs text-app-muted space-y-1">
-        <div><strong>Features:</strong></div>
-        <ul class="list-disc list-inside ml-2">
-            <li>Feature 1</li>
-            <li>Feature 2</li>
-            <li>Feature 3</li>
-        </ul>
-    </div>
+<div class="space-y-3">
+    <span class="chip chip-neutral" role="status"><span class="status-dot bg-app-subtle"></span> No settings required</span>
+    <p class="text-sm text-app-muted">Adds flow nodes only. Turn on Random nodes under Sidebar pages above to see the node list.</p>
 </div>
 
 @code {
-    [Parameter]
-    public string? PluginId { get; set; }
-
-    protected override void OnInitialized()
-    {
-        // Initialization logic
-    }
+    [Parameter] public string? PluginId { get; set; }
 }

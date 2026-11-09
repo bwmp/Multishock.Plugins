@@ -1,150 +1,176 @@
 @page "/plugins/com-multishock-throneintegration/throneintegration"
+@using ThroneIntegration.Nodes
 @implements IDisposable
 
-<div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <h1 class="text-xl font-bold">Throne Integration</h1>
-    </div>
+<PageHeader Title="Throne" Icon="gift"
+            Description="Fire a flow trigger when someone buys a gift from your Throne wishlist, contributes to a crowdfund or sends a tip.">
+    <Meta>
+        <ConnectionChip Connected="IsConnected" Connecting="ThroneService.IsConnecting"
+                        Reconnecting="ThroneService.IsReconnecting" />
+    </Meta>
+    <Actions>
+        @if (IsConnected)
+        {
+            <Button Variant="secondary" Icon="unplug" Text="Disconnect" OnClick="Disconnect" />
+        }
+        else if (IsRunning)
+        {
+            <Button Variant="secondary" Icon="x" Text="Cancel" OnClick="Disconnect" />
+        }
+        else
+        {
+            <Button Variant="primary" Icon="plug" Text="Connect"
+                    Disabled="@string.IsNullOrWhiteSpace(_creatorId)"
+                    Title="@(string.IsNullOrWhiteSpace(_creatorId) ? "Enter your Throne username first" : null)"
+                    OnClick="Connect" />
+        }
+    </Actions>
+</PageHeader>
 
-    <Card Title="Connection Settings">
-        <div class="space-y-4">
-            <div>
-                <TextInput Label="Throne Username" 
-                    Placeholder="Enter your Throne username"
-                    Value="@CreatorId" ValueChanged="@OnCreatorIdChanged" />
-            </div>
+<div class="max-w-4xl space-y-4">
+    @if (!string.IsNullOrEmpty(_error) && !IsRunning)
+    {
+        <Alert Variant="danger" Title="Couldn't connect to Throne">@_error</Alert>
+    }
 
-            <div class="flex gap-2">
-                @if (IsConnected)
+    <Card Title="Connection"
+          Description="Throne gifts are public, so no sign-in is needed: MultiShock only needs your creator username. Changes save automatically.">
+        <SettingRow Label="Throne username" Description="The username in your Throne link, as in throne.com/username.">
+            <Help>
+                @if (IsRunning)
                 {
-                    <Button Text="Disconnect" Variant="danger" OnClick="Disconnect" />
+                    <span>@(IsConnected || string.IsNullOrEmpty(_status) ? "Disconnect to change it." : _status)</span>
                 }
-                else
+                else if (string.IsNullOrWhiteSpace(_creatorId))
                 {
-                    <Button Text="Connect" Variant="primary" OnClick="Connect"
-                        Disabled="@string.IsNullOrWhiteSpace(CreatorId)" />
+                    <span class="inline-flex items-center gap-1.5">
+                        <LucideIcon Name="info" Size="12" Class="shrink-0" />
+                        Enter your username to connect.
+                    </span>
                 }
-            </div>
-
-            @if (!string.IsNullOrEmpty(StatusMessage))
-            {
-                <div class="text-sm @(IsConnected ? "text-app-success" : "text-app-subtle")">
-                    @StatusMessage
-                </div>
-            }
-        </div>
+            </Help>
+            <ChildContent>
+                <TextInput Placeholder="username" Value="@_creatorId" ValueChanged="OnCreatorIdChanged"
+                           Disabled="IsRunning" aria-label="Throne username" />
+            </ChildContent>
+        </SettingRow>
     </Card>
 
-    @if (IsConnected)
-    {
-        <Card Title="Recent Throne Gifts">
-            <div class="flex justify-between items-center mb-2">
-                <div class="text-sm text-app-muted">Showing latest gifts (up to 50 stored)</div>
-                @if (RecentEvents.Count > 0)
-                {
-                    <Button Text="Clear" Variant="secondary" Size="sm" OnClick="ClearRecent" />
-                }
-            </div>
-            <div class="space-y-2">
-                @if (RecentEvents.Count == 0)
-                {
-                    <div class="text-app-subtle text-sm">No gifts received yet. Waiting for events...</div>
-                }
-                else
-                {
-                    @foreach (var evt in RecentEvents.Take(10))
+    <Card Title="Flow trigger"
+          Description="Throne has no built-in reactions. Add this trigger to a flow and connect it to the shocker actions you want.">
+        <SettingRow Label="Throne gift received" Description="@GiftTrigger.Description">
+            <NavButton Href="/flows" Text="Open flows" />
+        </SettingRow>
+    </Card>
+
+    <Card Title="Recent gifts" Description="The last 50 gifts, newest first. Kept between sessions." NoPadding="true">
+        <Actions>
+            @if (_recentEvents.Count > 0)
+            {
+                <Button Variant="ghost" Size="sm" Icon="trash-2" Text="Clear" OnClick="ClearRecent" />
+            }
+        </Actions>
+        <ChildContent>
+            @if (_recentEvents.Count == 0)
+            {
+                <div class="px-4 py-6">
+                    <p class="text-sm text-app-muted">No gifts yet.</p>
+                    <p class="mt-0.5 text-xs text-app-subtle">
+                        @(IsConnected
+                            ? "Gifts, crowdfund contributions and tips appear here as they arrive."
+                            : "Gifts, crowdfund contributions and tips appear here once you connect.")
+                    </p>
+                </div>
+            }
+            else
+            {
+                <ol class="max-h-96 divide-y divide-app-border overflow-y-auto">
+                    @foreach (var evt in _recentEvents)
                     {
-                        <div class="throneintegration-card flex items-center justify-between">
-                            <div class="flex-1">
-                                <div class="font-medium">@evt.OverlayInformation?.GifterUsername</div>
-                                <div class="text-sm text-app-subtle">
-                                    @evt.OverlayInformation?.Type
-                                    @if (!string.IsNullOrEmpty(evt.OverlayInformation?.ItemName))
+                        var info = evt.OverlayInformation;
+                        <li class="flex items-start justify-between gap-4 px-4 py-2.5 text-sm">
+                            <div class="min-w-0">
+                                <div class="font-medium text-app-text">@(info?.GifterUsername ?? "Anonymous")</div>
+                                <div class="text-xs text-app-muted">
+                                    @(info?.Type ?? "Unknown")
+                                    @if (!string.IsNullOrEmpty(info?.ItemName))
                                     {
-                                        <span> • @evt.OverlayInformation.ItemName</span>
+                                        <span> · @info.ItemName</span>
                                     }
                                 </div>
-                                @if (!string.IsNullOrEmpty(evt.OverlayInformation?.Message))
+                                @if (!string.IsNullOrEmpty(info?.Message))
                                 {
-                                    <div class="text-sm italic text-app-muted mt-1">
-                                        "@evt.OverlayInformation.Message"
-                                    </div>
+                                    <p class="mt-1 break-words text-app-muted">“@info.Message”</p>
                                 }
                             </div>
-                            <div class="text-sm text-app-subtle">
+                            <time class="shrink-0 text-xs text-app-subtle"
+                                  datetime="@DateTimeOffset.FromUnixTimeMilliseconds(evt.CreatedAt).ToString("o")">
                                 @FormatTimestamp(evt.CreatedAt)
-                            </div>
-                        </div>
+                            </time>
+                        </li>
                     }
-                }
-            </div>
-        </Card>
-    }
+                </ol>
+            }
+        </ChildContent>
+    </Card>
 </div>
 
 @code {
+    private static readonly ThroneGiftTriggerNode GiftTrigger = new();
+
     private string pluginId = ThroneIntegration.ThroneIntegrationPlugin.PluginId;
     private ThroneService ThroneService => PluginServiceLocator.GetRequiredService<ThroneService>(pluginId);
     private ThroneSettingsService SettingsService =>
         PluginServiceLocator.GetRequiredService<ThroneSettingsService>(pluginId);
 
-    private string CreatorId = string.Empty;
+    private string _creatorId = string.Empty;
     private bool IsConnected => ThroneService.IsConnected;
-    private string? StatusMessage;
-    private List<ThroneEvent> RecentEvents = new();
+    private bool IsRunning => IsConnected || ThroneService.IsConnecting || ThroneService.IsReconnecting;
+    private bool _userStopped;
+    private string? _status;
+    private string? _error;
+    private List<ThroneEvent> _recentEvents = new();
 
     protected override void OnInitialized()
     {
-        LoadSettings();
-        RecentEvents = SettingsService.GetRecentEvents().ToList();
+        _creatorId = SettingsService.CreatorId;
+        _recentEvents = SettingsService.GetRecentEvents().ToList();
 
-        // Subscribe to service events
         ThroneService.OnGiftReceived += OnGiftReceived;
         ThroneService.ConnectionStateChanged += OnConnectionStateChanged;
         ThroneService.StatusMessage += OnStatusMessage;
         ThroneService.ErrorOccurred += OnError;
     }
 
-    private void LoadSettings()
-    {
-        CreatorId = SettingsService.CreatorId;
-
-        if (IsConnected)
-        {
-            StatusMessage = $"Connected and listening for gifts";
-        }
-    }
-
     private void OnCreatorIdChanged(string? value)
     {
-        CreatorId = value ?? string.Empty;
+        _creatorId = value ?? string.Empty;
+        SettingsService.CreatorId = _creatorId;
     }
 
     private async Task Connect()
     {
-        if (string.IsNullOrWhiteSpace(CreatorId))
+        if (string.IsNullOrWhiteSpace(_creatorId))
         {
-            StatusMessage = "Please enter a Creator ID";
-            StateHasChanged();
             return;
         }
 
+        _error = null;
+        _userStopped = false;
         try
         {
-            SettingsService.CreatorId = CreatorId;
             SettingsService.Enabled = true;
-
-            await ThroneService.StartAsync(CreatorId);
+            await ThroneService.StartAsync(_creatorId);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error connecting: {ex.Message}";
-            StateHasChanged();
+            _error = ex.Message;
         }
     }
 
     private void Disconnect()
     {
+        _userStopped = true;
         ThroneService.Stop();
         SettingsService.Enabled = false;
     }
@@ -152,48 +178,51 @@
     private void ClearRecent()
     {
         SettingsService.ClearRecentEvents();
-        RecentEvents.Clear();
+        _recentEvents.Clear();
+    }
+
+    private void OnConnectionStateChanged(bool connected) => InvokeAsync(StateHasChanged);
+
+    private void OnStatusMessage(string message) => InvokeAsync(() =>
+    {
+        _status = message;
         StateHasChanged();
-    }
+    });
 
-    private void OnConnectionStateChanged(bool connected)
+    // Stopping mid-start cancels the creator lookup, which the service reports as an error.
+    private void OnError(string error) => InvokeAsync(() =>
     {
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnStatusMessage(string message)
-    {
-        StatusMessage = message;
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnError(string error)
-    {
-        StatusMessage = $"Error: {error}";
-        InvokeAsync(StateHasChanged);
-    }
+        if (_userStopped)
+        {
+            return;
+        }
+        _error = error;
+        StateHasChanged();
+    });
 
     private void OnGiftReceived(ThroneEvent evt)
     {
         SettingsService.AddRecentEvent(evt);
-        RecentEvents = SettingsService.GetRecentEvents().ToList();
-        InvokeAsync(StateHasChanged);
+        InvokeAsync(() =>
+        {
+            _recentEvents = SettingsService.GetRecentEvents().ToList();
+            StateHasChanged();
+        });
     }
 
-    private string FormatTimestamp(long timestamp)
+    private static string FormatTimestamp(long timestamp)
     {
         var dateTime = DateTimeOffset.FromUnixTimeMilliseconds(timestamp).ToLocalTime();
-        var now = DateTimeOffset.Now;
-        var diff = now - dateTime;
+        var diff = DateTimeOffset.Now - dateTime;
 
         if (diff.TotalMinutes < 1)
             return "Just now";
         if (diff.TotalMinutes < 60)
-            return $"{(int)diff.TotalMinutes}m ago";
+            return $"{(int)diff.TotalMinutes} min ago";
         if (diff.TotalHours < 24)
-            return $"{(int)diff.TotalHours}h ago";
+            return $"{(int)diff.TotalHours} h ago";
 
-        return dateTime.ToString("MMM d, h:mm tt");
+        return dateTime.ToString("MMM d, HH:mm");
     }
 
     public void Dispose()

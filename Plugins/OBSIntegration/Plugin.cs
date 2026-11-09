@@ -15,9 +15,9 @@ public class OBSIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     // ========== PLUGIN METADATA ==========
     public static readonly string PluginId = "com.multishock.obsintegration";
     public string Id => PluginId;
-    public string Name => "OBS Integration";
+    public string Name => "OBS";
     public string Version => BuildStamp.Version;
-    public string Description => "Control OBS Studio through MultiShock - toggle sources, switch scenes, and more";
+    public string Description => "Connect to OBS Studio to switch scenes, toggle sources and react to stream events from a flow.";
 
     private ObsWebSocketService? _obsService;
     private ObsConfigService? _configService;
@@ -61,7 +61,8 @@ public class OBSIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     // ========== CONFIGURATION (IConfigurablePlugin) ==========
 
-    public Type? GetConfigurationComponentType() => typeof(PluginConfigComponent);
+    // Connection settings live on the OBS page itself.
+    public Type? GetConfigurationComponentType() => null;
 
     public Dictionary<string, object?>? GetDefaultSettings() => new()
     {
@@ -98,7 +99,7 @@ public class OBSIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     [
         new NavigationItem
         {
-            Text = "OBS Integration",
+            Text = "OBS",
             Href = "/obsintegration",
             Icon = "monitor",
             Order = 50
@@ -128,8 +129,3 @@ public class OBSIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
     }
 }
 
-/// <summary>
-/// Settings UI component placeholder.
-/// Replace with a real .razor component for a full settings UI.
-/// </summary>
-public class PluginConfigComponent { }

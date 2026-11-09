@@ -1,319 +1,199 @@
 @page "/plugins/com-multishock-twitchintegration/twitchintegration"
 @using MultiShock.PluginSdk
 @using MultiShock.PluginSdk.Components
-@inject IDeviceActions Actions
 @inject IPluginHost Host
 @implements IDisposable
 
-@* The host page header carries title, status and primary action, so this page
-   uses the same band as every MultiShock screen instead of a bespoke toolbar.
-   The Twitch mark stays as identity only. *@
-<PageHeader Title="Twitch Integration"
-            Description="React to cheers, subscriptions, follows, hype trains and channel point redeems from a flow.">
+<PageHeader Title="Twitch" Icon="tv-minimal-play" Description="React to Twitch cheers, subscriptions, follows, hype trains and channel points with your shockers.">
     <Meta>
-        @if (TwitchService.IsConnected)
-        {
-            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span> Connected</span>
-            <span class="text-xs text-app-subtle">@TwitchService.CurrentUserName</span>
-        }
-        else if (TwitchService.IsConnecting || IsAuthenticating)
-        {
-            <span class="chip chip-warn">
-                <span class="status-dot bg-app-warning"></span>
-                @(IsAuthenticating ? "Waiting for login" : "Connecting")
-            </span>
-        }
-        else
-        {
-            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span> Disconnected</span>
-        }
+        <ConnectionChip Connected="TwitchService.IsConnected" WaitingForLogin="IsAuthenticating" Connecting="TwitchService.IsConnecting"
+                        Reconnecting="TwitchService.IsReconnecting" Failed="@(!string.IsNullOrEmpty(ErrorMessage))" />
     </Meta>
     <Actions>
-        @if (TwitchService.IsConnected)
-        {
-            <Button Variant="secondary" Icon="log-out" Text="Disconnect" OnClick="Disconnect" />
-        }
-        else if (CanConnectWithoutLogin)
-        {
-            <Button Variant="primary" Icon="plug" Text="Connect"
-                    Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
-                    OnClick="ConnectWithSavedToken" />
-        }
-        else
-        {
-            <Button Variant="primary" Icon="log-in" Text="Sign in with Twitch"
-                    Disabled="@(IsAuthenticating || TwitchService.IsConnecting)"
-                    OnClick="LoginWithTwitch" />
-        }
+        <div data-guided-setup="twitch-home-login-button">
+            @if (TwitchService.IsConnected)
+            {
+                <Button Variant="secondary" Icon="unplug" Text="Disconnect" OnClick="Disconnect" />
+            }
+            else
+            {
+                <Button Title="@ConnectBlockedReason" Variant="primary" Icon="plug" Text="Connect"
+                        Loading="TwitchService.IsConnecting"
+                        Disabled="@(ConnectBlockedReason != null)" OnClick="ConnectAccount" />
+            }
+        </div>
     </Actions>
 </PageHeader>
 
-<div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
-
-    <div class="space-y-4">
-        <div class="twitch-card" data-guided-setup="twitch-home-connection">
-            <div class="twitch-card-header">
-                <span>Connection</span>
-                @if (IsAuthenticating)
+<div class="max-w-4xl space-y-4">
+    <div data-guided-setup="twitch-home-connection">
+        <Card Title="Connection" Description="Changes save automatically.">
+            <SettingRow Label="Account" Description="@AccountDescription">
+                @if (TwitchService.IsConnected)
                 {
-                    <Button Text="Cancel" Variant="secondary" Size="sm" OnClick="CancelLogin" />
+                    <Button Text="Sign out" Variant="secondary" Size="sm" OnClick="LogoutAsync" />
                 }
-            </div>
-            <div class="twitch-card-body">
-                @if (!TwitchService.IsConnected)
+                else if (IsAuthenticating)
                 {
-                    <div class="flex flex-col items-center gap-4 py-4">
-                        @if (CanConnectWithoutLogin)
-                        {
-                            <div data-guided-setup="twitch-home-login-button">
-                                <Button Disabled="@(TwitchService.IsConnecting)" OnClick="ConnectWithSavedToken"
-                                    Variant="none"
-                                    Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
-                                    <LucideIcon Name="twitch" Class="w-5 h-5" />
-                                    @if (TwitchService.IsConnecting)
-                                    {
-                                        <span>Connecting...</span>
-                                    }
-                                    else
-                                    {
-                                        <span>Connect</span>
-                                    }
-                                </Button>
-                            </div>
-                        }
-                        else
-                        {
-                            <div data-guided-setup="twitch-home-login-button">
-                                <Button Disabled="@(IsAuthenticating || TwitchService.IsConnecting)" OnClick="LoginWithTwitch"
-                                    Variant="none"
-                                    Class="bg-[#9146FF]! hover:bg-[#772ce8]!">
-                                    <LucideIcon Name="twitch" Class="w-5 h-5" />
-                                    @if (IsAuthenticating)
-                                    {
-                                        <span>Waiting for login...</span>
-                                    }
-                                    else if (TwitchService.IsConnecting)
-                                    {
-                                        <span>Connecting...</span>
-                                    }
-                                    else
-                                    {
-                                        <span>Login with Twitch</span>
-                                    }
-                                </Button>
-                            </div>
-                        }
-
-                        <div class="flex flex-col gap-2" data-guided-setup="twitch-home-auto-connect">
-                            <Toggle Label="Auto-connect on app startup" Value="AutoConnectEnabled"
-                                ValueChanged="@((enabled) => ToggleAutoConnect(enabled))" />
-
-                            <Toggle Label="Use local Twitch CLI (testing)" Value="UseLocalCliEnabled"
-                                ValueChanged="@((enabled) => ToggleLocalCli(enabled))" />
-
-                            @if (UseLocalCliEnabled)
-                            {
-                                <TextInput Label="Twitch CLI WebSocket URL" Value="@LocalCliUrl"
-                                    Placeholder="@TwitchConstants.DefaultLocalCliUrl"
-                                    Description="No Twitch login is needed while using the local CLI."
-                                    Error="@LocalCliUrlError"
-                                    ValueChanged="@((value) => UpdateLocalCliUrl(value))" />
-                            }
-                        </div>
-
-                        @if (IsAuthenticating && !string.IsNullOrEmpty(AuthService.PendingUserCode))
-                        {
-                            <div class="flex flex-col items-center gap-1 text-center">
-                                <p class="text-sm text-app-muted">Approve MultiShock on Twitch with this code:</p>
-                                <span class="font-mono text-2xl font-semibold tracking-widest">@AuthService.PendingUserCode</span>
-                                <a class="text-sm text-app-primary" href="@AuthService.PendingVerificationUri" target="_blank">
-                                    Open the Twitch activation page
-                                </a>
-                            </div>
-                        }
-                        else if (AuthService.LoginExpired)
-                        {
-                            <p class="text-sm text-app-warning">Your Twitch login expired. Log in again to keep receiving events.</p>
-                        }
-                        else if (!string.IsNullOrEmpty(AuthStatus))
-                        {
-                            <p class="text-sm text-app-muted">@AuthStatus</p>
-                        }
-                    </div>
-                    <details class="mt-4 pt-4 border-t border-app-border">
-                        <summary class="text-sm cursor-pointer text-app-muted">
-                            Or enter token manually
-                        </summary>
-                        <div class="mt-4 space-y-3">
-                            <div class="flex gap-2">
-                                <TextInput InputType="password" Placeholder="Enter your Twitch OAuth token" Value="@OAuthToken"
-                                    ValueChanged="@((value) => OAuthToken = value ?? "")" Class="flex-1" />
-                                <Button Text="Connect" Variant="primary"
-                                    Disabled="@(string.IsNullOrWhiteSpace(OAuthToken) || TwitchService.IsConnecting)"
-                                    OnClick="Connect" />
-                                <Button Text="Clear" Variant="secondary" Disabled="@(string.IsNullOrWhiteSpace(OAuthToken))"
-                                    OnClick="ClearToken" />
-                            </div>
-                        </div>
-                    </details>
+                    <Button Text="Cancel login" Variant="secondary" Size="sm" OnClick="CancelLogin" />
                 }
-                else
-                {
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="twitch-status twitch-status-connected">
-                                    <span class="twitch-status-dot"></span>
-                                    Connected as <strong>@TwitchService.CurrentUserName</strong>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <Button Text="Disconnect" Variant="secondary" OnClick="Disconnect" />
-                                <Button Text="Logout" Variant="secondary" OnClick="LogoutAsync" />
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-2" data-guided-setup="twitch-home-auto-connect">
-                            <Toggle Label="Auto-connect on app startup" Value="AutoConnectEnabled"
-                                ValueChanged="@((enabled) => ToggleAutoConnect(enabled))" />
-
-                            <Toggle Label="Use local Twitch CLI (testing)" Value="UseLocalCliEnabled"
-                                ValueChanged="@((enabled) => ToggleLocalCli(enabled))" />
-
-                            @if (UseLocalCliEnabled)
-                            {
-                                <TextInput Label="Twitch CLI WebSocket URL" Value="@LocalCliUrl"
-                                    Placeholder="@TwitchConstants.DefaultLocalCliUrl"
-                                    Description="No Twitch login is needed while using the local CLI."
-                                    Error="@LocalCliUrlError"
-                                    ValueChanged="@((value) => UpdateLocalCliUrl(value))" />
-                            }
-                        </div>
-                    </div>
-                }
-
-                <details class="mt-4 pt-4 border-t border-app-border">
-                    <summary class="text-sm cursor-pointer text-app-muted">
-                        Required OAuth Scopes
-                    </summary>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        @foreach (var scope in TwitchConstants.RequiredScopes)
-                        {
-                            <span class="twitch-badge font-mono">@scope</span>
-                        }
-                    </div>
-                </details>
+            </SettingRow>
+            <div data-guided-setup="twitch-home-auto-connect">
+                <SettingRow Label="Connect on startup" Description="Connect to Twitch when MultiShock starts.">
+                    <Toggle AriaLabel="Connect on startup" Value="AutoConnectEnabled" ValueChanged="ToggleAutoConnect" />
+                </SettingRow>
             </div>
-        </div>
-
-        <div class="twitch-card">
-            <div class="twitch-card-header">
-                <span>Setup Path</span>
-            </div>
-            <div class="twitch-card-body space-y-3">
-                <p class="text-sm text-app-muted">
-                    Use these shortcuts when you are walking through first-time setup for cheers and subscriptions.
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    <Button Text="Start Guided Setup" Variant="primary"
-                        OnClick="@(() => Host.StartPluginGuidedSetup(TwitchIntegrationPlugin.PluginId))" />
-                    <a href="/plugins/com-multishock-twitchintegration/cheer-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface"
-                        data-guided-setup="twitch-home-open-cheers">
-                        <LucideIcon Name="coins" Size="16" />
-                        <span>Open Bits/Cheers</span>
-                    </a>
-                    <a href="/plugins/com-multishock-twitchintegration/sub-config"
-                        class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors border-app-border text-app-text bg-app-surface">
-                        <LucideIcon Name="user-plus" Size="16" />
-                        <span>Open Subs / Gifted Subs</span>
-                    </a>
+            @if (IsAuthenticating && !string.IsNullOrEmpty(AuthService.PendingUserCode))
+            {
+                <div class="callout callout-info mt-3 space-y-2" role="status">
+                    <p>Approve MultiShock on Twitch with this code: <strong class="font-mono">@AuthService.PendingUserCode</strong></p>
+                    <a class="text-app-primary hover:underline" href="@AuthService.PendingVerificationUri" target="_blank" rel="noopener noreferrer">Open the Twitch activation page</a>
                 </div>
-            </div>
-        </div>
-
-        <div class="twitch-card">
-            <div class="twitch-card-header">
-                <span>Legacy Import</span>
-            </div>
-            <div class="twitch-card-body space-y-3">
-                <p class="text-sm text-app-muted">
-                    Import Twitch cheer, redeem, sub, hype train, and follow settings from the legacy MultiShock
-                    `config.json` format.
-                </p>
-                <div class="flex flex-wrap items-end gap-2">
-                    <div class="grow min-w-[20rem]">
-                        <TextInput Label="Legacy config path" Value="@LegacyConfigPath"
-                            ValueChanged="@((value) => LegacyConfigPath = value ?? string.Empty)" />
-                    </div>
-                    <Button Text="Import" Variant="primary" Disabled="@IsImportingLegacyConfig"
-                        OnClick="ImportLegacyConfigAsync">
-                        @if (IsImportingLegacyConfig)
-                        {
-                            <span>Importing...</span>
-                        }
-                        else
-                        {
-                            <span>Import</span>
-                        }
-                    </Button>
-                </div>
-
-                @if (!string.IsNullOrEmpty(LegacyImportMessage))
-                {
-                    <div class="text-sm px-4 py-3 rounded"
-                        style="background: @(LegacyImportSuccess ? "rgba(74, 158, 255, 0.1)" : "rgba(220, 38, 38, 0.1)"); color: @(LegacyImportSuccess ? "rgb(var(--ms-primary-rgb))" : "rgb(var(--ms-danger-rgb))");">
-                        <div>@LegacyImportMessage</div>
-                        @if (!string.IsNullOrWhiteSpace(LegacyImportDetails))
-                        {
-                            <pre class="mt-2 text-xs whitespace-pre-wrap" style="color: inherit;">@LegacyImportDetails</pre>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        @if (!string.IsNullOrEmpty(ErrorMessage))
-        {
-            <div class="twitch-card" style="border-color: rgb(var(--ms-danger-rgb));">
-                <div class="twitch-card-body">
-                    <div class="flex items-center gap-2" style="color: rgb(var(--ms-danger-rgb));">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>@ErrorMessage</span>
-                    </div>
-                </div>
-            </div>
-        }
-
+            }
+            else if (AuthService.LoginExpired && !TwitchService.IsConnected)
+            {
+                <Alert Variant="warning" Class="mt-3">Your Twitch login expired. Connect again to keep receiving events.</Alert>
+            }
+            else if (!string.IsNullOrEmpty(AuthStatus))
+            {
+                <p role="status" class="mt-3 text-sm text-app-muted">@AuthStatus</p>
+            }
+            @if (!string.IsNullOrEmpty(ErrorMessage) && TwitchService.IsReconnecting && !TwitchService.IsConnected)
+            {
+                <Alert Variant="info" Title="Reconnecting to Twitch" Class="mt-3">@ErrorMessage</Alert>
+            }
+            else if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <Alert Variant="danger" Title="Twitch reported a problem" Class="mt-3">
+                    <ChildContent>@ErrorMessage</ChildContent>
+                    <Actions><Button Text="Dismiss" Variant="ghost" Size="sm" OnClick="@(() => ErrorMessage = null)" /></Actions>
+                </Alert>
+            }
+        </Card>
     </div>
 
-    <div class="space-y-4">
-        <TwitchIntegration.Components.EventLog />
+    <Card Title="Reactions" Description="Run shocker actions straight from Twitch events. For custom logic, use the Twitch triggers in a flow instead.">
+        <Actions>
+            <Button Text="Guided setup" Icon="route" Variant="ghost" Size="sm" OnClick="@(() => Host.StartPluginGuidedSetup(TwitchIntegrationPlugin.PluginId))" />
+        </Actions>
+        <ChildContent>
+            <SettingRow Label="Cheers" Description="Sections and bit brackets for cheers.">
+                <Meta><SummaryChip Summary="CheerSummary" /></Meta>
+                <ChildContent>
+                    <NavButton Href="/plugins/com-multishock-twitchintegration/cheer-config" AriaLabel="Configure cheers" data-guided-setup="twitch-home-open-cheers" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Subscriptions" Description="Brackets or scaling for each tier, including gifted subs.">
+                <Meta><SummaryChip Summary="SubSummary" /></Meta>
+                <ChildContent>
+                    <NavButton Href="/plugins/com-multishock-twitchintegration/sub-config" AriaLabel="Configure subscriptions" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Follows" Description="One action for each first-time follower.">
+                <Meta><SummaryChip Summary="FollowSummary" /></Meta>
+                <ChildContent>
+                    <NavButton Href="/plugins/com-multishock-twitchintegration/follow-config" AriaLabel="Configure follows" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Hype trains" Description="Actions while a train runs and when it ends.">
+                <Meta><SummaryChip Summary="HypeSummary" /></Meta>
+                <ChildContent>
+                    <NavButton Href="/plugins/com-multishock-twitchintegration/hype-train-config" AriaLabel="Configure hype trains" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Channel points" Description="Actions for channel point rewards.">
+                <Meta><SummaryChip Summary="RedeemSummary" /></Meta>
+                <ChildContent>
+                    <NavButton Href="/plugins/com-multishock-twitchintegration/redeem-config" AriaLabel="Configure channel points" />
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Chat messages" Description="Chat replies when reactions fire, and a repeating message.">
+                <Meta><SummaryChip Summary="ChatSummary" /></Meta>
+                <ChildContent>
+                    <NavButton Href="/plugins/com-multishock-twitchintegration/chat-messages" AriaLabel="Configure chat messages" />
+                </ChildContent>
+            </SettingRow>
+        </ChildContent>
+    </Card>
 
-        <TwitchIntegration.Components.PerformancePanel />
+    <TwitchIntegration.Components.EventLog />
 
-        <div class="twitch-card">
-            <div class="twitch-card-header">
-                <span>Available Flow Triggers</span>
-            </div>
-            <div class="twitch-card-body">
-                <div class="grid gap-2 text-sm">
+    <details class="panel group/advanced">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-panel px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <span class="min-w-0">
+                <span class="panel-title block">Advanced</span>
+                <span class="panel-desc block">Flow triggers, manual token, local Twitch CLI, legacy import and performance timings.</span>
+            </span>
+            <LucideIcon Name="chevron-right" Size="16" Class="shrink-0 text-app-muted transition-transform group-open/advanced:rotate-90" />
+        </summary>
+        <div class="border-t border-app-border p-4">
+            <div class="border-b border-app-border pb-4">
+                <h3 class="text-sm font-medium text-app-text">Flow triggers</h3>
+                <p class="mt-0.5 text-xs text-app-muted">Flow triggers this plugin adds. They fire in Flows whether or not the reactions above are on.</p>
+                <ul class="mt-2 grid gap-x-4 gap-y-1 text-sm text-app-text sm:grid-cols-2">
                     @foreach (var trigger in FlowTriggers)
                     {
-                        <div class="flex items-center gap-2">
-                            <span class="twitch-status-dot bg-app-primary"></span>
-                            <span><strong class="text-app-text">@trigger.Name</strong></span>
-                            <span class="text-app-muted">- @trigger.Description</span>
-                        </div>
+                        <li class="flex items-center gap-2"><LucideIcon Name="zap" Size="14" Class="shrink-0 text-app-muted" />@trigger</li>
                     }
-                </div>
+                </ul>
             </div>
+            <SettingRow Label="Manual OAuth token" Description="Optional. Connect uses this token instead of signing in through Twitch.">
+                <Help>
+                    <span class="block">Needs these scopes:</span>
+                    <span class="mt-1 flex flex-wrap gap-1">
+                        @foreach (var scope in TwitchConstants.RequiredScopes)
+                        {
+                            <Badge Class="font-mono">@scope</Badge>
+                        }
+                    </span>
+                </Help>
+                <ChildContent>
+                    <div class="flex items-center gap-1">
+                        <TextInput InputType="password" Placeholder="Optional" Value="@OAuthToken" ValueChanged="@(value => OAuthToken = value ?? string.Empty)"
+                                   Disabled="@(TwitchService.IsConnected || IsAuthenticating)" aria-label="Manual OAuth token" Class="min-w-0 flex-1" />
+                        <Button Variant="ghost" Size="icon-sm" Icon="trash-2" AriaLabel="Clear saved token" Title="Clear saved token"
+                                Disabled="@(string.IsNullOrWhiteSpace(OAuthToken) || IsAuthenticating)" OnClick="ClearToken" />
+                    </div>
+                </ChildContent>
+            </SettingRow>
+            <SettingRow Label="Use local Twitch CLI" Description="Connect to a local Twitch CLI WebSocket server for testing. Reconnect after changing this.">
+                <Toggle AriaLabel="Use local Twitch CLI" Value="UseLocalCliEnabled" ValueChanged="ToggleLocalCli" />
+            </SettingRow>
+            @if (UseLocalCliEnabled)
+            {
+                <SettingRow Label="CLI endpoint" Description="No Twitch login is needed for the local CLI.">
+                    <TextInput Value="@LocalCliUrl" Error="@LocalCliUrlError" ValueChanged="UpdateLocalCliUrl" aria-label="Twitch CLI WebSocket URL" />
+                </SettingRow>
+            }
+            <SettingRow Label="Legacy import" Description="Replace your Twitch reactions and chat messages with the ones in an older MultiShock config.json file.">
+                <Help>
+                    @if (!string.IsNullOrEmpty(LegacyImportMessage))
+                    {
+                        <Alert Variant="@(LegacyImportSuccess ? "success" : "danger")" Class="mt-2">
+                            @LegacyImportMessage
+                            @if (!string.IsNullOrWhiteSpace(LegacyImportDetails))
+                            {
+                                <pre class="mt-2 whitespace-pre-wrap text-xs">@LegacyImportDetails</pre>
+                            }
+                        </Alert>
+                    }
+                </Help>
+                <ChildContent>
+                    <div class="flex items-center gap-2">
+                        <TextInput Value="@LegacyConfigPath" ValueChanged="@(value => LegacyConfigPath = value ?? string.Empty)" aria-label="Legacy config.json path" Class="min-w-0 flex-1" />
+                        <Button Text="Import" Variant="secondary" Size="sm" Loading="IsImportingLegacyConfig"
+                                Disabled="@string.IsNullOrWhiteSpace(LegacyConfigPath)" OnClick="@(() => ConfirmingImport = true)" />
+                    </div>
+                </ChildContent>
+            </SettingRow>
+            <TwitchIntegration.Components.PerformancePanel />
         </div>
-    </div>
+    </details>
 </div>
+
+<ConfirmDialog IsOpen="ConfirmingImport" Title="Replace Twitch reactions?"
+               Message="Importing replaces your current cheer, subscription, follow, hype train and channel point reactions with the ones in this file. This can't be undone."
+               ConfirmText="Import and replace" OnCancel="@(() => ConfirmingImport = false)" OnConfirm="ImportLegacyConfigAsync" />
 
 @code {
     // Use service locator instead of @inject for plugin-specific services
@@ -322,7 +202,7 @@
     private TwitchEventSubService TwitchService => PluginServiceLocator.GetRequiredService<TwitchEventSubService>(PluginId);
     private TwitchAuthService AuthService => PluginServiceLocator.GetRequiredService<TwitchAuthService>(PluginId);
     private LegacyTwitchImportService LegacyImportService => PluginServiceLocator.GetRequiredService<LegacyTwitchImportService>(PluginId);
-    
+
     private string OAuthToken = "";
     private string? ErrorMessage;
     private string? AuthStatus;
@@ -332,24 +212,103 @@
     private string LocalCliUrl = string.Empty;
     private string? LocalCliUrlError;
     private bool IsImportingLegacyConfig;
+    private bool ConfirmingImport;
     private bool LegacyImportSuccess;
     private string LegacyConfigPath = string.Empty;
     private string? LegacyImportMessage;
     private string? LegacyImportDetails;
 
+    private static readonly string[] FlowTriggers = TwitchIntegrationPlugin.CreateNodeTypes()
+        .OfType<MultiShock.PluginSdk.Flow.IFlowTriggerNode>()
+        .Select(node => node.DisplayName)
+        .ToArray();
+
     private EventLogService EventLogService => PluginServiceLocator.GetRequiredService<EventLogService>(PluginId);
 
-    private static readonly (string Name, string Description)[] FlowTriggers =
-    [
-    ("Twitch Cheer", "Triggers when someone cheers bits"),
-("Twitch Subscribe", "Triggers on new subscriptions"),
-("Twitch Gift Subs", "Triggers when someone gifts subs"),
-("Twitch Resub", "Triggers on resubscription messages"),
-("Twitch Follow", "Triggers when someone follows"),
-("Hype Train Start/Progress/End", "Hype train events"),
-("Twitch Raid", "Triggers when someone raids"),
-("Channel Point Redemption", "Triggers on point redeems")
-    ];
+    private string? ConnectBlockedReason =>
+        IsAuthenticating ? "Finish or cancel the pending Twitch login"
+        : TwitchService.IsConnecting ? "A Twitch connection is in progress"
+        : UseLocalCliEnabled && LocalCliUrlError != null ? "Correct the CLI endpoint in Advanced"
+        : null;
+
+    private string AccountDescription =>
+        TwitchService.IsConnected
+            ? string.IsNullOrEmpty(TwitchService.CurrentUserName) ? "Signed in." : $"Signed in as {TwitchService.CurrentUserName}."
+        : IsAuthenticating ? "Waiting for you to approve MultiShock on Twitch."
+        : UseLocalCliEnabled ? "Using the local Twitch CLI. No sign-in needed."
+        : !string.IsNullOrWhiteSpace(AuthService.StoredToken) ? "Signed in. Connect to receive events."
+        : "Not signed in. Connect opens the Twitch sign-in.";
+
+    private ReactionSummary CheerSummary
+    {
+        get
+        {
+            var config = PluginServiceLocator.GetRequiredService<CheerConfigService>(PluginId).Config;
+            var on = config.Sections.Where(s => s.Enabled).ToList();
+            return ActionOptions.Summarize(config.Enabled, on.Count, "section", "sections",
+                (on.Count(s => s.SelectedShockerIds.Count == 0), "shockers"),
+                (on.Count(s => s.Brackets.Count == 0), "brackets"));
+        }
+    }
+
+    private ReactionSummary SubSummary
+    {
+        get
+        {
+            var config = PluginServiceLocator.GetRequiredService<SubscriptionConfigService>(PluginId).Config;
+            var on = config.Sections.Where(s => s.Enabled).ToList();
+            return ActionOptions.Summarize(config.Enabled, on.Count, "tier", "tiers",
+                (on.Count(s => s.SelectedShockerIds.Count == 0), "shockers"),
+                (on.Count(s => s.Mode == SubscriptionMode.Brackets && s.Brackets.Count == 0), "brackets"));
+        }
+    }
+
+    private ReactionSummary FollowSummary
+    {
+        get
+        {
+            var config = PluginServiceLocator.GetRequiredService<FollowConfigService>(PluginId).Config;
+            if (!config.Enabled) return ReactionSummary.Off;
+            return config.SelectedShockerIds.Count == 0
+                ? new(ReactionStatus.Attention, "No shockers")
+                : new(ReactionStatus.Ready, "On");
+        }
+    }
+
+    private ReactionSummary HypeSummary
+    {
+        get
+        {
+            var config = PluginServiceLocator.GetRequiredService<HypeTrainConfigService>(PluginId).Config;
+            var on = new[] { config.During, config.End }.Where(s => s.Enabled).ToList();
+            return ActionOptions.Summarize(config.Enabled, on.Count, "stage", "stages",
+                (on.Count(s => s.SelectedShockerIds.Count == 0), "shockers"));
+        }
+    }
+
+    private ReactionSummary RedeemSummary
+    {
+        get
+        {
+            var config = PluginServiceLocator.GetRequiredService<RedeemConfigService>(PluginId).Config;
+            var on = config.Redeems.Where(r => r.Enabled).ToList();
+            return ActionOptions.Summarize(config.Enabled, on.Count, "reward", "rewards",
+                (on.Count(r => r.SelectedShockerIds.Count == 0), "shockers"));
+        }
+    }
+
+    private ReactionSummary ChatSummary
+    {
+        get
+        {
+            var chat = PluginServiceLocator.GetRequiredService<AutoMessageService>(PluginId).Config;
+            var templates = new[] { chat.Cheer, chat.Redeem, chat.Subscription, chat.GiftSubscription, chat.Follow }
+                .Where(m => m.Enabled).Select(m => m.Template).ToList();
+            if (chat.Repeating.Enabled) templates.Add(chat.Repeating.Template);
+            return ActionOptions.Summarize(chat.Enabled, templates.Count, "message", "messages",
+                (templates.Count(string.IsNullOrWhiteSpace), "text"));
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -366,6 +325,7 @@
 
     private async Task ImportLegacyConfigAsync()
     {
+        ConfirmingImport = false;
         IsImportingLegacyConfig = true;
         LegacyImportMessage = null;
         LegacyImportDetails = null;
@@ -402,12 +362,12 @@
 
         try
         {
-            EventLogService.AddLog("Starting Twitch login...");
+            EventLogService.AddLog("Starting Twitch login…");
             var token = await AuthService.AuthenticateAsync();
 
             if (!string.IsNullOrEmpty(token))
             {
-                EventLogService.AddLog("Login successful, connecting to EventSub...");
+                EventLogService.AddLog("Login successful, connecting to EventSub…");
                 OAuthToken = token;
                 await TwitchService.ConnectAsync();
             }
@@ -451,7 +411,7 @@
     private async Task Connect()
     {
         ErrorMessage = null;
-        EventLogService.AddLog("Connecting to Twitch...");
+        EventLogService.AddLog("Connecting to Twitch…");
 
         var token = OAuthToken.Trim();
         // The field is prefilled with the stored login; saving it as a manual token would drop its refresh token.
@@ -460,11 +420,11 @@
         if (!success)
         {
             EventLogService.AddLog("Connection failed", isError: true);
-            
+
             // Check if it's a scope issue
             if (ErrorMessage?.Contains("scope", StringComparison.OrdinalIgnoreCase) == true)
             {
-                EventLogService.AddLog("Detected missing scopes, clearing token and re-authenticating...");
+                EventLogService.AddLog("Detected missing scopes, clearing token and re-authenticating…");
                 await LogoutAsync();
                 await Task.Delay(500); // Brief delay to ensure UI updates
                 await LoginWithTwitch();
@@ -479,8 +439,13 @@
     private async Task Disconnect()
     {
         await TwitchService.DisconnectAsync();
+        ErrorMessage = null;
         EventLogService.AddLog("Disconnected");
     }
+
+    private Task ConnectAccount() => UseLocalCliEnabled ? ConnectWithSavedToken()
+        : !string.IsNullOrWhiteSpace(OAuthToken) ? Connect()
+        : CanConnectWithoutLogin ? ConnectWithSavedToken() : LoginWithTwitch();
 
     private bool CanConnectWithoutLogin => UseLocalCliEnabled || !string.IsNullOrWhiteSpace(AuthService.StoredToken);
 
@@ -489,17 +454,17 @@
         if (!CanConnectWithoutLogin) return;
 
         ErrorMessage = null;
-        EventLogService.AddLog(UseLocalCliEnabled ? "Connecting to local Twitch CLI..." : "Connecting with saved token...");
+        EventLogService.AddLog(UseLocalCliEnabled ? "Connecting to local Twitch CLI…" : "Connecting with saved token…");
 
         var success = await TwitchService.ConnectAsync();
         if (!success)
         {
             EventLogService.AddLog("Connection failed", isError: true);
-            
+
             // Check if it's a scope issue
             if (ErrorMessage?.Contains("scope", StringComparison.OrdinalIgnoreCase) == true)
             {
-                EventLogService.AddLog("Detected missing scopes, clearing token and re-authenticating...");
+                EventLogService.AddLog("Detected missing scopes, clearing token and re-authenticating…");
                 await LogoutAsync();
                 await Task.Delay(500); // Brief delay to ensure UI updates
                 await LoginWithTwitch();
@@ -511,6 +476,7 @@
     {
         InvokeAsync(() =>
         {
+            if (connected) ErrorMessage = null;
             StateHasChanged();
         });
     }
@@ -537,7 +503,7 @@
         AuthService.UseLocalCli = enabled;
         var target = enabled ? "local CLI" : "production";
         EventLogService.AddLog($"WebSocket target set to {target}");
-        
+
         if (TwitchService.IsConnected)
         {
             EventLogService.AddLog("Note: Reconnect for the change to take effect");

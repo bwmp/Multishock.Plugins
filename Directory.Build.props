@@ -5,7 +5,7 @@
         the release-please version line, extra package references, and TFM overrides.
     -->
     <PropertyGroup>
-        <PluginSdkVersion>1.15.0</PluginSdkVersion>
+        <PluginSdkVersion>1.16.0</PluginSdkVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>

@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using MultiShock.PluginSdk;
 using TwitchIntegration.Services;
 
@@ -108,7 +109,7 @@ public sealed class TwitchAuthServiceTests
         var proxy = DispatchProxy.Create<IPluginHost, TwitchEventSubTests.HostProxy>();
         host = (TwitchEventSubTests.HostProxy)proxy;
         host.DataPath = path;
-        return new TwitchAuthService(proxy, handler);
+        return new TwitchAuthService(proxy, new ServiceCollection().BuildServiceProvider(), handler);
     }
 
     private static void WriteAuthState(string path, string accessToken, string refreshToken, DateTime expiresAtUtc) =>

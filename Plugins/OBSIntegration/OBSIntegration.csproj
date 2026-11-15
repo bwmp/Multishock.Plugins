@@ -2,4 +2,8 @@
     <PropertyGroup>
         <PluginVersion>1.2.0</PluginVersion> <!-- x-release-please-version -->
     </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="../../Shared/PluginConfigFile.cs" Link="Shared/PluginConfigFile.cs" />
+        <Compile Include="../../Shared/PluginSecrets.cs" Link="Shared/PluginSecrets.cs" />
+    </ItemGroup>
 </Project>

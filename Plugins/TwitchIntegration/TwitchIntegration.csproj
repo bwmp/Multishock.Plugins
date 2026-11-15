@@ -6,4 +6,7 @@
     <ItemGroup>
         <InternalsVisibleTo Include="TwitchIntegration.Tests" />
     </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Shared/PluginSecrets.cs" Link="Shared/PluginSecrets.cs" />
+    </ItemGroup>
 </Project>

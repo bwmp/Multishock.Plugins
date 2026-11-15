@@ -6,12 +6,15 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace TwitchIntegration.Services;
 
 public class TwitchAuthService : IDisposable
 {
     private const string AuthSettingsFileName = "twitch-auth.json";
+    private const string AccessTokenSecret = "access-token";
+    private const string RefreshTokenSecret = "refresh-token";
     private const string DeviceEndpoint = "https://id.twitch.tv/oauth2/device";
     private const string TokenEndpoint = "https://id.twitch.tv/oauth2/token";
     private const string DeviceCodeGrantType = "urn:ietf:params:oauth:grant-type:device_code";
@@ -25,11 +28,14 @@ public class TwitchAuthService : IDisposable
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private readonly Timer _refreshTimer;
+    private readonly PluginSecrets _secrets;
     private CancellationTokenSource? _loginCts;
+    private string? _secretsSaveError;
     private bool _disposed;
 
     private class AuthState
     {
+        // OAuthToken and RefreshToken are only read to move values saved by older versions into secure storage.
         public string? OAuthToken { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime? ExpiresAtUtc { get; set; }
@@ -40,9 +46,12 @@ public class TwitchAuthService : IDisposable
 
     private AuthState _state = new();
 
-    public string? StoredToken => _state.OAuthToken;
+    public string? StoredToken => _secrets.Get(AccessTokenSecret);
 
-    public bool CanRefresh => !string.IsNullOrEmpty(_state.RefreshToken);
+    public bool CanRefresh => !string.IsNullOrEmpty(_secrets.Get(RefreshTokenSecret));
+
+    /// <summary>Why the Twitch login isn't stored securely or couldn't be read or saved, or null.</summary>
+    public string? SecretsWarning => _secretsSaveError ?? _secrets.Warning;
 
     public bool LoginExpired { get; private set; }
 
@@ -103,17 +112,19 @@ public class TwitchAuthService : IDisposable
 
     public event Action<string>? StatusChanged;
 
-    public TwitchAuthService(IPluginHost pluginHost) : this(pluginHost, new HttpClientHandler())
+    public TwitchAuthService(IPluginHost pluginHost, IServiceProvider services) : this(pluginHost, services, new HttpClientHandler())
     {
     }
 
-    internal TwitchAuthService(IPluginHost pluginHost, HttpMessageHandler httpHandler)
+    internal TwitchAuthService(IPluginHost pluginHost, IServiceProvider services, HttpMessageHandler httpHandler)
     {
         _pluginHost = pluginHost;
         _httpClient = new HttpClient(httpHandler);
+        _secrets = new PluginSecrets(services, pluginHost, TwitchIntegrationPlugin.PluginId);
         var dataPath = _pluginHost.GetPluginDataPath(TwitchIntegrationPlugin.PluginId);
         _authSettingsPath = Path.Combine(dataPath, AuthSettingsFileName);
         LoadAuthState();
+        ImportLegacyTokens();
         _refreshTimer = new Timer(_ => _ = RefreshOnScheduleAsync(), null, RefreshCheckInterval, RefreshCheckInterval);
     }
 
@@ -173,7 +184,12 @@ public class TwitchAuthService : IDisposable
                         return null;
                     }
 
-                    StoreTokens(token);
+                    if (StoreTokens(token) is { } saveError)
+                    {
+                        StatusChanged?.Invoke(saveError);
+                        return null;
+                    }
+
                     StatusChanged?.Invoke("Logged in to Twitch.");
                     return token.AccessToken;
                 }
@@ -231,21 +247,21 @@ public class TwitchAuthService : IDisposable
             await RefreshAccessTokenAsync(cancellationToken);
         }
 
-        return _state.OAuthToken;
+        return StoredToken;
     }
 
     public async Task<bool> RefreshAccessTokenAsync(CancellationToken cancellationToken = default)
     {
-        var refreshToken = _state.RefreshToken;
+        var refreshToken = _secrets.Get(RefreshTokenSecret);
         if (string.IsNullOrEmpty(refreshToken)) return false;
 
         await _refreshLock.WaitAsync(cancellationToken);
         try
         {
             // Refresh tokens are single use, so callers queued behind a refresh reuse its result.
-            if (_state.RefreshToken != refreshToken)
+            if (_secrets.Get(RefreshTokenSecret) != refreshToken)
             {
-                return !string.IsNullOrEmpty(_state.OAuthToken);
+                return !string.IsNullOrEmpty(StoredToken);
             }
 
             using var response = await _httpClient.PostAsync(TokenEndpoint, new FormUrlEncodedContent(new Dictionary<string, string>
@@ -260,7 +276,11 @@ public class TwitchAuthService : IDisposable
                 var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
                 if (token != null && !string.IsNullOrEmpty(token.AccessToken))
                 {
-                    StoreTokens(token);
+                    if (StoreTokens(token) is not null)
+                    {
+                        return false;
+                    }
+
                     TwitchIntegrationPlugin.Logger?.LogInformation("[Auth] Twitch access token refreshed, expires {ExpiresAt:u}", _state.ExpiresAtUtc);
                     return true;
                 }
@@ -293,10 +313,7 @@ public class TwitchAuthService : IDisposable
     {
         if (LoginExpired) return;
 
-        _state.OAuthToken = null;
-        _state.RefreshToken = null;
-        _state.ExpiresAtUtc = null;
-        SaveAuthState();
+        SaveTokens(null, null, null);
         LoginExpired = true;
 
         TwitchIntegrationPlugin.Logger?.LogWarning("[Auth] Twitch login expired: {Reason}", reason);
@@ -307,31 +324,65 @@ public class TwitchAuthService : IDisposable
 
     public void SaveAuthToken(string token)
     {
-        _state.OAuthToken = token;
-        _state.RefreshToken = null;
-        _state.ExpiresAtUtc = null;
         LoginExpired = false;
-        SaveAuthState();
+        SaveTokens(token, null, null);
     }
 
     public void ClearAuth()
     {
-        _state.OAuthToken = null;
-        _state.RefreshToken = null;
-        _state.ExpiresAtUtc = null;
         _state.AutoConnect = false;
         LoginExpired = false;
-        SaveAuthState();
-        StatusChanged?.Invoke("Logged out of Twitch");
+        StatusChanged?.Invoke(SaveTokens(null, null, null) ?? "Logged out of Twitch");
     }
 
-    private void StoreTokens(TokenResponse token)
+    private string? StoreTokens(TokenResponse token)
     {
-        _state.OAuthToken = token.AccessToken;
-        _state.RefreshToken = token.RefreshToken;
-        _state.ExpiresAtUtc = DateTime.UtcNow.AddSeconds(token.ExpiresIn);
         LoginExpired = false;
-        SaveAuthState();
+        return SaveTokens(token.AccessToken, token.RefreshToken, DateTime.UtcNow.AddSeconds(token.ExpiresIn));
+    }
+
+    // Also runs from background refreshes, so a failure is logged, kept for SecretsWarning and returned instead of thrown.
+    private string? SaveTokens(string? accessToken, string? refreshToken, DateTime? expiresAtUtc)
+    {
+        try
+        {
+            _secrets.Set(AccessTokenSecret, accessToken);
+            _secrets.Set(RefreshTokenSecret, refreshToken);
+            _state.ExpiresAtUtc = expiresAtUtc;
+            _secretsSaveError = null;
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _secretsSaveError = $"Couldn't update the saved Twitch login: {ex.Message}";
+            TwitchIntegrationPlugin.Logger?.LogError(ex, "[Auth] Couldn't update the saved Twitch login");
+            return _secretsSaveError;
+        }
+        finally
+        {
+            SaveAuthState();
+        }
+    }
+
+    private void ImportLegacyTokens()
+    {
+        var imported = false;
+        if (_secrets.Import(AccessTokenSecret, _state.OAuthToken))
+        {
+            _state.OAuthToken = null;
+            imported = true;
+        }
+
+        if (_secrets.Import(RefreshTokenSecret, _state.RefreshToken))
+        {
+            _state.RefreshToken = null;
+            imported = true;
+        }
+
+        if (imported)
+        {
+            SaveAuthState();
+        }
     }
 
     private async Task RefreshOnScheduleAsync()

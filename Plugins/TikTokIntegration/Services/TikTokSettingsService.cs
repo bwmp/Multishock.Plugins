@@ -1,17 +1,22 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace TikTokIntegration.Services;
 
 public class TikTokSettingsService
 {
     private const string SettingsFileName = "tiktok-settings.json";
+    private const string EulerApiKeySecret = "euler-api-key";
+    private const string SessionIdSecret = "session-id";
 
     private readonly string _settingsPath;
+    private readonly PluginSecrets _secrets;
 
     private class SettingsState
     {
         public string Username { get; set; } = "";
+        // EulerApiKey and SessionId are only read to move values saved by older versions into secure storage.
         public string EulerApiKey { get; set; } = "";
         public string CustomSignServer { get; set; } = "";
         public string SessionId { get; set; } = "";
@@ -32,8 +37,8 @@ public class TikTokSettingsService
 
     public string EulerApiKey
     {
-        get => _state.EulerApiKey;
-        set { _state.EulerApiKey = value; Save(); }
+        get => _secrets.Get(EulerApiKeySecret) ?? "";
+        set { _secrets.Set(EulerApiKeySecret, value); SettingsChanged?.Invoke(); }
     }
 
     public string CustomSignServer
@@ -44,9 +49,12 @@ public class TikTokSettingsService
 
     public string SessionId
     {
-        get => _state.SessionId;
-        set { _state.SessionId = value; Save(); }
+        get => _secrets.Get(SessionIdSecret) ?? "";
+        set { _secrets.Set(SessionIdSecret, value); SettingsChanged?.Invoke(); }
     }
+
+    /// <summary>Why the API key or session ID isn't stored securely or couldn't be read, or null.</summary>
+    public string? SecretsWarning => _secrets.Warning;
 
     public bool AutoConnect
     {
@@ -68,11 +76,30 @@ public class TikTokSettingsService
         set { _state.AutoReconnect = value; Save(); }
     }
 
-    public TikTokSettingsService(IPluginHost pluginHost)
+    public TikTokSettingsService(IPluginHost pluginHost, IServiceProvider services)
     {
+        _secrets = new PluginSecrets(services, pluginHost, TikTokIntegrationPlugin.PluginId);
         var dataPath = pluginHost.GetPluginDataPath(TikTokIntegrationPlugin.PluginId);
         _settingsPath = Path.Combine(dataPath, SettingsFileName);
         Load();
+
+        var imported = false;
+        if (_secrets.Import(EulerApiKeySecret, _state.EulerApiKey))
+        {
+            _state.EulerApiKey = "";
+            imported = true;
+        }
+
+        if (_secrets.Import(SessionIdSecret, _state.SessionId))
+        {
+            _state.SessionId = "";
+            imported = true;
+        }
+
+        if (imported)
+        {
+            Save();
+        }
     }
 
     private void Load()

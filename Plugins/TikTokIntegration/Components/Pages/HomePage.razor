@@ -32,6 +32,16 @@
         <Alert Variant="danger" Title="Couldn't connect to TikTok Live">@_error</Alert>
     }
 
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <Alert Variant="danger" Title="Couldn't save your settings">@_saveError</Alert>
+    }
+
+    @if (Settings.SecretsWarning is { } secretsWarning)
+    {
+        <Alert Variant="warning" Title="Secure storage">@secretsWarning</Alert>
+    }
+
     <Card Title="Connection" Description="The streamer must be live to connect. Changes save automatically.">
         <div>
             <SettingRow Label="TikTok username" Description="The account whose live stream to watch. Enter your own to react to your stream.">
@@ -158,7 +168,7 @@
                 </Help>
                 <ChildContent>
                     <TextInput InputType="password" Placeholder="Optional" Value="@Settings.EulerApiKey"
-                               ValueChanged="@(v => Settings.EulerApiKey = v ?? "")" aria-label="Euler Stream API key" />
+                               ValueChanged="@(v => SaveSecret(() => Settings.EulerApiKey = v ?? ""))" aria-label="Euler Stream API key" />
                 </ChildContent>
             </SettingRow>
             <SettingRow Label="Custom sign server" Description="Optional. Use your own signing server instead of Euler Stream.">
@@ -167,7 +177,7 @@
             </SettingRow>
             <SettingRow Label="TikTok session ID" Description="Only needed for restricted rooms. This is your TikTok login token, so keep it private.">
                 <TextInput InputType="password" Placeholder="Optional" Value="@Settings.SessionId"
-                           ValueChanged="@(v => Settings.SessionId = v ?? "")" aria-label="TikTok session ID" />
+                           ValueChanged="@(v => SaveSecret(() => Settings.SessionId = v ?? ""))" aria-label="TikTok session ID" />
             </SettingRow>
         </div>
     </details>
@@ -185,6 +195,7 @@
 
     private string _username = "";
     private string? _error;
+    private string? _saveError;
 
     private ReactionSummary BracketSummary => ActionOptions.SummarizeBrackets(
         Gifts.Config.Enabled, Gifts.Config.Brackets.Count, Gifts.Config.SelectedShockerIds.Count);
@@ -227,6 +238,19 @@
     {
         _username = value ?? "";
         Settings.Username = _username;
+    }
+
+    private void SaveSecret(Action save)
+    {
+        try
+        {
+            save();
+            _saveError = null;
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
     }
 
     private async Task Connect()

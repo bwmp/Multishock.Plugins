@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MultiShock.PluginSdk;
 using MultiShock.PluginSdk.Flow;
@@ -165,7 +166,7 @@ public sealed class TwitchEventSubTests
     {
         var host = DispatchProxy.Create<IPluginHost, HostProxy>();
         ((HostProxy)host).DataPath = path;
-        return new TwitchAuthService(host) { UseLocalCli = true, LocalCliUrl = url };
+        return new TwitchAuthService(host, new ServiceCollection().BuildServiceProvider()) { UseLocalCli = true, LocalCliUrl = url };
     }
 
     public class HostProxy : DispatchProxy

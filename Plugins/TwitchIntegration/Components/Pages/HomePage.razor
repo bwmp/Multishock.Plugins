@@ -69,6 +69,10 @@
                     <Actions><Button Text="Dismiss" Variant="ghost" Size="sm" OnClick="@(() => ErrorMessage = null)" /></Actions>
                 </Alert>
             }
+            @if (AuthService.SecretsWarning is { } secretsWarning)
+            {
+                <Alert Variant="warning" Title="Secure storage" Class="mt-3">@secretsWarning</Alert>
+            }
         </Card>
     </div>
 

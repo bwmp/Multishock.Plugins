@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace VRChatOSC.Services;
 
@@ -38,13 +39,13 @@ public class VRChatOscSettingsService
         public int ReceiveBufferSize { get; set; } = 8192;
     }
 
-    private ConfigState _state = new();
+    private readonly ConfigState _state;
 
     public VRChatOscSettingsService(IPluginHost pluginHost)
     {
         var dataPath = pluginHost.GetPluginDataPath(VRChatOSCPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
-        LoadConfig();
+        _state = PluginConfigFile.LoadOrDefault<ConfigState>(_configPath);
     }
 
     public bool Enabled
@@ -53,7 +54,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.Enabled = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -63,7 +64,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.AutoStart = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -73,7 +74,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.RemoteHost = string.IsNullOrWhiteSpace(value) ? "127.0.0.1" : value.Trim();
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -83,7 +84,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.UseAnyAvailablePort = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -93,7 +94,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.OscQueryEnabled = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -103,7 +104,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.PreferOscQueryDiscoveredEndpoint = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -113,7 +114,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.OscQueryClientName = string.IsNullOrWhiteSpace(value) ? "VRChat-Client" : value.Trim();
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -123,7 +124,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.OscQueryRefreshIntervalMs = Math.Clamp(value, 500, 30000);
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -133,7 +134,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.SendPort = Math.Clamp(value, 1, 65535);
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -143,7 +144,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.ReceiveBindHost = string.IsNullOrWhiteSpace(value) ? "127.0.0.1" : value.Trim();
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -153,7 +154,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.ReceivePort = Math.Clamp(value, 1, 65535);
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -163,7 +164,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.ReconnectDelayMs = Math.Clamp(value, 250, 30000);
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -173,7 +174,7 @@ public class VRChatOscSettingsService
         set
         {
             _state.ReceiveBufferSize = Math.Clamp(value, 256, 65535);
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -244,41 +245,7 @@ public class VRChatOscSettingsService
             _state.ReceiveBufferSize = Math.Clamp(receiveBufferSize, 256, 65535);
         }
 
-        SaveConfig();
-    }
-
-    private void LoadConfig()
-    {
-        try
-        {
-            if (File.Exists(_configPath))
-            {
-                var json = File.ReadAllText(_configPath);
-                _state = JsonSerializer.Deserialize<ConfigState>(json) ?? new ConfigState();
-            }
-        }
-        catch
-        {
-            _state = new ConfigState();
-        }
-    }
-
-    private void SaveConfig()
-    {
-        try
-        {
-            var directory = Path.GetDirectoryName(_configPath);
-            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            var json = JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_configPath, json);
-        }
-        catch
-        {
-        }
+        PluginConfigFile.Save(_configPath, _state);
     }
 
     private static bool TryGetValue<T>(IReadOnlyDictionary<string, object?> settings, string key, out T value)

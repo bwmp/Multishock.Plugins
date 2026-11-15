@@ -1,60 +1,105 @@
 @page "/plugins/com-multishock-throneintegration/throneintegration"
 @using ThroneIntegration.Nodes
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageHeader Title="Throne" Icon="gift"
-            Description="Fire a flow trigger when someone buys a gift from your Throne wishlist, contributes to a crowdfund or sends a tip.">
+            Description="Fire a flow trigger when someone buys a gift from your Throne wishlist or contributes to a crowdfund.">
     <Meta>
-        <ConnectionChip Connected="IsConnected" Connecting="ThroneService.IsConnecting"
-                        Reconnecting="ThroneService.IsReconnecting" />
+        <ConnectionChip State="State" />
     </Meta>
     <Actions>
-        @if (IsConnected)
+        @if (ThroneService.IsRunning)
         {
-            <Button Variant="secondary" Icon="unplug" Text="Disconnect" OnClick="Disconnect" />
+            <Button Variant="secondary" Icon="unplug" Text="Disconnect" Loading="_busy" OnClick="Disconnect" />
         }
-        else if (IsRunning)
+        else if (State == ThroneConnectionState.Stopped)
         {
-            <Button Variant="secondary" Icon="x" Text="Cancel" OnClick="Disconnect" />
-        }
-        else
-        {
-            <Button Variant="primary" Icon="plug" Text="Connect"
-                    Disabled="@string.IsNullOrWhiteSpace(_creatorId)"
-                    Title="@(string.IsNullOrWhiteSpace(_creatorId) ? "Enter your Throne username first" : null)"
-                    OnClick="Connect" />
+            <Button Variant="primary" Icon="plug" Text="Connect" Loading="_busy" OnClick="Connect" />
         }
     </Actions>
 </PageHeader>
 
 <div class="max-w-4xl space-y-4">
-    @if (!string.IsNullOrEmpty(_error) && !IsRunning)
+    @if (!string.IsNullOrEmpty(_error))
     {
-        <Alert Variant="danger" Title="Couldn't connect to Throne">@_error</Alert>
+        <Alert Variant="danger" Title="Something went wrong">@_error</Alert>
     }
 
-    <Card Title="Connection"
-          Description="Throne gifts are public, so no sign-in is needed: MultiShock only needs your creator username. Changes save automatically.">
-        <SettingRow Label="Throne username" Description="The username in your Throne link, as in throne.com/username.">
-            <Help>
-                @if (IsRunning)
-                {
-                    <span>@(IsConnected || string.IsNullOrEmpty(_status) ? "Disconnect to change it." : _status)</span>
-                }
-                else if (string.IsNullOrWhiteSpace(_creatorId))
-                {
-                    <span class="inline-flex items-center gap-1.5">
-                        <LucideIcon Name="info" Size="12" Class="shrink-0" />
-                        Enter your username to connect.
-                    </span>
-                }
-            </Help>
+    @if (SettingsService.SecretsWarning is { } secretsWarning)
+    {
+        <Alert Variant="warning" Title="Secure storage">@secretsWarning</Alert>
+    }
+
+    @switch (State)
+    {
+        case ThroneConnectionState.Revoked:
+            <Alert Variant="danger" Title="Connection no longer valid">
+                <Actions>
+                    <Button Variant="secondary" Size="sm" Text="Remove connection" OnClick="() => _confirmRemove = true" />
+                </Actions>
+                <ChildContent>@ThroneService.Problem</ChildContent>
+            </Alert>
+            break;
+        case ThroneConnectionState.MissedEvents:
+            <Alert Variant="warning" Title="Some gifts were missed">
+                <Actions>
+                    <Button Variant="secondary" Size="sm" Text="Skip and resume" Loading="_busy" OnClick="SkipMissed" />
+                </Actions>
+                <ChildContent>@ThroneService.Problem</ChildContent>
+            </Alert>
+            break;
+        case ThroneConnectionState.Retrying:
+            <Alert Variant="info">@ThroneService.Problem</Alert>
+            break;
+        case ThroneConnectionState.Stopped when !string.IsNullOrEmpty(ThroneService.Problem):
+            <Alert Variant="danger" Title="Stopped">@ThroneService.Problem</Alert>
+            break;
+    }
+
+    @if (State == ThroneConnectionState.NotSetUp)
+    {
+        <Card Title="Set up" MultiLineDescription="true"
+              Description="Throne sends each gift to a webhook URL. MultiShock creates a private one on the Throne relay and collects gifts from it, so you don't need to sign in to Throne or open any ports.">
+            <ol class="list-decimal space-y-1 pl-5 text-sm text-app-muted">
+                <li>Create a webhook URL here.</li>
+                <li>On Throne, open your creator settings, go to Integrations and turn on Webhooks.</li>
+                <li>Paste the URL as the subscriber URL and save.</li>
+            </ol>
+            <div class="mt-4">
+                <Button Variant="primary" Icon="link" Text="Create webhook URL" Loading="_busy" OnClick="CreateConnection" />
+            </div>
+        </Card>
+    }
+    else
+    {
+        <Card Title="Webhook" MultiLineDescription="true"
+              Description="The relay keeps gifts for seven days, so gifts sent while MultiShock is closed still run your flows when you open it again.">
             <ChildContent>
-                <TextInput Placeholder="username" Value="@_creatorId" ValueChanged="OnCreatorIdChanged"
-                           Disabled="IsRunning" aria-label="Throne username" />
+                <SettingRow Label="Webhook URL"
+                            Description="Paste this into Throne under Integrations, then Webhooks. Keep it private and off stream: it works like a password.">
+                    <div class="flex min-w-0 items-center gap-2">
+                        <code class="tile min-w-0 flex-1 truncate px-2.5 py-1.5 font-mono text-xs text-app-text">@DisplayedWebhookUrl</code>
+                        <Button Variant="secondary" Size="icon" Icon="@(_revealUrl ? "eye-off" : "eye")"
+                                AriaLabel="@(_revealUrl ? "Hide webhook URL" : "Show webhook URL")"
+                                Title="@(_revealUrl ? "Hide" : "Show")" OnClick="() => _revealUrl = !_revealUrl" />
+                        <Button Variant="secondary" Size="icon" Icon="@(_copied ? "check" : "copy")"
+                                AriaLabel="@(_copied ? "Webhook URL copied" : "Copy webhook URL")" Title="Copy webhook URL"
+                                OnClick="CopyWebhookUrl" />
+                    </div>
+                </SettingRow>
+                <SettingRow Label="Throne account"
+                            Description="Linked automatically by the first gift. A connection only ever accepts gifts for that account.">
+                    <span class="text-sm @(ThroneService.CreatorUsername is null ? "text-app-subtle" : "text-app-text")">
+                        @(ThroneService.CreatorUsername ?? (State == ThroneConnectionState.Receiving ? "Linked" : "Not linked yet"))
+                    </span>
+                </SettingRow>
             </ChildContent>
-        </SettingRow>
-    </Card>
+            <Footer>
+                <Button Variant="danger" Size="sm" Icon="trash-2" Text="Remove connection" OnClick="() => _confirmRemove = true" />
+            </Footer>
+        </Card>
+    }
 
     <Card Title="Flow trigger"
           Description="Throne has no built-in reactions. Add this trigger to a flow and connect it to the shocker actions you want.">
@@ -63,49 +108,44 @@
         </SettingRow>
     </Card>
 
-    <Card Title="Recent gifts" Description="The last 50 gifts, newest first. Kept between sessions." NoPadding="true">
+    <Card Title="Recent gifts" Description="Gifts received since MultiShock started, newest first." NoPadding="true">
         <Actions>
-            @if (_recentEvents.Count > 0)
+            @if (_recentGifts.Count > 0)
             {
                 <Button Variant="ghost" Size="sm" Icon="trash-2" Text="Clear" OnClick="ClearRecent" />
             }
         </Actions>
         <ChildContent>
-            @if (_recentEvents.Count == 0)
+            @if (_recentGifts.Count == 0)
             {
                 <div class="px-4 py-6">
                     <p class="text-sm text-app-muted">No gifts yet.</p>
-                    <p class="mt-0.5 text-xs text-app-subtle">
-                        @(IsConnected
-                            ? "Gifts, crowdfund contributions and tips appear here as they arrive."
-                            : "Gifts, crowdfund contributions and tips appear here once you connect.")
-                    </p>
+                    <p class="mt-0.5 text-xs text-app-subtle">Gifts and crowdfund contributions appear here as they arrive.</p>
                 </div>
             }
             else
             {
                 <ol class="max-h-96 divide-y divide-app-border overflow-y-auto">
-                    @foreach (var evt in _recentEvents)
+                    @foreach (var gift in _recentGifts)
                     {
-                        var info = evt.OverlayInformation;
                         <li class="flex items-start justify-between gap-4 px-4 py-2.5 text-sm">
                             <div class="min-w-0">
-                                <div class="font-medium text-app-text">@(info?.GifterUsername ?? "Anonymous")</div>
+                                <div class="font-medium text-app-text">@gift.GifterUsername</div>
                                 <div class="text-xs text-app-muted">
-                                    @(info?.Type ?? "Unknown")
-                                    @if (!string.IsNullOrEmpty(info?.ItemName))
+                                    @gift.TypeLabel
+                                    @if (!string.IsNullOrEmpty(gift.ItemName))
                                     {
-                                        <span> · @info.ItemName</span>
+                                        <span> · @gift.ItemName</span>
                                     }
+                                    <span> · @gift.FormattedAmount</span>
                                 </div>
-                                @if (!string.IsNullOrEmpty(info?.Message))
+                                @if (!string.IsNullOrEmpty(gift.Message))
                                 {
-                                    <p class="mt-1 break-words text-app-muted">“@info.Message”</p>
+                                    <p class="mt-1 break-words text-app-muted">“@gift.Message”</p>
                                 }
                             </div>
-                            <time class="shrink-0 text-xs text-app-subtle"
-                                  datetime="@DateTimeOffset.FromUnixTimeMilliseconds(evt.CreatedAt).ToString("o")">
-                                @FormatTimestamp(evt.CreatedAt)
+                            <time class="shrink-0 text-xs text-app-subtle" datetime="@gift.ReceivedAt.ToString("o")">
+                                @FormatTimestamp(gift.ReceivedAt)
                             </time>
                         </li>
                     }
@@ -115,6 +155,11 @@
     </Card>
 </div>
 
+<ConfirmDialog IsOpen="_confirmRemove" Title="Remove the Throne connection?"
+               Message="The webhook URL stops working and any gifts still waiting on the relay are deleted. Remove the URL from Throne's Webhooks settings too. To use Throne again you'll need to create a new URL and paste it into Throne."
+               ConfirmText="Remove connection" IsConfirming="_busy"
+               OnCancel="() => _confirmRemove = false" OnConfirm="RemoveConnection" />
+
 @code {
     private static readonly ThroneGiftTriggerNode GiftTrigger = new();
 
@@ -123,96 +168,105 @@
     private ThroneSettingsService SettingsService =>
         PluginServiceLocator.GetRequiredService<ThroneSettingsService>(pluginId);
 
-    private string _creatorId = string.Empty;
-    private bool IsConnected => ThroneService.IsConnected;
-    private bool IsRunning => IsConnected || ThroneService.IsConnecting || ThroneService.IsReconnecting;
-    private bool _userStopped;
-    private string? _status;
+    private ThroneConnectionState State => ThroneService.State;
+    private bool _busy;
+    private bool _revealUrl;
+    private bool _copied;
+    private bool _confirmRemove;
     private string? _error;
-    private List<ThroneEvent> _recentEvents = new();
+    private List<ThroneGift> _recentGifts = [];
+
+    private string DisplayedWebhookUrl
+    {
+        get
+        {
+            var url = SettingsService.WebhookUrl ?? string.Empty;
+            if (_revealUrl)
+            {
+                return url;
+            }
+
+            const string secretPathStart = "/webhooks/throne/";
+            var index = url.IndexOf(secretPathStart, StringComparison.Ordinal);
+            return index < 0 ? "••••••••" : url[..(index + secretPathStart.Length)] + "••••••••";
+        }
+    }
 
     protected override void OnInitialized()
     {
-        _creatorId = SettingsService.CreatorId;
-        _recentEvents = SettingsService.GetRecentEvents().ToList();
-
-        ThroneService.OnGiftReceived += OnGiftReceived;
-        ThroneService.ConnectionStateChanged += OnConnectionStateChanged;
-        ThroneService.StatusMessage += OnStatusMessage;
-        ThroneService.ErrorOccurred += OnError;
+        _recentGifts = SettingsService.GetRecentGifts().ToList();
+        ThroneService.StateChanged += OnStateChanged;
+        ThroneService.GiftReceived += OnGiftReceived;
     }
 
-    private void OnCreatorIdChanged(string? value)
+    private Task CreateConnection() => RunAsync(() => ThroneService.CreateConnectionAsync(), "Couldn't create a webhook URL");
+
+    private Task Connect() => RunAsync(ThroneService.StartAsync, "Couldn't connect");
+
+    private Task Disconnect() => RunAsync(ThroneService.StopAsync, "Couldn't disconnect");
+
+    private Task SkipMissed() => RunAsync(ThroneService.SkipMissedEventsAsync, "Couldn't resume");
+
+    private async Task RemoveConnection()
     {
-        _creatorId = value ?? string.Empty;
-        SettingsService.CreatorId = _creatorId;
+        await RunAsync(ThroneService.RemoveConnectionAsync, "Couldn't remove the connection");
+        _confirmRemove = false;
+        _revealUrl = false;
     }
 
-    private async Task Connect()
+    private async Task RunAsync(Func<Task> action, string failure)
     {
-        if (string.IsNullOrWhiteSpace(_creatorId))
-        {
-            return;
-        }
-
+        _busy = true;
         _error = null;
-        _userStopped = false;
         try
         {
-            SettingsService.Enabled = true;
-            await ThroneService.StartAsync(_creatorId);
+            await action();
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            _error = $"{failure}: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 
-    private void Disconnect()
+    private async Task CopyWebhookUrl()
     {
-        _userStopped = true;
-        ThroneService.Stop();
-        SettingsService.Enabled = false;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", SettingsService.WebhookUrl ?? string.Empty);
+        }
+        catch (JSException ex)
+        {
+            _error = $"Couldn't copy the webhook URL: {ex.Message}";
+            return;
+        }
+
+        _copied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        _copied = false;
     }
 
     private void ClearRecent()
     {
-        SettingsService.ClearRecentEvents();
-        _recentEvents.Clear();
+        SettingsService.ClearRecentGifts();
+        _recentGifts.Clear();
     }
 
-    private void OnConnectionStateChanged(bool connected) => InvokeAsync(StateHasChanged);
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
 
-    private void OnStatusMessage(string message) => InvokeAsync(() =>
+    private void OnGiftReceived(ThroneGift gift) => InvokeAsync(() =>
     {
-        _status = message;
+        _recentGifts = SettingsService.GetRecentGifts().ToList();
         StateHasChanged();
     });
 
-    // Stopping mid-start cancels the creator lookup, which the service reports as an error.
-    private void OnError(string error) => InvokeAsync(() =>
+    private static string FormatTimestamp(DateTimeOffset timestamp)
     {
-        if (_userStopped)
-        {
-            return;
-        }
-        _error = error;
-        StateHasChanged();
-    });
-
-    private void OnGiftReceived(ThroneEvent evt)
-    {
-        SettingsService.AddRecentEvent(evt);
-        InvokeAsync(() =>
-        {
-            _recentEvents = SettingsService.GetRecentEvents().ToList();
-            StateHasChanged();
-        });
-    }
-
-    private static string FormatTimestamp(long timestamp)
-    {
-        var dateTime = DateTimeOffset.FromUnixTimeMilliseconds(timestamp).ToLocalTime();
+        var dateTime = timestamp.ToLocalTime();
         var diff = DateTimeOffset.Now - dateTime;
 
         if (diff.TotalMinutes < 1)
@@ -227,9 +281,7 @@
 
     public void Dispose()
     {
-        ThroneService.OnGiftReceived -= OnGiftReceived;
-        ThroneService.ConnectionStateChanged -= OnConnectionStateChanged;
-        ThroneService.StatusMessage -= OnStatusMessage;
-        ThroneService.ErrorOccurred -= OnError;
+        ThroneService.StateChanged -= OnStateChanged;
+        ThroneService.GiftReceived -= OnGiftReceived;
     }
 }

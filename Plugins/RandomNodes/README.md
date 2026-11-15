@@ -6,8 +6,8 @@ A grab bag of random utility nodes for MultiShock.
 
 ### Media
 
-- **Spotify Now Playing** - reads the local Spotify/Windows media session and outputs song name, artist, album, pause/play status, current playtime, length, progress percent, source app, and any error.
-- **Active Media Session** - reads the currently active Windows media session for any local player.
+- **Spotify Now Playing** - reads the local Spotify media session and outputs song name, artist, album, pause/play status, current playtime, length, progress percent, source app, and any error.
+- **Active Media Session** - reads the currently active system media session for any local player.
 
 ### Utility
 
@@ -19,7 +19,7 @@ A grab bag of random utility nodes for MultiShock.
 - **Format Time** - converts seconds to `mm:ss` or a Unix timestamp to `hh:mm AM/PM` using local, UTC, or a manual UTC offset.
 - **Random Delay** - waits a random number of milliseconds before continuing.
 
-The Spotify/media nodes use Windows' Global System Media Transport Controls API, so they work best when the local player is running and publishing media controls.
+Media nodes need a running local player. Windows uses Global System Media Transport Controls. Linux uses MPRIS through the playerctl command (install it from your distribution's package manager). macOS reads Spotify or Music via AppleScript. The other nodes do not require a media player.
 
 ## Installation
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace StreamlabsIntegration.Services;
 
@@ -7,30 +8,42 @@ namespace StreamlabsIntegration.Services;
 public class StreamlabsSettingsService
 {
     private const string ConfigFileName = "streamlabs-config.json";
+    private const string SocketTokenSecret = "socket-token";
 
     private readonly string _configPath;
     private readonly object _lock = new();
+    private readonly PluginSecrets _secrets;
     private ConfigState _state = new();
 
     private class ConfigState
     {
+        // Only read to move a socket token saved by older versions into secure storage.
         public string SocketToken { get; set; } = string.Empty;
         public bool AutoConnect { get; set; } = false;
         public bool AutoReconnect { get; set; } = true;
     }
 
-    public StreamlabsSettingsService(IPluginHost pluginHost)
+    public StreamlabsSettingsService(IPluginHost pluginHost, IServiceProvider services)
     {
+        _secrets = new PluginSecrets(services, pluginHost, StreamlabsIntegrationPlugin.PluginId);
         var dataPath = pluginHost.GetPluginDataPath(StreamlabsIntegrationPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
         LoadConfig();
+
+        if (_secrets.Import(SocketTokenSecret, _state.SocketToken))
+        {
+            _state.SocketToken = string.Empty;
+            SaveConfig();
+        }
     }
 
     public string SocketToken
     {
-        get { lock (_lock) return _state.SocketToken; }
-        set { lock (_lock) { _state.SocketToken = value?.Trim() ?? ""; SaveConfig(); } }
+        get => _secrets.Get(SocketTokenSecret) ?? "";
+        set => _secrets.Set(SocketTokenSecret, value?.Trim());
     }
+
+    public string? SecretsWarning => _secrets.Warning;
 
     public bool AutoConnect
     {

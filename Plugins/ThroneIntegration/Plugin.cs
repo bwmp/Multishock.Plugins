@@ -26,7 +26,7 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     public string Version => BuildStamp.Version;
 
     /// <summary>Short description of what the plugin does</summary>
-    public string Description => "Fire a flow trigger for Throne wishlist gifts, crowdfund contributions and tips.";
+    public string Description => "Fire a flow trigger for Throne wishlist gifts and crowdfund contributions.";
 
     // ========== DEPENDENCY INJECTION ==========
 
@@ -35,11 +35,9 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     /// </summary>
     public void ConfigureServices(IServiceCollection services)
     {
-        Console.WriteLine($"[ThroneIntegration] ConfigureServices called - registering services");
         services.AddSingleton<ThroneSettingsService>();
-        services.AddSingleton<ThroneService>();
         services.AddSingleton<ThroneTriggerManager>();
-        Console.WriteLine($"[ThroneIntegration] Registered ThroneSettingsService, ThroneService, ThroneTriggerManager");
+        services.AddSingleton<ThroneService>();
     }
 
     /// <summary>
@@ -47,15 +45,12 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     /// </summary>
     public void Initialize(IServiceProvider sp)
     {
-        var host = sp.GetService(typeof(IPluginHost)) as IPluginHost;
-        var actions = sp.GetService(typeof(IDeviceActions)) as IDeviceActions;
-
-        var throneService = sp.GetService(typeof(ThroneService)) as ThroneService;
-        var settingsService = sp.GetService(typeof(ThroneSettingsService)) as ThroneSettingsService;
-
-        var triggerManager = sp.GetService(typeof(ThroneTriggerManager)) as ThroneTriggerManager;
-        
-        Console.WriteLine($"[ThroneIntegration] Initialize completed");
+        var settings = sp.GetRequiredService<ThroneSettingsService>();
+        if (settings.Enabled && settings.HasConnection)
+        {
+            // Gifts that arrived while MultiShock was closed are waiting on the relay.
+            _ = sp.GetRequiredService<ThroneService>().StartAsync();
+        }
     }
 
     // ========== CONFIGURATION (IConfigurablePlugin) ==========
@@ -65,13 +60,11 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
     public Dictionary<string, object?>? GetDefaultSettings() => new()
     {
         ["enabled"] = true,
-        ["creatorId"] = "",
     };
 
     public void OnConfigurationChanged(Dictionary<string, object?> settings)
     {
-        // React to settings changes - restart the service with new creator ID
-        // Note: We need access to the service provider, so we'll need to store it
+        // The connection is managed on the Throne page, so host-level settings need no handling.
     }
 
     // ========== STYLES (IPluginWithStyles) ==========
@@ -97,9 +90,6 @@ public class ThroneIntegrationPlugin : IPlugin, IConfigurablePlugin, IPluginRout
 
     public IEnumerable<IFlowNode> GetNodeTypes()
     {
-        Console.WriteLine($"[ThroneIntegration] GetNodeTypes called");
-        var node = new ThroneGiftTriggerNode();
-        Console.WriteLine($"[ThroneIntegration] Returning node: {node.TypeId} ({node.DisplayName})");
-        yield return node;
+        yield return new ThroneGiftTriggerNode();
     }
 }

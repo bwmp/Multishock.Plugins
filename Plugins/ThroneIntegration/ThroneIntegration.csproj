@@ -4,8 +4,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Override ThroneAPI.Client's vulnerable transitive Kiota 1.14.0 graph. -->
-        <PackageReference Include="Microsoft.Kiota.Bundle" />
         <PackageReference Include="ThroneAPI.Client" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Shared/PluginConfigFile.cs" Link="Shared/PluginConfigFile.cs" />
+        <Compile Include="../../Shared/PluginSecrets.cs" Link="Shared/PluginSecrets.cs" />
     </ItemGroup>
 </Project>

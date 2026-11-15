@@ -4,7 +4,7 @@
   "name": "Throne",
   "version": "1.3.0",
   "entryPoint": "ThroneIntegration.dll",
-  "description": "Fire a flow trigger for Throne wishlist gifts, crowdfund contributions and tips.",
+  "description": "Fire a flow trigger for Throne wishlist gifts and crowdfund contributions.",
   "sdkVersion": "1.15.0",
-  "platforms": ["win-x64"]
+  "platforms": ["win-x64", "linux-x64"]
 }

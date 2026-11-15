@@ -31,12 +31,15 @@ public class ImageDetectionPlugin : IPlugin, IConfigurablePlugin, IPluginRoutePr
 
     public void ConfigureServices(IServiceCollection services)
     {
+        services.AddSingleton<HybridDetectionAlgorithm>();
+
         // Register algorithm registry with default algorithms
         services.AddSingleton<AlgorithmRegistry>(sp =>
         {
             var registry = new AlgorithmRegistry();
             registry.Register(new TemplateMatchingAlgorithm());
             registry.Register(new MaskedTemplateMatchingAlgorithm());
+            registry.Register(sp.GetRequiredService<HybridDetectionAlgorithm>());
             return registry;
         });
 

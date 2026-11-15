@@ -23,7 +23,7 @@ public sealed class ComponentTests
             .AddSingleton<IJSRuntime, NoOpJsRuntime>();
         var host = System.Reflection.DispatchProxy.Create<IPluginHost, TwitchEventSubTests.HostProxy>();
         ((TwitchEventSubTests.HostProxy)host).DataPath = temp.Path;
-        services.AddSingleton(new TwitchAuthService(host));
+        services.AddSingleton(sp => new TwitchAuthService(host, sp));
         services.AddSingleton<TwitchEventSubService>();
         services.AddSingleton<EventLogService>();
         await using var provider = services.BuildServiceProvider();

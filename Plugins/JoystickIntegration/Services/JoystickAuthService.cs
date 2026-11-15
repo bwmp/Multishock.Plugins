@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace JoystickIntegration.Services;
 
@@ -17,9 +18,12 @@ namespace JoystickIntegration.Services;
 public class JoystickAuthService : IDisposable
 {
     private const string AuthFileName = "joystick-auth.json";
+    private const string AccessTokenSecret = "access-token";
+    private const string RefreshTokenSecret = "refresh-token";
 
     private readonly IPluginHost _pluginHost;
     private readonly JoystickSettingsService _settings;
+    private readonly PluginSecrets _secrets;
     private readonly string _authPath;
     private readonly HttpClient _http = new();
 
@@ -30,6 +34,7 @@ public class JoystickAuthService : IDisposable
 
     private class TokenState
     {
+        // AccessToken and RefreshToken are only read to move values saved by older versions into secure storage.
         public string? AccessToken { get; set; }
         public string? RefreshToken { get; set; }
 
@@ -42,10 +47,12 @@ public class JoystickAuthService : IDisposable
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
     public bool IsInstalled =>
-        !string.IsNullOrEmpty(_tokens.AccessToken) &&
+        !string.IsNullOrEmpty(AccessToken) &&
         _tokens.InstalledClientId == _settings.ClientId;
 
-    public string? AccessToken => _tokens.AccessToken;
+    public string? AccessToken => _secrets.Get(AccessTokenSecret);
+
+    private string? RefreshToken => _secrets.Get(RefreshTokenSecret);
 
     public event Action<string>? StatusChanged;
 
@@ -53,9 +60,11 @@ public class JoystickAuthService : IDisposable
     {
         _pluginHost = pluginHost;
         _settings = settings;
+        _secrets = settings.Secrets;
         var dataPath = _pluginHost.GetPluginDataPath(JoystickIntegrationPlugin.PluginId);
         _authPath = Path.Combine(dataPath, AuthFileName);
         Load();
+        ImportLegacyTokens();
     }
 
     /// <summary>
@@ -227,8 +236,8 @@ public class JoystickAuthService : IDisposable
                 return false;
             }
 
-            _tokens.AccessToken = token.AccessToken;
-            _tokens.RefreshToken = token.RefreshToken;
+            _secrets.Set(AccessTokenSecret, token.AccessToken);
+            _secrets.Set(RefreshTokenSecret, token.RefreshToken);
             _tokens.ExpiresAtUnix = NormalizeExpiry(token.ExpiresIn);
             _tokens.InstalledClientId = _settings.ClientId;
             Save();
@@ -250,7 +259,7 @@ public class JoystickAuthService : IDisposable
     /// </summary>
     public async Task EnsureFreshTokenAsync(CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(_tokens.RefreshToken) || _tokens.InstalledClientId != _settings.ClientId)
+        if (string.IsNullOrEmpty(RefreshToken) || _tokens.InstalledClientId != _settings.ClientId)
         {
             return;
         }
@@ -268,7 +277,7 @@ public class JoystickAuthService : IDisposable
     public async Task<string?> GetValidAccessTokenAsync(CancellationToken ct = default)
     {
         await EnsureFreshTokenAsync(ct);
-        return _tokens.AccessToken;
+        return AccessToken;
     }
 
     private async Task<bool> RefreshAsync(CancellationToken ct)
@@ -278,14 +287,15 @@ public class JoystickAuthService : IDisposable
         {
             // Re-check under the lock in case another caller just refreshed.
             var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            if (_tokens.ExpiresAtUnix > nowUnix + 120 || string.IsNullOrEmpty(_tokens.RefreshToken))
+            var refreshToken = RefreshToken;
+            if (_tokens.ExpiresAtUnix > nowUnix + 120 || string.IsNullOrEmpty(refreshToken))
             {
                 return true;
             }
 
             var url = $"{JoystickConstants.TokenUrl}" +
                 $"?grant_type=refresh_token" +
-                $"&refresh_token={Uri.EscapeDataString(_tokens.RefreshToken!)}";
+                $"&refresh_token={Uri.EscapeDataString(refreshToken)}";
 
             using var req = new HttpRequestMessage(HttpMethod.Post, url);
             req.Headers.TryAddWithoutValidation("Authorization", "Basic " + _settings.BasicKey);
@@ -306,10 +316,11 @@ public class JoystickAuthService : IDisposable
                 return false;
             }
 
-            _tokens.AccessToken = token.AccessToken;
+            // A failure to save lands in the catch below and is reported through StatusChanged.
+            _secrets.Set(AccessTokenSecret, token.AccessToken);
             if (!string.IsNullOrEmpty(token.RefreshToken))
             {
-                _tokens.RefreshToken = token.RefreshToken;
+                _secrets.Set(RefreshTokenSecret, token.RefreshToken);
             }
             _tokens.ExpiresAtUnix = NormalizeExpiry(token.ExpiresIn);
             Save();
@@ -346,7 +357,39 @@ public class JoystickAuthService : IDisposable
     {
         _tokens = new TokenState();
         Save();
+        try
+        {
+            _secrets.Set(AccessTokenSecret, null);
+            _secrets.Set(RefreshTokenSecret, null);
+        }
+        catch (Exception ex)
+        {
+            StatusChanged?.Invoke($"Removed the bot installation, but couldn't delete its stored tokens: {ex.Message}");
+            return;
+        }
+
         StatusChanged?.Invoke("Removed stored bot installation.");
+    }
+
+    private void ImportLegacyTokens()
+    {
+        var imported = false;
+        if (_secrets.Import(AccessTokenSecret, _tokens.AccessToken))
+        {
+            _tokens.AccessToken = null;
+            imported = true;
+        }
+
+        if (_secrets.Import(RefreshTokenSecret, _tokens.RefreshToken))
+        {
+            _tokens.RefreshToken = null;
+            imported = true;
+        }
+
+        if (imported)
+        {
+            Save();
+        }
     }
 
     private void Load()

@@ -4,14 +4,13 @@
 
 <div class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
-        <ConnectionChip Connected="ThroneService.IsConnected" Connecting="ThroneService.IsConnecting"
-                        Reconnecting="ThroneService.IsReconnecting" />
-        @if (ThroneService.IsConnected && !string.IsNullOrEmpty(ThroneService.CurrentUsername))
+        <ConnectionChip State="ThroneService.State" />
+        @if (!string.IsNullOrEmpty(ThroneService.CreatorUsername))
         {
-            <span class="text-sm text-app-muted">@ThroneService.CurrentUsername</span>
+            <span class="text-sm text-app-muted">@ThroneService.CreatorUsername</span>
         }
     </div>
-    <p class="text-sm text-app-muted">Set up the connection and see recent gifts on the Throne page.</p>
+    <p class="text-sm text-app-muted">Set up the webhook and see recent gifts on the Throne page.</p>
     <NavButton Href="/plugins/com-multishock-throneintegration/throneintegration" Text="Open Throne page" />
 </div>
 
@@ -24,20 +23,13 @@
 
     protected override void OnInitialized()
     {
-        ThroneService.ConnectionStateChanged += OnConnectionChanged;
-        ThroneService.StatusMessage += OnStatusMessage;
+        ThroneService.StateChanged += OnStateChanged;
     }
 
-    private void OnConnectionChanged(bool connected)
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnStatusMessage(string message) => InvokeAsync(StateHasChanged);
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
-        ThroneService.ConnectionStateChanged -= OnConnectionChanged;
-        ThroneService.StatusMessage -= OnStatusMessage;
+        ThroneService.StateChanged -= OnStateChanged;
     }
 }

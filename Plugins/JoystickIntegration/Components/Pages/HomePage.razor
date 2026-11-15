@@ -34,6 +34,11 @@
         <Alert Variant="danger" Title="Couldn't connect to Joystick.tv">@_error</Alert>
     }
 
+    @if (Settings.SecretsWarning is { } secretsWarning)
+    {
+        <Alert Variant="warning" Title="Secure storage">@secretsWarning</Alert>
+    }
+
     @if (!Auth.IsInstalled)
     {
         <Card Title="Connection"

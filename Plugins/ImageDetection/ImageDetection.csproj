@@ -11,6 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="ImageDetection.Benchmarks" />
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.windows" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" />
         <PackageReference Include="Vortice.Direct3D11" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" />

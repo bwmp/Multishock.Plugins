@@ -27,6 +27,16 @@
         <Alert Variant="danger" Title="Couldn't connect to Fansly">@_error</Alert>
     }
 
+    @if (!string.IsNullOrEmpty(_saveError))
+    {
+        <Alert Variant="danger" Title="Couldn't save the account token">@_saveError</Alert>
+    }
+
+    @if (Settings.SecretsWarning is { } secretsWarning)
+    {
+        <Alert Variant="warning" Title="Secure storage">@secretsWarning</Alert>
+    }
+
     <Card Title="Connection"
           Description="Fansly has no bot API, so MultiShock connects with your own account token. Start your stream before connecting: the chat room only exists while you're live. Changes save automatically.">
         <SettingRow Label="Account token" Description="Gives access to your Fansly account. Keep it private.">
@@ -130,6 +140,7 @@
     private string _authToken = "";
     private string _username = "";
     private string? _error;
+    private string? _saveError;
 
     private ReactionSummary TipSummary => ActionOptions.SummarizeBrackets(
         Tips.Config.Enabled, Tips.Config.Brackets.Count, Tips.Config.SelectedShockerIds.Count);
@@ -149,7 +160,15 @@
     private void UpdateAuthToken(string? value)
     {
         _authToken = value ?? "";
-        Settings.AuthToken = _authToken;
+        try
+        {
+            Settings.AuthToken = _authToken;
+            _saveError = null;
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
     }
 
     private void UpdateUsername(string? value)

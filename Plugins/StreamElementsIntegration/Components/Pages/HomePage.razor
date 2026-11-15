@@ -24,13 +24,17 @@
 </PageHeader>
 
 <div class="max-w-4xl space-y-4">
+    @if (Settings.SecretsWarning is { } secretsWarning)
+    {
+        <Alert Variant="warning" Title="Secure storage">@secretsWarning</Alert>
+    }
     <Card Title="Connection" Description="Changes save automatically.">
         <ChildContent>
             <SettingRow Label="Account" Description="In the StreamElements dashboard, open Account > Channels and copy your JWT token.">
                 <Button Text="Open account settings" Variant="secondary" Icon="external-link" OnClick="OpenSettings" />
             </SettingRow>
             <SettingRow Label="JWT token" Description="Paste your token to connect. Keep it secret; it grants access to your account.">
-                <TextInput Label="JWT token" Class="[&_label]:sr-only" InputType="password" Placeholder="Paste your JWT token" Value="@Token" ValueChanged="UpdateToken" />
+                <TextInput Label="JWT token" Class="[&_label]:sr-only" InputType="password" Placeholder="Paste your JWT token" Value="@Token" ValueChanged="UpdateToken" Error="@TokenError" />
             </SettingRow>
             <SettingRow Label="Connect on startup" Description="Connect to StreamElements when MultiShock starts.">
                 <Toggle AriaLabel="Connect on startup" Value="Settings.AutoConnect" ValueChanged="SetAutoConnect" />
@@ -121,6 +125,7 @@
     private string ConnectionChip => Connection.IsConnected ? "chip-ok" : Log.IsReconnecting ? "chip-info" : Connection.IsConnecting ? "chip-info" : Log.LastConnectionError != null ? "chip-danger" : "chip-neutral";
     private string ConnectionDot => Connection.IsConnected ? "bg-app-success" : Log.IsReconnecting ? "bg-app-info" : Connection.IsConnecting ? "bg-app-info" : Log.LastConnectionError != null ? "bg-app-danger" : "bg-app-subtle";
     private string Token = "";
+    private string? TokenError;
 
     protected override void OnInitialized()
     {
@@ -133,7 +138,16 @@
     private void UpdateToken(string? v)
     {
         Token = v ?? "";
-        Settings.JwtToken = Token;
+        try
+        {
+            Settings.JwtToken = Token;
+            TokenError = null;
+        }
+        // Catches the SDK's PluginSecureStorageException without naming it, so this page still loads on hosts older than SDK 1.17.0.
+        catch (Exception ex)
+        {
+            TokenError = $"Couldn't save the token: {ex.Message}";
+        }
     }
 
     private void SetAutoConnect(bool v) => Settings.AutoConnect = v;

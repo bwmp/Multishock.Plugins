@@ -6,5 +6,5 @@
   "entryPoint": "OBSIntegration.dll",
   "description": "Connect to OBS Studio to switch scenes, toggle sources and react to stream events from a flow.",
   "sdkVersion": "1.15.0",
-  "platforms": ["win-x64"]
+  "platforms": ["win-x64", "linux-x64"]
 }

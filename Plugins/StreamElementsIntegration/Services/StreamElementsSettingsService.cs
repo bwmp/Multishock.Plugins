@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace StreamElementsIntegration.Services;
 
@@ -7,30 +8,42 @@ namespace StreamElementsIntegration.Services;
 public class StreamElementsSettingsService
 {
     private const string ConfigFileName = "streamelements-config.json";
+    private const string JwtTokenSecret = "jwt-token";
 
     private readonly string _configPath;
     private readonly object _lock = new();
+    private readonly PluginSecrets _secrets;
     private ConfigState _state = new();
 
     private class ConfigState
     {
+        // Only read to move a JWT token saved by older versions into secure storage.
         public string JwtToken { get; set; } = string.Empty;
         public bool AutoConnect { get; set; } = false;
         public bool AutoReconnect { get; set; } = true;
     }
 
-    public StreamElementsSettingsService(IPluginHost pluginHost)
+    public StreamElementsSettingsService(IPluginHost pluginHost, IServiceProvider services)
     {
+        _secrets = new PluginSecrets(services, pluginHost, StreamElementsIntegrationPlugin.PluginId);
         var dataPath = pluginHost.GetPluginDataPath(StreamElementsIntegrationPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
         LoadConfig();
+
+        if (_secrets.Import(JwtTokenSecret, _state.JwtToken))
+        {
+            _state.JwtToken = string.Empty;
+            SaveConfig();
+        }
     }
 
     public string JwtToken
     {
-        get { lock (_lock) return _state.JwtToken; }
-        set { lock (_lock) { _state.JwtToken = value?.Trim() ?? ""; SaveConfig(); } }
+        get => _secrets.Get(JwtTokenSecret) ?? "";
+        set => _secrets.Set(JwtTokenSecret, value?.Trim());
     }
+
+    public string? SecretsWarning => _secrets.Warning;
 
     public bool AutoConnect
     {

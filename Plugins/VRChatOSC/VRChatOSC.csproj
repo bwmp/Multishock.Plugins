@@ -7,4 +7,7 @@
         <PackageReference Include="MeaMod.DNS" />
         <PackageReference Include="VolcanicArts.FastOSC" />
     </ItemGroup>
+    <ItemGroup>
+        <Compile Include="../../Shared/PluginConfigFile.cs" Link="Shared/PluginConfigFile.cs" />
+    </ItemGroup>
 </Project>

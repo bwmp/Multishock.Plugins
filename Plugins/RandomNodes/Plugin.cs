@@ -35,10 +35,14 @@ public class RandomNodesPlugin : IPlugin, IConfigurablePlugin, IPluginRouteProvi
     public void ConfigureServices(IServiceCollection services)
     {
 #if WINDOWS
-        services.AddSingleton<ISystemMediaSessionService, WindowsMediaSessionService>();
-#else
-        services.AddSingleton<ISystemMediaSessionService, ProcessMediaSessionService>();
+        // The catalog package is built on Windows but also runs on Linux and macOS.
+        if (OperatingSystem.IsWindows())
+        {
+            services.AddSingleton<ISystemMediaSessionService, WindowsMediaSessionService>();
+            return;
+        }
 #endif
+        services.AddSingleton<ISystemMediaSessionService, ProcessMediaSessionService>();
     }
 
     public void Initialize(IServiceProvider sp)

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace JoystickIntegration.Services;
 
@@ -10,12 +11,15 @@ namespace JoystickIntegration.Services;
 public class JoystickSettingsService
 {
     private const string SettingsFileName = "joystick-settings.json";
+    private const string ClientSecretName = "client-secret";
 
     private readonly string _settingsPath;
+    private string? _secretsSaveError;
 
     private class SettingsState
     {
         public string ClientId { get; set; } = "";
+        // Only read to move a value saved by older versions into secure storage.
         public string ClientSecret { get; set; } = "";
         public bool AutoConnect { get; set; }
         public bool AutoReconnect { get; set; } = true;
@@ -33,8 +37,22 @@ public class JoystickSettingsService
 
     public string ClientSecret
     {
-        get => _state.ClientSecret;
-        set { _state.ClientSecret = value.Trim(); Save(); }
+        get => Secrets.Get(ClientSecretName) ?? "";
+        set
+        {
+            try
+            {
+                Secrets.Set(ClientSecretName, value.Trim());
+                _secretsSaveError = null;
+            }
+            // Set from a text field as the user types; show the failure through SecretsWarning instead of breaking the page.
+            catch (Exception ex)
+            {
+                _secretsSaveError = $"Couldn't save the client secret: {ex.Message}";
+            }
+
+            Save();
+        }
     }
 
     public bool AutoConnect
@@ -51,17 +69,30 @@ public class JoystickSettingsService
     }
 
     public bool HasCredentials =>
-        !string.IsNullOrWhiteSpace(_state.ClientId) && !string.IsNullOrWhiteSpace(_state.ClientSecret);
+        !string.IsNullOrWhiteSpace(_state.ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 
     /// <summary>Base64("clientId:clientSecret") used for the websocket token and basic auth.</summary>
     public string BasicKey =>
-        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{_state.ClientId}:{_state.ClientSecret}"));
+        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{_state.ClientId}:{ClientSecret}"));
 
-    public JoystickSettingsService(IPluginHost pluginHost)
+    /// <summary>The plugin's credential store, shared with JoystickAuthService.</summary>
+    internal PluginSecrets Secrets { get; }
+
+    /// <summary>Why the plugin's credentials aren't stored securely or couldn't be read or saved, or null.</summary>
+    public string? SecretsWarning => _secretsSaveError ?? Secrets.Warning;
+
+    public JoystickSettingsService(IPluginHost pluginHost, IServiceProvider services)
     {
+        Secrets = new PluginSecrets(services, pluginHost, JoystickIntegrationPlugin.PluginId);
         var dataPath = pluginHost.GetPluginDataPath(JoystickIntegrationPlugin.PluginId);
         _settingsPath = Path.Combine(dataPath, SettingsFileName);
         Load();
+
+        if (Secrets.Import(ClientSecretName, _state.ClientSecret))
+        {
+            _state.ClientSecret = "";
+            Save();
+        }
     }
 
     private void Load()

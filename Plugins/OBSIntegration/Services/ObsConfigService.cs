@@ -1,31 +1,41 @@
-using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace OBSIntegration.Services;
 
 public class ObsConfigService
 {
     private const string ConfigFileName = "obs-config.json";
+    private const string PasswordSecret = "password";
 
     private readonly IPluginHost _pluginHost;
     private readonly string _configPath;
+    private readonly PluginSecrets _secrets;
 
     private class ConfigState
     {
         public string Host { get; set; } = "localhost";
         public int Port { get; set; } = 4455;
+        // Only read to move a password saved by older versions into secure storage.
         public string? Password { get; set; }
         public bool AutoConnect { get; set; }
     }
 
-    private ConfigState _state = new();
+    private readonly ConfigState _state;
 
-    public ObsConfigService(IPluginHost pluginHost)
+    public ObsConfigService(IPluginHost pluginHost, IServiceProvider services)
     {
         _pluginHost = pluginHost;
+        _secrets = new PluginSecrets(services, pluginHost, OBSIntegrationPlugin.PluginId);
         var dataPath = _pluginHost.GetPluginDataPath(OBSIntegrationPlugin.PluginId);
         _configPath = Path.Combine(dataPath, ConfigFileName);
-        LoadConfig();
+        _state = PluginConfigFile.LoadOrDefault<ConfigState>(_configPath);
+
+        if (_secrets.Import(PasswordSecret, _state.Password))
+        {
+            _state.Password = null;
+            PluginConfigFile.Save(_configPath, _state);
+        }
     }
 
     public string Host
@@ -34,7 +44,7 @@ public class ObsConfigService
         set
         {
             _state.Host = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
@@ -44,19 +54,17 @@ public class ObsConfigService
         set
         {
             _state.Port = value;
-            SaveConfig();
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 
     public string? Password
     {
-        get => _state.Password;
-        set
-        {
-            _state.Password = value;
-            SaveConfig();
-        }
+        get => _secrets.Get(PasswordSecret);
+        set => _secrets.Set(PasswordSecret, value);
     }
+
+    public string? SecretsWarning => _secrets.Warning;
 
     public bool AutoConnect
     {
@@ -64,42 +72,7 @@ public class ObsConfigService
         set
         {
             _state.AutoConnect = value;
-            SaveConfig();
-        }
-    }
-
-    private void LoadConfig()
-    {
-        try
-        {
-            if (File.Exists(_configPath))
-            {
-                var json = File.ReadAllText(_configPath);
-                _state = JsonSerializer.Deserialize<ConfigState>(json) ?? new ConfigState();
-            }
-        }
-        catch
-        {
-            _state = new ConfigState();
-        }
-    }
-
-    private void SaveConfig()
-    {
-        try
-        {
-            var directory = Path.GetDirectoryName(_configPath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            var json = JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_configPath, json);
-        }
-        catch
-        {
-            // Swallow persistence errors; not critical for runtime behavior
+            PluginConfigFile.Save(_configPath, _state);
         }
     }
 }

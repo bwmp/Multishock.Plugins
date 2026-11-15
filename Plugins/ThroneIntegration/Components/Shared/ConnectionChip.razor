@@ -1,24 +1,31 @@
 <span role="status" class="inline-flex">
-    @if (Connected)
+    @switch (State)
     {
-        <span class="chip chip-ok"><span class="status-dot bg-app-success"></span>Connected</span>
-    }
-    else if (Connecting)
-    {
-        <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Connecting…</span>
-    }
-    else if (Reconnecting)
-    {
-        <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Reconnecting…</span>
-    }
-    else
-    {
-        <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span>Disconnected</span>
+        case ThroneConnectionState.Receiving:
+            <span class="chip chip-ok"><span class="status-dot bg-app-success"></span>Receiving gifts</span>
+            break;
+        case ThroneConnectionState.AwaitingWebhook:
+            <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Waiting for first gift</span>
+            break;
+        case ThroneConnectionState.Connecting:
+            <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Connecting…</span>
+            break;
+        case ThroneConnectionState.Retrying:
+            <span class="chip chip-info"><span class="status-dot bg-app-info"></span>Reconnecting…</span>
+            break;
+        case ThroneConnectionState.MissedEvents:
+        case ThroneConnectionState.Revoked:
+            <span class="chip chip-neutral"><span class="status-dot bg-app-danger"></span>Needs attention</span>
+            break;
+        case ThroneConnectionState.NotSetUp:
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span>Not set up</span>
+            break;
+        default:
+            <span class="chip chip-neutral"><span class="status-dot bg-app-subtle"></span>Disconnected</span>
+            break;
     }
 </span>
 
 @code {
-    [Parameter] public bool Connected { get; set; }
-    [Parameter] public bool Connecting { get; set; }
-    [Parameter] public bool Reconnecting { get; set; }
+    [Parameter] public ThroneConnectionState State { get; set; }
 }

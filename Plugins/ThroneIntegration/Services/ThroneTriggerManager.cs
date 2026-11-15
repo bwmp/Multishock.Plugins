@@ -1,43 +1,34 @@
 using Microsoft.Extensions.Logging;
 using MultiShock.PluginSdk.Flow;
 using ThroneIntegration.Models;
+using ThroneIntegration.Nodes;
 
 namespace ThroneIntegration.Services;
 
 /// <summary>
-/// Manages trigger registrations and fires events when Throne gifts are received
+/// Tracks running Throne trigger nodes and fires them when a gift arrives.
 /// </summary>
 public class ThroneTriggerManager
 {
-    private readonly ThroneService _throneService;
     private readonly ILogger<ThroneTriggerManager>? _logger;
     private readonly Dictionary<string, List<TriggerRegistration>> _registrations = [];
     private readonly object _lock = new();
 
-    public ThroneTriggerManager(ThroneService throneService, ILogger<ThroneTriggerManager>? logger = null)
+    public ThroneTriggerManager(ILogger<ThroneTriggerManager>? logger = null)
     {
-        Console.WriteLine($"[ThroneTriggerManager] Constructor called");
-        _throneService = throneService;
         _logger = logger;
-        _throneService.OnGiftReceived += HandleGiftReceived;
-        _logger?.LogInformation("ThroneTriggerManager initialized and subscribed to OnGiftReceived");
-        Console.WriteLine($"[ThroneTriggerManager] Initialized and subscribed to OnGiftReceived");
     }
 
     public void Register(string eventType, IFlowNodeInstance instance, Func<IFlowNodeInstance, Dictionary<string, object?>, Task> callback)
     {
-        Console.WriteLine($"[ThroneTriggerManager] Register called for eventType: {eventType}, instance: {instance.InstanceId}");
         lock (_lock)
         {
-            if (!_registrations.ContainsKey(eventType))
+            if (!_registrations.TryGetValue(eventType, out var list))
             {
-                _registrations[eventType] = [];
-                Console.WriteLine($"[ThroneTriggerManager] Created new registration list for {eventType}");
+                list = [];
+                _registrations[eventType] = list;
             }
-            _registrations[eventType].Add(new TriggerRegistration(instance, callback));
-            Console.WriteLine($"[ThroneTriggerManager] Added registration. Total for {eventType}: {_registrations[eventType].Count}");
-            _logger?.LogInformation("Registered trigger for event type {EventType}, instance {InstanceId}. Total registrations: {Count}",
-                eventType, instance.InstanceId, _registrations[eventType].Count);
+            list.Add(new TriggerRegistration(instance, callback));
         }
     }
 
@@ -47,58 +38,56 @@ public class ThroneTriggerManager
         {
             if (_registrations.TryGetValue(eventType, out var list))
             {
-                var removed = list.RemoveAll(r => r.Instance.InstanceId == instance.InstanceId);
-                _logger?.LogInformation("Unregistered {Count} trigger(s) for event type {EventType}, instance {InstanceId}",
-                    removed, eventType, instance.InstanceId);
+                list.RemoveAll(r => r.Instance.InstanceId == instance.InstanceId);
             }
         }
     }
 
-    private void HandleGiftReceived(ThroneEvent throneEvent)
+    public Task FireGiftAsync(ThroneGift gift)
     {
-        _logger?.LogInformation("HandleGiftReceived called for gift from {Gifter}, type: {Type}",
-            throneEvent.OverlayInformation?.GifterUsername ?? "Anonymous",
-            throneEvent.OverlayInformation?.Type ?? "Unknown");
-
-        _ = FireEvent("throne.gift", new Dictionary<string, object?>
+        var outputs = new Dictionary<string, object?>
         {
-            ["gifterUsername"] = throneEvent.OverlayInformation?.GifterUsername ?? "Anonymous",
-            ["message"] = throneEvent.OverlayInformation?.Message ?? string.Empty,
-            ["type"] = throneEvent.OverlayInformation?.Type ?? "Unknown",
-            ["itemName"] = throneEvent.OverlayInformation?.ItemName ?? string.Empty,
-            ["itemImage"] = throneEvent.OverlayInformation?.ItemImage ?? string.Empty,
-            ["amount"] = throneEvent.OverlayInformation?.Amount ?? 0.0,
-            ["timestamp"] = throneEvent.CreatedAt,
-        });
+            ["gifterUsername"] = gift.GifterUsername,
+            ["message"] = gift.Message,
+            ["type"] = gift.EventType,
+            ["itemName"] = gift.ItemName,
+            ["itemImage"] = gift.ItemThumbnailUrl,
+            ["amount"] = (double)gift.Amount,
+            ["currency"] = gift.Currency,
+            ["isSurpriseGift"] = gift.IsSurpriseGift,
+            ["timestamp"] = (double)gift.ReceivedAt.ToUnixTimeMilliseconds(),
+        };
+
+        return FireAsync(ThroneGiftTriggerNode.TypeIdValue, outputs, instance =>
+            (gift.EventType != ThroneGift.GiftCrowdfunded
+                || instance.GetConfig<bool>(ThroneGiftTriggerNode.IncludeCrowdfundedProperty, false))
+            && (double)gift.Amount >= instance.GetConfig<double>(ThroneGiftTriggerNode.MinAmountProperty, 0));
     }
 
-    private async Task FireEvent(string eventType, Dictionary<string, object?> outputs, Func<IFlowNodeInstance, bool>? filter = null)
+    private async Task FireAsync(string eventType, Dictionary<string, object?> outputs, Func<IFlowNodeInstance, bool> filter)
     {
         List<TriggerRegistration> registrations;
         lock (_lock)
         {
-            if (!_registrations.TryGetValue(eventType, out var list))
+            if (!_registrations.TryGetValue(eventType, out var list) || list.Count == 0)
             {
-                _logger?.LogWarning("No registrations found for event type {EventType}", eventType);
                 return;
             }
             registrations = list.ToList();
-            _logger?.LogInformation("Firing event {EventType} to {Count} registered trigger(s)", eventType, registrations.Count);
         }
 
         foreach (var reg in registrations)
         {
             try
             {
-                if (filter == null || filter(reg.Instance))
+                if (filter(reg.Instance))
                 {
-                    _logger?.LogDebug("Invoking callback for instance {InstanceId}", reg.Instance.InstanceId);
                     await reg.Callback(reg.Instance, outputs);
                 }
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error invoking trigger callback for instance {InstanceId}", reg.Instance.InstanceId);
+                _logger?.LogError(ex, "Throne trigger failed for node instance {InstanceId}", reg.Instance.InstanceId);
             }
         }
     }

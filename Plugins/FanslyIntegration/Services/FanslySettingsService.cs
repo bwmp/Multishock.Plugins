@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MultiShock.PluginSdk;
+using MultiShock.Plugins.Shared;
 
 namespace FanslyIntegration.Services;
 
@@ -8,17 +9,19 @@ namespace FanslyIntegration.Services;
 ///
 /// Fansly has no OAuth/bot flow, so we authenticate with the account authorization token the
 /// user copies from their logged-in browser session (dev tools → Application → Local Storage,
-/// or the `authorization` request header). It is stored locally, same as the other plugins'
-/// credentials.
+/// or the `authorization` request header). It is kept in the host's secure storage.
 /// </summary>
 public class FanslySettingsService
 {
     private const string SettingsFileName = "fansly-settings.json";
+    private const string AuthTokenSecret = "auth-token";
 
     private readonly string _settingsPath;
+    private readonly PluginSecrets _secrets;
 
     private class SettingsState
     {
+        // Only read to move a token saved by older versions into secure storage.
         public string AuthToken { get; set; } = "";
         public string Username { get; set; } = "";
         public bool AutoConnect { get; set; }
@@ -32,9 +35,12 @@ public class FanslySettingsService
     /// <summary>The Fansly account authorization token used for REST + websocket auth.</summary>
     public string AuthToken
     {
-        get => _state.AuthToken;
-        set { _state.AuthToken = value.Trim(); Save(); }
+        get => _secrets.Get(AuthTokenSecret) ?? "";
+        set { _secrets.Set(AuthTokenSecret, value.Trim()); SettingsChanged?.Invoke(); }
     }
+
+    /// <summary>Why the account token isn't stored securely or couldn't be read, or null.</summary>
+    public string? SecretsWarning => _secrets.Warning;
 
     /// <summary>The streamer's Fansly username; used to resolve their account/chat-room id.</summary>
     public string Username
@@ -57,13 +63,20 @@ public class FanslySettingsService
     }
 
     public bool HasCredentials =>
-        !string.IsNullOrWhiteSpace(_state.AuthToken) && !string.IsNullOrWhiteSpace(_state.Username);
+        !string.IsNullOrWhiteSpace(AuthToken) && !string.IsNullOrWhiteSpace(_state.Username);
 
-    public FanslySettingsService(IPluginHost pluginHost)
+    public FanslySettingsService(IPluginHost pluginHost, IServiceProvider services)
     {
+        _secrets = new PluginSecrets(services, pluginHost, FanslyIntegrationPlugin.PluginId);
         var dataPath = pluginHost.GetPluginDataPath(FanslyIntegrationPlugin.PluginId);
         _settingsPath = Path.Combine(dataPath, SettingsFileName);
         Load();
+
+        if (_secrets.Import(AuthTokenSecret, _state.AuthToken))
+        {
+            _state.AuthToken = "";
+            Save();
+        }
     }
 
     private void Load()

@@ -1,4 +1,6 @@
 @inject ImageConfigService ConfigService
+@inject ImageDetection.Algorithms.AlgorithmRegistry Algorithms
+@using ImageDetection.Algorithms
 
 @* Action, matching, and cooldown settings shared by all target types.
    The template-only matching card renders conditionally. *@
@@ -7,6 +9,11 @@
 {
     <Card Title="Matching" Description="How closely and how consistently the image must match before it counts as detected.">
         <div class="grid grid-cols-1 gap-x-6 gap-y-4 xl:grid-cols-2">
+            <div class="xl:col-span-2">
+                <Select Label="Detection algorithm" TValue="string" Value="Image.AlgorithmId"
+                        ValueChanged="OnAlgorithmChanged" Options="AlgorithmOptions" />
+                <p class="mt-1 text-xs text-app-muted">@Algorithms.Get(Image.AlgorithmId)?.Description</p>
+            </div>
             <div>
                 <Slider Label="Detection threshold" Value="Image.Threshold"
                         ValueChanged="OnThresholdSliderChanged"
@@ -26,27 +33,38 @@
         </div>
 
         <div class="mt-4 space-y-3 border-t border-app-border pt-4">
-            <Checkbox Label="Use color matching (slower)" Value="Image.UseColorMatching"
-                      ValueChanged="OnUseColorMatchingChanged" />
-
-            <Checkbox Label="Multi-scale matching (slower)" Value="Image.MultiScale.Enabled"
-                      ValueChanged="OnMultiScaleEnabledChanged"
-                      Description="Also tries the template at other sizes when it isn't found at its native size. Use when the game's UI scale differs from when the template was captured." />
-            @if (Image.MultiScale.Enabled)
+            @if (Image.AlgorithmId == HybridDetectionAlgorithm.AlgorithmId)
             {
-                <div class="grid grid-cols-1 gap-4 pl-6 md:grid-cols-2">
-                    <Slider Label="Scale range"
-                            RangeMode="true"
-                            RangeStart="Image.MultiScale.MinScale"
-                            RangeStartChanged="OnMultiScaleMinChanged"
-                            RangeEnd="Image.MultiScale.MaxScale"
-                            RangeEndChanged="OnMultiScaleMaxChanged"
-                            Min="0.5" Max="2.0" Step="0.05"
-                            Filled="true" ShowValueDirection="right" />
-                    <ValidatedNumberInput Label="Scale steps" Value="(double)Image.MultiScale.Steps"
-                                 ValueChanged="OnMultiScaleStepsChanged"
-                                 Min="2" Max="15" Step="1" />
-                </div>
+                <p class="text-xs text-app-muted">
+                    Automatically uses color and transparency and searches template sizes from 0.5× to 2×.
+                    Feature matching also handles rotation and perspective. This costs more CPU than template matching;
+                    use a smaller search region or process fewer frames to reduce work.
+                </p>
+            }
+            else
+            {
+                <Checkbox Label="Use color matching (slower)" Value="Image.UseColorMatching"
+                          ValueChanged="OnUseColorMatchingChanged" />
+
+                <Checkbox Label="Multi-scale matching (slower)" Value="Image.MultiScale.Enabled"
+                          ValueChanged="OnMultiScaleEnabledChanged"
+                          Description="Also tries the template at other sizes when it isn't found at its native size. Use when the game's UI scale differs from when the template was captured." />
+                @if (Image.MultiScale.Enabled)
+                {
+                    <div class="grid grid-cols-1 gap-4 pl-6 md:grid-cols-2">
+                        <Slider Label="Scale range"
+                                RangeMode="true"
+                                RangeStart="Image.MultiScale.MinScale"
+                                RangeStartChanged="OnMultiScaleMinChanged"
+                                RangeEnd="Image.MultiScale.MaxScale"
+                                RangeEndChanged="OnMultiScaleMaxChanged"
+                                Min="0.5" Max="2.0" Step="0.05"
+                                Filled="true" ShowValueDirection="right" />
+                        <ValidatedNumberInput Label="Scale steps" Value="(double)Image.MultiScale.Steps"
+                                     ValueChanged="OnMultiScaleStepsChanged"
+                                     Min="2" Max="15" Step="1" />
+                    </div>
+                }
             }
 
             <Checkbox Label="Require focused window" Value="Image.RequireFocusedWindow"
@@ -194,6 +212,15 @@
 @code {
     [Parameter, EditorRequired] public string ModuleId { get; set; } = string.Empty;
     [Parameter, EditorRequired] public DetectionImage Image { get; set; } = default!;
+
+    private IEnumerable<Select<string>.SelectOption<string>> AlgorithmOptions =>
+        Algorithms.GetAvailable().Select(algorithm => new Select<string>.SelectOption<string>(algorithm.Id, algorithm.Name));
+
+    private void OnAlgorithmChanged(string value)
+    {
+        Image.AlgorithmId = value;
+        Save();
+    }
 
     private static readonly IEnumerable<Select<ActionType>.SelectOption<ActionType>> ActionTypeOptions =
     [

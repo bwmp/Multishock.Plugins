@@ -39,6 +39,11 @@
 
 <div class="max-w-4xl space-y-4">
 
+    @if (ConfigService.SecretsWarning is { } secretsWarning)
+    {
+        <Alert Variant="warning" Title="Secure storage">@secretsWarning</Alert>
+    }
+
     <Card Title="Connection" Description="Host, port and password apply on the next connection. Save changes or connect to save all settings.">
         <SettingRow Label="Host" Description="Address of the computer running OBS."><TextInput Class="[&_label]:sr-only" Label="OBS host" Value="@Host" ValueChanged="@(value => Host = value ?? string.Empty)" /></SettingRow>
         <SettingRow Label="Port" Description="WebSocket server port, from 1 to 65535."><div class="w-28"><NumberInput Class="[&_label]:sr-only" Label="OBS port" Min="1" Max="65535" Step="1" Value="Port" ValueChanged="@(value => Port = value)" Error="@PortError" /></div></SettingRow>
@@ -70,7 +75,7 @@
         }
         <div class="flex items-center justify-end gap-3 border-t border-app-border pt-3">
             <p class="text-sm text-app-muted" role="status">@(IsDirty ? "Unsaved changes" : HasSaved ? "Saved" : null)</p>
-            <Button Text="Save changes" Disabled="@(!IsDirty || !PortValid || string.IsNullOrWhiteSpace(Host))" Title="@(!PortValid || string.IsNullOrWhiteSpace(Host) ? "Enter an OBS host and a valid port first" : !IsDirty ? "No unsaved changes" : null)" OnClick="SaveSettings" />
+            <Button Text="Save changes" Disabled="@(!IsDirty || !PortValid || string.IsNullOrWhiteSpace(Host))" Title="@(!PortValid || string.IsNullOrWhiteSpace(Host) ? "Enter an OBS host and a valid port first" : !IsDirty ? "No unsaved changes" : null)" OnClick="() => SaveSettings()" />
         </div>
     </Card>
 
@@ -222,7 +227,7 @@
     {
         ErrorMessage = null;
         if (!PortValid || string.IsNullOrWhiteSpace(Host)) { ErrorMessage = "Enter a whole port from 1 to 65535."; return; }
-        SaveSettings();
+        if (!SaveSettings()) return;
         var port = (int)Port!.Value;
         AddLog($"Connecting to {Host}:{port}…");
 
@@ -241,14 +246,25 @@
         AddLog("Disconnected");
     }
 
-    private void SaveSettings()
+    private bool SaveSettings()
     {
-        if (!PortValid || string.IsNullOrWhiteSpace(Host)) { ErrorMessage = "Enter a whole port from 1 to 65535."; return; }
+        if (!PortValid || string.IsNullOrWhiteSpace(Host)) { ErrorMessage = "Enter a whole port from 1 to 65535."; return false; }
         ConfigService.Host = Host;
         ConfigService.Port = (int)Port!.Value;
         ConfigService.AutoConnect = AutoConnect;
-        ConfigService.Password = string.IsNullOrEmpty(Password) ? null : Password;
+        try
+        {
+            ConfigService.Password = string.IsNullOrEmpty(Password) ? null : Password;
+        }
+        // Catches the SDK's PluginSecureStorageException without naming it, so this page still loads on hosts older than SDK 1.17.0.
+        catch (Exception ex)
+        {
+            ErrorTitle = "Couldn't save the password";
+            ErrorMessage = ex.Message;
+            return false;
+        }
         HasSaved = true;
+        return true;
     }
 
     private void ToggleAutoConnect(bool enabled)

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
+using Emgu.CV.Structure;
 using ImageDetection.Models;
 
 namespace ImageDetection.Algorithms;
@@ -13,11 +14,29 @@ namespace ImageDetection.Algorithms;
 internal static class TemplateMatchInterpreter
 {
     public static (double Confidence, System.Drawing.Point Location) GetBestMatch(
-        Mat result, TemplateMatchingType method)
+        Mat result, TemplateMatchingType method, bool filterUndefinedScores = false)
     {
         double minVal = 0, maxVal = 0;
         System.Drawing.Point minLoc = default, maxLoc = default;
-        CvInvoke.MinMaxLoc(result, ref minVal, ref maxVal, ref minLoc, ref maxLoc);
+        bool normalized = method is TemplateMatchingType.CcoeffNormed or TemplateMatchingType.CcorrNormed or TemplateMatchingType.SqdiffNormed;
+        double minimumScore = method == TemplateMatchingType.CcoeffNormed ? -1 : 0;
+        using var validScores = new Mat();
+        if (filterUndefinedScores)
+        {
+            // Masked normalization divides by local variance/energy; flat patches can
+            // produce NaN, infinity or values outside a normalized metric's range.
+            using var lower = new ScalarArray(new MCvScalar(normalized ? minimumScore - 0.00001 : -float.MaxValue));
+            using var upper = new ScalarArray(new MCvScalar(normalized ? 1.00001 : float.MaxValue));
+            CvInvoke.InRange(result, lower, upper, validScores);
+            if (CvInvoke.CountNonZero(validScores) == 0)
+                return (double.NaN, default);
+        }
+        CvInvoke.MinMaxLoc(result, ref minVal, ref maxVal, ref minLoc, ref maxLoc, filterUndefinedScores ? validScores : null);
+        if (filterUndefinedScores && normalized)
+        {
+            minVal = Math.Clamp(minVal, minimumScore, 1);
+            maxVal = Math.Clamp(maxVal, minimumScore, 1);
+        }
 
         return method switch
         {
@@ -75,6 +94,8 @@ public class TemplateMatchingAlgorithm : IDetectionAlgorithm
             cancellationToken.ThrowIfCancellationRequested();
 
             var (confidence, bestLoc) = TemplateMatchInterpreter.GetBestMatch(result, MatchMethod);
+            if (!double.IsFinite(confidence))
+                return DetectionResult.NotFound(0, threshold, algorithmId: Id);
 
             stopwatch.Stop();
 
@@ -206,7 +227,9 @@ public class MaskedTemplateMatchingAlgorithm : IDetectionAlgorithm
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var (confidence, bestLoc) = TemplateMatchInterpreter.GetBestMatch(result, MatchMethod);
+            var (confidence, bestLoc) = TemplateMatchInterpreter.GetBestMatch(result, MatchMethod, filterUndefinedScores: true);
+            if (!double.IsFinite(confidence))
+                return DetectionResult.NotFound(0, threshold, algorithmId: Id);
 
             stopwatch.Stop();
 

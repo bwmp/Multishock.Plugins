@@ -79,6 +79,20 @@ the shared `Directory.Build.*` files. A csproj only needs to add what is specifi
 - `<PluginPackageFile Include="..." PackagePath="..." />` items for files that must ship in the
   package but are not part of the normal build output.
 
+## Platform support
+
+- **Windows x64:** All projects in the solution are built by the Windows CI job.
+- **Linux x64:** OBS and Throne use the same managed packages as Windows. Random Nodes selects its Linux media backend at runtime; its media nodes require `playerctl` and a local MPRIS player. Its other nodes do not require `playerctl`.
+- **Existing Linux packages:** Image Detection has a separate Linux x64 build that requires a matching native OpenCV library. The Windows-built catalog package is Windows-only. WebSocket Control already declares Linux x64; its behavior and availability were not changed.
+- **Windows-specific integrations:** Heart Rate uses WinRT Bluetooth LE. Speech to Text uses Windows microphone capture. SteamVR Overlay depends on Direct3D, WASAPI, and Windows native assets.
+- **Other Windows-only manifests:** Fansly, Joystick, StreamElements, Streamlabs, TikTok, Twitch, and VRChat OSC retain their existing platform support.
+
+Run the portable tests without hardware or live services:
+
+```powershell
+dotnet test Tests/PortablePlugins.Tests/PortablePlugins.Tests.csproj -p:SkipPluginPackaging=true
+```
+
 ## Releases
 
 This repository uses [Release Please](https://github.com/googleapis/release-please) for automated versioning and releases.
